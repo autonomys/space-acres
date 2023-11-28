@@ -1,0 +1,16 @@
+[package]
+name = "space-acres"
+description = ""
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+
+[dependencies]
+gtk = { version = "0.7.3", package = "gtk4" }
+relm4 = { version = "0.7.0-beta.2", git = "https://github.com/Relm4/Relm4.git", rev = "ef68be42a7f5ce253399a3f00b9a3d4e0fb682b7" }
