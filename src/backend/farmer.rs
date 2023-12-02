@@ -1,8 +1,11 @@
-pub mod maybe_node_client;
+pub(super) mod maybe_node_client;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
+use crate::backend::utils::{Handler2, Handler2Fn};
 use crate::PosTable;
 use anyhow::anyhow;
+use atomic::Atomic;
+use event_listener_primitives::HandlerId;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
@@ -11,6 +14,7 @@ use lru::LruCache;
 use parking_lot::Mutex;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
@@ -35,13 +39,34 @@ use tracing::{error, info, info_span, warn, Instrument};
 const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
 const RECORDS_ROOTS_CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(1_000_000).expect("Not zero; qed");
 
-pub struct Farmer {
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PlottingKind {
+    Initial,
+    Replotting,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct PlottingState {
+    pub kind: PlottingKind,
+    /// Progress so far in % (not including this sector)
+    pub progress: f32,
+    /// Plotting/replotting speed in sectors/s
+    pub speed: Option<f32>,
+}
+
+#[derive(Default, Debug)]
+struct Handlers {
+    plotting_state_change: Handler2<usize, Option<PlottingState>>,
+}
+
+pub(super) struct Farmer {
     farm_fut: BoxFuture<'static, anyhow::Result<()>>,
     piece_cache_worker_fut: BoxFuture<'static, ()>,
+    handlers: Arc<Handlers>,
 }
 
 impl Farmer {
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub(super) async fn run(self) -> anyhow::Result<()> {
         let piece_cache_worker_fut = match run_future_in_dedicated_thread(
             self.piece_cache_worker_fut,
             "piece-cache-worker".to_string(),
@@ -75,6 +100,13 @@ impl Farmer {
 
         Ok(())
     }
+
+    pub(super) fn on_plotting_state_change(
+        &self,
+        callback: Handler2Fn<usize, Option<PlottingState>>,
+    ) -> HandlerId {
+        self.handlers.plotting_state_change.add(callback)
+    }
 }
 
 impl fmt::Debug for Farmer {
@@ -106,17 +138,17 @@ pub struct DiskFarm {
 
 /// Arguments for farmer
 #[derive(Debug)]
-pub struct FarmerOptions {
-    pub reward_address: PublicKey,
-    pub disk_farms: Vec<DiskFarm>,
-    pub node_client: NodeRpcClient,
-    pub node: Node,
-    pub readers_and_pieces: Arc<Mutex<Option<ReadersAndPieces>>>,
-    pub piece_cache: PieceCache,
-    pub piece_cache_worker: CacheWorker<MaybeNodeRpcClient>,
+pub(super) struct FarmerOptions {
+    pub(super) reward_address: PublicKey,
+    pub(super) disk_farms: Vec<DiskFarm>,
+    pub(super) node_client: NodeRpcClient,
+    pub(super) node: Node,
+    pub(super) readers_and_pieces: Arc<Mutex<Option<ReadersAndPieces>>>,
+    pub(super) piece_cache: PieceCache,
+    pub(super) piece_cache_worker: CacheWorker<MaybeNodeRpcClient>,
 }
 
-pub async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farmer> {
+pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farmer> {
     let span = info_span!("Farmer");
     let _enter = span.enter();
 
@@ -287,7 +319,7 @@ pub async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farm
             let disk_farm_index = disk_farm_index.try_into().map_err(|_error| {
                 anyhow!(
                     "More than 256 plots are not supported, consider running multiple farmer \
-                        instances"
+                    instances"
                 )
             })?;
 
@@ -315,6 +347,7 @@ pub async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farm
 
     info!("Finished collecting already plotted pieces successfully");
 
+    let handlers = Arc::new(Handlers::default());
     let mut single_disk_farms_stream = single_disk_farms
         .into_iter()
         .enumerate()
@@ -324,6 +357,36 @@ pub async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farm
             );
             let readers_and_pieces = Arc::clone(&readers_and_pieces);
             let span = info_span!("farm", %disk_farm_index);
+            let handlers = Arc::clone(&handlers);
+            let last_sector_plotted = Arc::new(Atomic::new(None));
+
+            single_disk_farm
+                .on_sector_plotting(Arc::new({
+                    let handlers = Arc::clone(&handlers);
+                    let last_sector_plotted = Arc::clone(&last_sector_plotted);
+
+                    move |plotting_details| {
+                        let state = PlottingState {
+                            kind: if plotting_details.replotting {
+                                PlottingKind::Replotting
+                            } else {
+                                PlottingKind::Initial
+                            },
+                            progress: plotting_details.progress,
+                            speed: None,
+                        };
+
+                        handlers
+                            .plotting_state_change
+                            .call_simple(&(disk_farm_index as usize), &Some(state));
+
+                        if plotting_details.last_queued {
+                            last_sector_plotted
+                                .store(Some(plotting_details.sector_index), Ordering::Release);
+                        }
+                    }
+                }))
+                .detach();
 
             // Collect newly plotted pieces
             let on_plotted_sector_callback =
@@ -343,9 +406,22 @@ pub async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farm
                             readers_and_pieces.delete_sector(disk_farm_index, old_plotted_sector);
                         }
                         readers_and_pieces.add_sector(disk_farm_index, plotted_sector);
+
+                        if last_sector_plotted
+                            .compare_exchange(
+                                Some(plotted_sector.sector_index),
+                                None,
+                                Ordering::AcqRel,
+                                Ordering::Relaxed,
+                            )
+                            .is_ok()
+                        {
+                            handlers
+                                .plotting_state_change
+                                .call_simple(&(disk_farm_index as usize), &None);
+                        }
                     }
                 };
-
             single_disk_farm
                 .on_sector_plotted(Arc::new(on_plotted_sector_callback))
                 .detach();
@@ -379,10 +455,11 @@ pub async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farm
     anyhow::Ok(Farmer {
         farm_fut,
         piece_cache_worker_fut,
+        handlers,
     })
 }
 
-pub(crate) fn print_disk_farm_info(directory: PathBuf, disk_farm_index: usize) {
+fn print_disk_farm_info(directory: PathBuf, disk_farm_index: usize) {
     println!("Single disk farm {disk_farm_index}:");
     match SingleDiskFarm::collect_summary(directory) {
         SingleDiskFarmSummary::Found { info, directory } => {

@@ -1,14 +1,17 @@
 // TODO: Make these modules private
-mod config;
-mod farmer;
+pub mod config;
+pub mod farmer;
 mod networking;
-mod node;
+pub mod node;
+mod utils;
 
 use crate::backend::config::{Config, ConfigError, RawConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
-use crate::backend::farmer::{DiskFarm, Farmer, FarmerOptions};
+use crate::backend::farmer::{DiskFarm, Farmer, FarmerOptions, PlottingState};
 use crate::backend::networking::{create_network, NetworkOptions};
-use crate::backend::node::{dsn_bootstrap_nodes, ChainSpec, ConsensusNode, GENESIS_HASH, RPC_PORT};
+use crate::backend::node::{
+    dsn_bootstrap_nodes, ChainSpec, ConsensusNode, SyncState, GENESIS_HASH, RPC_PORT,
+};
 use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt};
@@ -17,7 +20,7 @@ use sc_subspace_chain_specs::GEMINI_3G_CHAIN_SPEC;
 use std::path::Path;
 use std::pin::pin;
 use std::sync::Arc;
-use subspace_core_primitives::PublicKey;
+use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
@@ -25,10 +28,11 @@ use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::{Node, NodeRunner};
 use tokio::fs;
-use tracing::{error, info_span, Instrument};
+use tokio::runtime::Handle;
+use tracing::{error, info_span, warn, Instrument};
 
 /// Major steps in application loading progress
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LoadingStep {
     LoadingConfiguration,
     ReadingConfiguration,
@@ -55,6 +59,24 @@ pub enum LoadingStep {
     FarmerCreatedSuccessfully,
 }
 
+#[derive(Debug, Clone)]
+pub enum NodeNotification {
+    Syncing(SyncState),
+    Synced,
+    BlockImported { number: BlockNumber },
+}
+
+#[derive(Debug, Clone)]
+pub enum FarmerNotification {
+    Plotting {
+        farm_index: usize,
+        state: PlottingState,
+    },
+    Plotted {
+        farm_index: usize,
+    },
+}
+
 /// Notification messages send from backend about its operation
 #[derive(Debug)]
 pub enum BackendNotification {
@@ -62,7 +84,7 @@ pub enum BackendNotification {
     Loading {
         /// Major loading step
         step: LoadingStep,
-        // TODO: Set this to non-zero use cases
+        // TODO: Set this to non-zero where it is used
         /// Progress in %: 0.0..=100.0
         progress: f32,
     },
@@ -70,7 +92,12 @@ pub enum BackendNotification {
     ConfigurationIsInvalid {
         error: ConfigError,
     },
-    Running,
+    Running {
+        config: Config,
+        best_block_number: BlockNumber,
+    },
+    Node(NodeNotification),
+    Farmer(FarmerNotification),
     Stopped {
         /// Error in case stopped due to error
         error: Option<anyhow::Error>,
@@ -84,7 +111,8 @@ pub enum BackendNotification {
 // NOTE: this is an async function, but it might do blocking operations and should be running on a
 // dedicated CPU core
 pub async fn create(mut notifications_sender: mpsc::Sender<BackendNotification>) {
-    let (consensus_node, farmer, node_runner) = match load(&mut notifications_sender).await {
+    let (config, consensus_node, farmer, node_runner) = match load(&mut notifications_sender).await
+    {
         Ok(Some(result)) => result,
         Ok(None) => {
             if let Err(error) = notifications_sender
@@ -107,6 +135,7 @@ pub async fn create(mut notifications_sender: mpsc::Sender<BackendNotification>)
     };
 
     let run_fut = run(
+        config,
         consensus_node,
         farmer,
         node_runner,
@@ -124,7 +153,7 @@ pub async fn create(mut notifications_sender: mpsc::Sender<BackendNotification>)
 
 async fn load(
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
-) -> anyhow::Result<Option<(ConsensusNode, Farmer, NodeRunner<PieceCache>)>> {
+) -> anyhow::Result<Option<(Config, ConsensusNode, Farmer, NodeRunner<PieceCache>)>> {
     let Some(config) = load_configuration(notifications_sender).await? else {
         return Ok(None);
     };
@@ -165,7 +194,7 @@ async fn load(
 
     let farmer = create_farmer(
         config.reward_address,
-        config.farms,
+        config.farms.clone(),
         node,
         readers_and_pieces,
         piece_cache,
@@ -175,10 +204,11 @@ async fn load(
     )
     .await?;
 
-    Ok(Some((consensus_node, farmer, node_runner)))
+    Ok(Some((config, consensus_node, farmer, node_runner)))
 }
 
 async fn run(
+    config: Config,
     consensus_node: ConsensusNode,
     farmer: Farmer,
     mut node_runner: NodeRunner<PieceCache>,
@@ -195,8 +225,83 @@ async fn run(
     )?;
 
     notifications_sender
-        .send(BackendNotification::Running)
+        .send(BackendNotification::Running {
+            config,
+            best_block_number: consensus_node.best_block_number(),
+        })
         .await?;
+
+    let _on_sync_state_change_handler_id = consensus_node.on_sync_state_change({
+        let notifications_sender = notifications_sender.clone();
+
+        Arc::new(move |maybe_sync_state| {
+            let notification = if let Some(sync_state) = maybe_sync_state {
+                NodeNotification::Syncing(*sync_state)
+            } else {
+                NodeNotification::Synced
+            };
+
+            let mut notifications_sender = notifications_sender.clone();
+
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Node(notification))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send sync state backend notification");
+            }
+        })
+    });
+    let _on_imported_block_handler_id = consensus_node.on_block_imported({
+        let notifications_sender = notifications_sender.clone();
+
+        Arc::new(move |&number| {
+            let notification = NodeNotification::BlockImported { number };
+
+            let mut notifications_sender = notifications_sender.clone();
+
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Node(notification))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send imported block backend notification");
+            }
+        })
+    });
+    let _on_plotting_state_change_handler_id = farmer.on_plotting_state_change({
+        let notifications_sender = notifications_sender.clone();
+
+        Arc::new(move |&farm_index, maybe_plotting_state| {
+            let notification = if let Some(plotting_state) = maybe_plotting_state {
+                FarmerNotification::Plotting {
+                    farm_index,
+                    state: *plotting_state,
+                }
+            } else {
+                FarmerNotification::Plotted { farm_index }
+            };
+
+            let mut notifications_sender = notifications_sender.clone();
+
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Farmer(notification))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send plotting state backend notification");
+            }
+        })
+    });
 
     let consensus_node_fut = pin!(consensus_node.run());
     let farmer_fut = pin!(farmer.run());

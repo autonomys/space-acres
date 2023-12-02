@@ -1,0 +1,8 @@
+progressbar trough {
+    /* Make all progress bars larger */
+    min-height: 10px;
+}
+
+progressbar progress {
+    min-height: inherit;
+}

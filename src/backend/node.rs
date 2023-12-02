@@ -1,8 +1,14 @@
+use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
+use atomic::Atomic;
+use event_listener_primitives::HandlerId;
+use futures::{select, FutureExt, StreamExt};
 use names::{Generator, Name};
+use sc_client_api::client::BlockchainEvents;
+use sc_client_api::HeaderBackend;
 use sc_client_db::{DatabaseSource, PruningMode};
 use sc_consensus_slots::SlotProportion;
-use sc_network::config::{Ed25519Secret, NetworkConfiguration, NodeKeyConfig};
+use sc_network::config::{Ed25519Secret, NetworkConfiguration, NodeKeyConfig, SyncMode};
 use sc_service::config::{KeystoreConfig, OffchainWorkerConfig};
 use sc_service::{
     BasePath, BlocksPruning, Configuration, NativeExecutionDispatch, Role, RpcMethods,
@@ -10,22 +16,30 @@ use sc_service::{
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use sc_subspace_chain_specs::ConsensusChainSpec;
 use sp_core::crypto::Ss58AddressFormat;
+use sp_runtime::traits::Header;
 use std::fmt;
 use std::path::Path;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Duration;
+use subspace_core_primitives::BlockNumber;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
 use subspace_runtime::{RuntimeApi, RuntimeGenesisConfig};
 use subspace_service::{FullClient, NewFull, SubspaceConfiguration, SubspaceNetworking};
 use tokio::runtime::Handle;
+use tokio::time::MissedTickBehavior;
 
-pub const GENESIS_HASH: &str = "418040fc282f5e5ddd432c46d05297636f6f75ce68d66499ff4cbda69ccd180b";
-pub const RPC_PORT: u16 = 9944;
+pub(super) const GENESIS_HASH: &str =
+    "418040fc282f5e5ddd432c46d05297636f6f75ce68d66499ff4cbda69ccd180b";
+pub(super) const RPC_PORT: u16 = 9944;
+const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// The maximum number of characters for a node name.
 const NODE_NAME_MAX_LENGTH: usize = 64;
 
-pub struct ChainSpec(ConsensusChainSpec<RuntimeGenesisConfig>);
+pub(super) struct ChainSpec(ConsensusChainSpec<RuntimeGenesisConfig>);
 
 impl fmt::Debug for ChainSpec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -33,7 +47,31 @@ impl fmt::Debug for ChainSpec {
     }
 }
 
-pub struct ConsensusNode(NewFull<FullClient<RuntimeApi, ExecutorDispatch>>);
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SyncKind {
+    Dsn,
+    Regular,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct SyncState {
+    pub kind: SyncKind,
+    pub target: BlockNumber,
+    /// Sync speed in blocks/s
+    pub speed: Option<f32>,
+}
+
+#[derive(Default, Debug)]
+struct Handlers {
+    sync_state_change: Handler<Option<SyncState>>,
+    block_imported: Handler<BlockNumber>,
+}
+
+pub(super) struct ConsensusNode {
+    full_node: NewFull<FullClient<RuntimeApi, ExecutorDispatch>>,
+    sync_mode: Arc<Atomic<SyncMode>>,
+    handlers: Handlers,
+}
 
 impl fmt::Debug for ConsensusNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -42,15 +80,102 @@ impl fmt::Debug for ConsensusNode {
 }
 
 impl ConsensusNode {
-    pub async fn run(mut self) -> Result<(), sc_service::Error> {
-        self.0.network_starter.start_network();
+    fn new(
+        full_node: NewFull<FullClient<RuntimeApi, ExecutorDispatch>>,
+        sync_mode: Arc<Atomic<SyncMode>>,
+    ) -> Self {
+        Self {
+            full_node,
+            sync_mode,
+            handlers: Handlers::default(),
+        }
+    }
 
-        self.0.task_manager.future().await
+    pub(super) async fn run(mut self) -> Result<(), sc_service::Error> {
+        self.full_node.network_starter.start_network();
+
+        let task_manager = self.full_node.task_manager.future();
+        let block_import_notifications_fut = async {
+            let mut block_import_stream = self.full_node.client.every_import_notification_stream();
+
+            while let Some(block_import) = block_import_stream.next().await {
+                // Nothing else to do
+                if block_import.is_new_best {
+                    self.handlers
+                        .block_imported
+                        .call_simple(block_import.header.number());
+                }
+            }
+        };
+        let sync_status_notifications_fut = async {
+            let mut sync_status_interval = tokio::time::interval(SYNC_STATUS_EVENT_INTERVAL);
+            sync_status_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+            let mut last_sync_state = None;
+            self.handlers
+                .sync_state_change
+                .call_simple(&last_sync_state);
+
+            loop {
+                sync_status_interval.tick().await;
+
+                if let Ok(sync_status) = self.full_node.sync_service.status().await {
+                    let sync_state = if sync_status.state.is_major_syncing() {
+                        Some(SyncState {
+                            kind: match self.sync_mode.load(Ordering::Acquire) {
+                                SyncMode::Paused => {
+                                    // We are pausing Substrate's sync during sync from DNS
+                                    SyncKind::Dsn
+                                }
+                                _ => SyncKind::Regular,
+                            },
+                            target: sync_status.best_seen_block.unwrap_or_default(),
+                            // TODO: Sync speed
+                            speed: None,
+                        })
+                    } else {
+                        None
+                    };
+
+                    if sync_state != last_sync_state {
+                        self.handlers.sync_state_change.call_simple(&sync_state);
+
+                        last_sync_state = sync_state;
+                    }
+                }
+            }
+        };
+
+        select! {
+            result = task_manager.fuse() => {
+                result?;
+            }
+            _ = block_import_notifications_fut.fuse() => {
+                // Nothing else to do
+            }
+            _ = sync_status_notifications_fut.fuse() => {
+                // Nothing else to do
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn best_block_number(&self) -> BlockNumber {
+        self.full_node.client.info().best_number
+    }
+
+    pub(super) fn on_sync_state_change(&self, callback: HandlerFn<Option<SyncState>>) -> HandlerId {
+        self.handlers.sync_state_change.add(callback)
+    }
+
+    pub(super) fn on_block_imported(&self, callback: HandlerFn<BlockNumber>) -> HandlerId {
+        self.handlers.block_imported.add(callback)
     }
 }
 
 /// Executor dispatch for subspace runtime
-pub struct ExecutorDispatch;
+pub(super) struct ExecutorDispatch;
 
 impl NativeExecutionDispatch for ExecutorDispatch {
     type ExtendHostFunctions = (
@@ -67,7 +192,7 @@ impl NativeExecutionDispatch for ExecutorDispatch {
     }
 }
 
-pub fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
+pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
     ConsensusChainSpec::from_json_bytes(chain_spec).map(ChainSpec)
 }
 
@@ -105,7 +230,9 @@ fn pot_external_entropy(chain_spec: &ChainSpec) -> Result<Vec<u8>, sc_service::E
     Ok(maybe_chain_spec_pot_external_entropy.unwrap_or_default())
 }
 
-pub fn dsn_bootstrap_nodes(chain_spec: &ChainSpec) -> Result<Vec<Multiaddr>, sc_service::Error> {
+pub(super) fn dsn_bootstrap_nodes(
+    chain_spec: &ChainSpec,
+) -> Result<Vec<Multiaddr>, sc_service::Error> {
     Ok(chain_spec
         .0
         .properties()
@@ -119,7 +246,7 @@ pub fn dsn_bootstrap_nodes(chain_spec: &ChainSpec) -> Result<Vec<Multiaddr>, sc_
 }
 
 /// Generate a valid random name for the node
-pub fn generate_node_name() -> String {
+pub(super) fn generate_node_name() -> String {
     loop {
         let node_name = Generator::with_naming(Name::Numbered)
             .next()
@@ -224,7 +351,7 @@ fn create_consensus_chain_config(
     }
 }
 
-pub async fn create_consensus_node(
+pub(super) async fn create_consensus_node(
     keypair: &Keypair,
     base_path: &Path,
     chain_spec: ChainSpec,
@@ -236,6 +363,7 @@ pub async fn create_consensus_node(
     let dsn_bootstrap_nodes = dsn_bootstrap_nodes(&chain_spec)?;
 
     let consensus_chain_config = create_consensus_chain_config(keypair, base_path, chain_spec);
+    let sync_mode = Arc::clone(&consensus_chain_config.network.sync_mode);
 
     let database_source = consensus_chain_config.database.clone();
 
@@ -293,5 +421,5 @@ pub async fn create_consensus_node(
         sc_service::Error::Other(format!("Failed to start storage monitor: {error:?}"))
     })?;
 
-    Ok(ConsensusNode(consensus_node))
+    Ok(ConsensusNode::new(consensus_node, sync_mode))
 }

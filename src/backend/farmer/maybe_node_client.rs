@@ -12,7 +12,7 @@ use subspace_rpc_primitives::{
 // TODO: Replace RPC client with a client that can work with node directly
 /// Wrapper node client that allows injecting real inner node RPC client after construction
 #[derive(Debug, Clone, Default)]
-pub struct MaybeNodeRpcClient {
+pub(in super::super) struct MaybeNodeRpcClient {
     inner: Arc<ArcSwapOption<NodeRpcClient>>,
 }
 
@@ -130,7 +130,7 @@ impl NodeClient for MaybeNodeRpcClient {
 }
 
 impl MaybeNodeRpcClient {
-    pub fn inject(&self, inner: NodeRpcClient) {
+    pub(in super::super) fn inject(&self, inner: NodeRpcClient) {
         self.inner.store(Some(Arc::new(inner)))
     }
 }
