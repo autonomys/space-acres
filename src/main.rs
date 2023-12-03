@@ -5,13 +5,19 @@ mod backend;
 use crate::backend::farmer::{PlottingKind, PlottingState};
 use crate::backend::node::{SyncKind, SyncState};
 use crate::backend::{BackendNotification, FarmerNotification, LoadingStep, NodeNotification};
+use bytesize::ByteSize;
 use futures::channel::mpsc;
 use futures::StreamExt;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::{set_global_css, RELM_THREADS};
+use relm4_components::open_dialog::{OpenDialog, *};
+use std::ops::Deref;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::thread::available_parallelism;
 use subspace_core_primitives::BlockNumber;
+use subspace_farmer::utils::ss58::parse_ss58_reward_address;
 use subspace_proof_of_space::chia::ChiaTable;
 use tokio::runtime::Handle;
 use tracing::warn;
@@ -23,12 +29,82 @@ use tracing_subscriber::EnvFilter;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 const GLOBAL_CSS: &str = include_str!("../res/app.css");
+// 2 GB
+const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
 
 type PosTable = ChiaTable;
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum MaybeValid<T> {
+    Unknown(T),
+    Valid(T),
+    Invalid(T),
+}
+
+impl<T> Default for MaybeValid<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::Unknown(T::default())
+    }
+}
+
+impl<T> Deref for MaybeValid<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        let (MaybeValid::Unknown(inner) | MaybeValid::Valid(inner) | MaybeValid::Invalid(inner)) =
+            self;
+
+        inner
+    }
+}
+
+impl<T> MaybeValid<T> {
+    fn unknown(&self) -> bool {
+        matches!(self, MaybeValid::Unknown(_))
+    }
+
+    fn valid(&self) -> bool {
+        matches!(self, MaybeValid::Valid(_))
+    }
+
+    fn icon(&self) -> Option<&'static str> {
+        match self {
+            MaybeValid::Unknown(_) => None,
+            MaybeValid::Valid(_) => Some("emblem-ok-symbolic"),
+            MaybeValid::Invalid(_) => Some("window-close-symbolic"),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum DirectoryKind {
+    NodePath,
+    FarmPath(usize),
+}
+
+#[derive(Debug)]
+enum ConfigurationEvent {
+    RewardAddressChanged(String),
+    OpenDirectory(DirectoryKind),
+    DirectorySelected(PathBuf),
+    FarmSizeChanged { farm_index: usize, size: String },
+    Start,
+}
 
 #[derive(Debug)]
 enum AppInput {
     BackendNotification(BackendNotification),
+    Configuration(ConfigurationEvent),
+    Ignore,
+}
+
+#[derive(Debug, Default)]
+struct DiskFarm {
+    path: MaybeValid<PathBuf>,
+    size: MaybeValid<String>,
 }
 
 #[derive(Debug, Default)]
@@ -45,6 +121,12 @@ struct FarmerState {
 
 enum View {
     Loading(String),
+    Configuration {
+        reward_address: MaybeValid<String>,
+        node_path: MaybeValid<PathBuf>,
+        farms: Vec<DiskFarm>,
+        pending_directory_selection: Option<DirectoryKind>,
+    },
     Running {
         node_state: NodeState,
         farmer_state: FarmerState,
@@ -57,6 +139,7 @@ impl View {
     fn title(&self) -> &'static str {
         match self {
             Self::Loading(_) => "Loading",
+            Self::Configuration { .. } => "Configuration",
             Self::Running { .. } => "Running",
             Self::Stopped(_) => "Stopped",
             Self::Error(_) => "Error",
@@ -67,6 +150,7 @@ impl View {
 // TODO: Efficient updates with tracker
 struct App {
     current_view: View,
+    open_dialog: Controller<OpenDialog>,
 }
 
 #[relm4::component(async)]
@@ -110,6 +194,258 @@ impl AsyncComponent for App {
                             gtk::Label {
                                 #[watch]
                                 set_label: what,
+                            },
+                        },
+                        View::Configuration { reward_address, node_path, farms, .. } => gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+
+                            gtk::ScrolledWindow {
+                                set_vexpand: true,
+
+                                gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
+
+                                    gtk::ListBox {
+                                        gtk::ListBoxRow {
+                                            set_activatable: false,
+                                            set_margin_bottom: 10,
+                                            set_selectable: false,
+
+                                            gtk::Box {
+                                                set_orientation: gtk::Orientation::Vertical,
+                                                set_spacing: 10,
+
+                                                gtk::Label {
+                                                    add_css_class: "heading",
+                                                    set_halign: gtk::Align::Start,
+                                                    set_label: "Rewards address",
+                                                },
+
+                                                gtk::Entry {
+                                                    connect_activate[sender] => move |entry| {
+                                                        sender.input(AppInput::Configuration(
+                                                            ConfigurationEvent::RewardAddressChanged(entry.text().into())
+                                                        ));
+                                                    },
+                                                    connect_changed[sender] => move |entry| {
+                                                        sender.input(AppInput::Configuration(
+                                                            ConfigurationEvent::RewardAddressChanged(entry.text().into())
+                                                        ));
+                                                    },
+                                                    set_placeholder_text: Some(
+                                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                                    ),
+                                                    #[watch]
+                                                    set_secondary_icon_name: reward_address.icon(),
+                                                    set_secondary_icon_activatable: false,
+                                                    set_secondary_icon_sensitive: false,
+                                                    #[track = "reward_address.unknown()"]
+                                                    set_text: reward_address,
+                                                    set_tooltip_markup: Some(
+                                                        "Use Subwallet or polkadot{.js} extension or any other \
+                                                        Substrate wallet to create it first (address for any Substrate \
+                                                        chain in SS58 format works)"
+                                                    ),
+                                                },
+                                            },
+                                        },
+                                        gtk::ListBoxRow {
+                                            set_activatable: false,
+                                            set_margin_bottom: 10,
+                                            set_selectable: false,
+
+                                            gtk::Box {
+                                                set_orientation: gtk::Orientation::Vertical,
+                                                set_spacing: 10,
+
+                                                gtk::Label {
+                                                    add_css_class: "heading",
+                                                    set_halign: gtk::Align::Start,
+                                                    set_label: "Node path",
+                                                },
+
+                                                gtk::Box {
+                                                    add_css_class: "linked",
+
+                                                    gtk::Entry {
+                                                        set_can_focus: false,
+                                                        set_editable: false,
+                                                        set_hexpand: true,
+                                                        set_placeholder_text: Some(
+                                                            if cfg!(windows) {
+                                                                "D:\\subspace-node"
+                                                            } else {
+                                                                "/media/subspace-node"
+                                                            },
+                                                        ),
+                                                        #[watch]
+                                                        set_secondary_icon_name: node_path.icon(),
+                                                        set_secondary_icon_activatable: false,
+                                                        set_secondary_icon_sensitive: false,
+                                                        #[watch]
+                                                        set_text: node_path.display().to_string().as_str(),
+                                                        set_tooltip_markup: Some(
+                                                            "Absolute path where node files will be stored, prepare to \
+                                                            dedicate at least 100GiB of space for it, good quality SSD \
+                                                            recommended"
+                                                        ),
+                                                    },
+
+                                                    gtk::Button {
+                                                        connect_clicked[sender] => move |_button| {
+                                                            sender.input(AppInput::Configuration(
+                                                                ConfigurationEvent::OpenDirectory(DirectoryKind::NodePath)
+                                                            ));
+                                                        },
+
+                                                        gtk::Box {
+                                                            set_spacing: 10,
+
+                                                            gtk::Image {
+                                                                set_icon_name: Some("folder-new-symbolic"),
+                                                            },
+
+                                                            gtk::Label {
+                                                                set_label: "Select",
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        // TODO: Support more than one farm
+                                        gtk::ListBoxRow {
+                                            set_activatable: false,
+                                            set_margin_bottom: 10,
+                                            set_selectable: false,
+
+                                            gtk::Box {
+                                                set_orientation: gtk::Orientation::Vertical,
+                                                set_spacing: 10,
+
+                                                gtk::Label {
+                                                    add_css_class: "heading",
+                                                    set_halign: gtk::Align::Start,
+                                                    set_label: "Path to farm and its size",
+                                                },
+
+                                                gtk::Box {
+                                                    set_spacing: 10,
+
+                                                    gtk::Box {
+                                                        add_css_class: "linked",
+
+                                                        gtk::Entry {
+                                                            set_can_focus: false,
+                                                            set_editable: false,
+                                                            set_hexpand: true,
+                                                            set_placeholder_text: Some(
+                                                                if cfg!(windows) {
+                                                                    "D:\\subspace-farm"
+                                                                } else {
+                                                                    "/media/subspace-farm"
+                                                                },
+                                                            ),
+                                                            #[watch]
+                                                            set_secondary_icon_name: farms.get(0).map(|farm| farm.path.icon()).unwrap_or_default(),
+                                                            set_secondary_icon_activatable: false,
+                                                            set_secondary_icon_sensitive: false,
+                                                            #[watch]
+                                                            set_text: farms.get(0).map(|farm| farm.path.display().to_string()).unwrap_or_default().as_str(),
+                                                            set_tooltip_markup: Some(
+                                                                "Absolute path where farm files will be stored, any \
+                                                                SSD works, high endurance not necessary"
+                                                            ),
+                                                        },
+
+                                                        gtk::Button {
+                                                            connect_clicked[sender] => move |_button| {
+                                                                sender.input(AppInput::Configuration(
+                                                                    ConfigurationEvent::OpenDirectory(
+                                                                        DirectoryKind::FarmPath(0)
+                                                                    )
+                                                                ));
+                                                            },
+
+                                                            gtk::Box {
+                                                                set_spacing: 10,
+
+                                                                gtk::Image {
+                                                                    set_icon_name: Some("folder-new-symbolic"),
+                                                                },
+
+                                                                gtk::Label {
+                                                                    set_label: "Select",
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+
+                                                    gtk::Entry {
+                                                        connect_activate[sender] => move |entry| {
+                                                            sender.input(AppInput::Configuration(
+                                                                ConfigurationEvent::FarmSizeChanged {
+                                                                    farm_index: 0,
+                                                                    size: entry.text().into()
+                                                                }
+                                                            ));
+                                                        },
+                                                        connect_changed[sender] => move |entry| {
+                                                            sender.input(AppInput::Configuration(
+                                                                ConfigurationEvent::FarmSizeChanged {
+                                                                    farm_index: 0,
+                                                                    size: entry.text().into()
+                                                                }
+                                                            ));
+                                                        },
+                                                        set_placeholder_text: Some(
+                                                            "4T, 2.5TB, 500GiB, etc.",
+                                                        ),
+                                                        #[watch]
+                                                        set_secondary_icon_name: farms.get(0).map(|farm| farm.size.icon()).unwrap_or_default(),
+                                                        set_secondary_icon_activatable: false,
+                                                        set_secondary_icon_sensitive: false,
+                                                        #[track = "farms.get(0).map(|farm| farm.size.unknown()).unwrap_or_default()"]
+                                                        set_text: farms.get(0).map(|farm| farm.size.as_str()).unwrap_or_default(),
+                                                        set_tooltip_markup: Some(
+                                                            "Size of the farm in whichever units you prefer, any \
+                                                            amount of space above 2 GB works"
+                                                        ),
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+
+                                    gtk::Box {
+                                        set_halign: gtk::Align::End,
+
+                                        gtk::Button {
+                                            add_css_class: "suggested-action",
+                                            connect_clicked[sender] => move |_button| {
+                                                sender.input(AppInput::Configuration(
+                                                    ConfigurationEvent::Start
+                                                ));
+                                            },
+                                            set_margin_top: 20,
+                                            #[watch]
+                                            set_sensitive: {
+                                                // TODO
+                                                reward_address.valid()
+                                                    && node_path.valid()
+                                                    && !farms.is_empty()
+                                                    && farms.iter().all(|farm| {
+                                                        farm.path.valid() && farm.size.valid()
+                                                    })
+                                            },
+
+                                            gtk::Label {
+                                                set_label: "Start",
+                                                set_margin_all: 10,
+                                            },
+                                        },
+                                    },
+                                },
                             },
                         },
                         View::Running { node_state, farmer_state } => gtk::Box {
@@ -280,8 +616,23 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
+        let open_dialog = OpenDialog::builder()
+            .transient_for_native(&root)
+            .launch(OpenDialogSettings {
+                folder_mode: true,
+                accept_label: "Select".to_string(),
+                ..OpenDialogSettings::default()
+            })
+            .forward(sender.input_sender(), |response| match response {
+                OpenDialogResponse::Accept(path) => {
+                    AppInput::Configuration(ConfigurationEvent::DirectorySelected(path))
+                }
+                OpenDialogResponse::Cancel => AppInput::Ignore,
+            });
+
         let model = App {
-            current_view: View::Loading("".to_string()),
+            current_view: View::Loading(String::new()),
+            open_dialog,
         };
         let widgets = view_output!();
 
@@ -311,6 +662,10 @@ impl AsyncComponent for App {
         match input {
             AppInput::BackendNotification(notification) => {
                 self.process_backend_notification(notification);
+            }
+            AppInput::Configuration(event) => self.process_configuration_event(event),
+            AppInput::Ignore => {
+                // Ignore
             }
         }
     }
@@ -427,6 +782,75 @@ impl App {
 
     fn set_loading_string(&mut self, s: &'static str) {
         self.current_view = View::Loading(s.to_string());
+    }
+
+    fn process_configuration_event(&mut self, event: ConfigurationEvent) {
+        if let View::Configuration {
+            reward_address,
+            node_path,
+            farms,
+            pending_directory_selection,
+        } = &mut self.current_view
+        {
+            match event {
+                ConfigurationEvent::RewardAddressChanged(new_reward_address) => {
+                    let new_reward_address = new_reward_address.trim();
+                    *reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
+                        MaybeValid::Valid(new_reward_address.to_string())
+                    } else {
+                        MaybeValid::Invalid(new_reward_address.to_string())
+                    };
+                }
+                ConfigurationEvent::OpenDirectory(directory_kind) => {
+                    pending_directory_selection.replace(directory_kind);
+                    self.open_dialog.emit(OpenDialogMsg::Open);
+                }
+                ConfigurationEvent::DirectorySelected(path) => {
+                    match pending_directory_selection.take() {
+                        Some(DirectoryKind::NodePath) => {
+                            *node_path = MaybeValid::Valid(path);
+                        }
+                        Some(DirectoryKind::FarmPath(farm_index)) => {
+                            if let Some(farm) = farms.get_mut(farm_index) {
+                                farm.path = MaybeValid::Valid(path);
+                            } else {
+                                farms.push(DiskFarm {
+                                    path: MaybeValid::Valid(path),
+                                    size: Default::default(),
+                                })
+                            }
+                        }
+                        None => {
+                            warn!(
+                                directory = %path.display(),
+                                "Directory selected, but no pending selection found",
+                            );
+                        }
+                    }
+                }
+                ConfigurationEvent::FarmSizeChanged { farm_index, size } => {
+                    let size = if ByteSize::from_str(&size)
+                        .map(|size| size.as_u64() >= MIN_FARM_SIZE)
+                        .unwrap_or_default()
+                    {
+                        MaybeValid::Valid(size)
+                    } else {
+                        MaybeValid::Invalid(size)
+                    };
+                    if let Some(farm) = farms.get_mut(farm_index) {
+                        farm.size = size;
+                    } else {
+                        farms.push(DiskFarm {
+                            path: MaybeValid::default(),
+                            size,
+                        })
+                    }
+                }
+                ConfigurationEvent::Start => {
+                    // TODO: Start farming
+                }
+            }
+        }
     }
 }
 

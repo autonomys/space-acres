@@ -1,3 +1,7 @@
+list {
+    background-color: transparent;
+}
+
 progressbar trough {
     /* Make all progress bars larger */
     min-height: 10px;

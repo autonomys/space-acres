@@ -42,6 +42,7 @@ pub enum RawConfig {
     V0 {
         reward_address: String,
         node_path: PathBuf,
+        // TODO: Use disk farm once it supports serde
         farms: Vec<Farm>,
     },
 }
