@@ -1,0 +1,202 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+  merge_group:
+
+concurrency:
+  group: rust-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Not needed in CI, should make things a bit faster
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to at least
+  #  1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+  RUSTFLAGS: --cfg aes_armv8
+  # Remove unnecessary WASM build artefacts
+  WASM_BUILD_CLEAN_TARGET: 1
+
+jobs:
+  cargo-fmt:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure cache
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # @v3.3.2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+  cargo-clippy:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - macos-12
+          - windows-2022
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
+
+      - name: Install GTK4 (Ubuntu)
+        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        if: runner.os == 'Linux'
+
+      - name: Install GTK4 (macOS)
+        run: brew install gtk4
+        if: runner.os == 'macOS'
+
+      - name: Install GTK4 (Windows)
+        # TODO: Git commit from `libpng` branch that works around https://github.com/wingtk/gvsbuild/issues/984
+        run: |
+          pipx install git+https://github.com/g40/gvsbuild@20f78d8314b3f753adfd472b4b6c0b6866a4a0f8
+          gvsbuild build gtk4
+          Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
+          Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
+          Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
+        if: runner.os == 'Windows'
+
+      # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
+      # TODO: on macOS, the consensus/domain runtime build is not compatible with LLVM 15.0.7 and
+      # LLVM 15.0.{3, 4, 5, 6} is not released for macOS thus install LLVM 15.0.2 explicitly as a
+      # temporary workaround, and remove once incompatible is fixed.
+      - name: Install LLVM and Clang for macOS
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "15.0.2"
+        if: runner.os == 'macOS'
+
+      # TODO: on Linux and Windows, the consensus/domain runtime build is not compatible with LLVM 16,
+      # thus install LLVM 15 explicitly as a temporary workaround, and remove once incompatible is fixed.
+      - name: Install LLVM and Clang for Linux and Windows
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "15.0"
+        if: runner.os != 'macOS'
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
+      - name: Remove msys64
+        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
+        if: runner.os == 'Windows'
+        # Doesn't exist on self-hosted runners
+        continue-on-error: true
+
+      - name: Configure cache
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # @v3.3.2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: cargo clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+  cargo-test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - macos-12
+          - windows-2022
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
+
+      - name: Install GTK4 (Ubuntu)
+        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        if: runner.os == 'Linux'
+
+      - name: Install GTK4 (macOS)
+        run: brew install gtk4
+        if: runner.os == 'macOS'
+
+      - name: Install GTK4 (Windows)
+        # TODO: Git commit from `libpng` branch that works around https://github.com/wingtk/gvsbuild/issues/984
+        run: |
+          pipx install git+https://github.com/g40/gvsbuild@20f78d8314b3f753adfd472b4b6c0b6866a4a0f8
+          gvsbuild build gtk4
+          Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
+          Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
+          Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
+        if: runner.os == 'Windows'
+
+      # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
+      # TODO: on macOS, the consensus/domain runtime build is not compatible with LLVM 15.0.7 and
+      # LLVM 15.0.{3, 4, 5, 6} is not released for macOS thus install LLVM 15.0.2 explicitly as a
+      # temporary workaround, and remove once incompatible is fixed.
+      - name: Install LLVM and Clang for macOS
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "15.0.2"
+        if: runner.os == 'macOS'
+
+      # TODO: on Linux and Windows, the consensus/domain runtime build is not compatible with LLVM 16,
+      # thus install LLVM 15 explicitly as a temporary workaround, and remove once incompatible is fixed.
+      - name: Install LLVM and Clang for Linux and Windows
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "15.0"
+        if: runner.os != 'macOS'
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
+      - name: Remove msys64
+        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
+        if: runner.os == 'Windows'
+        # Doesn't exist on self-hosted runners
+        continue-on-error: true
+
+      - name: Install cargo-nextest
+        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+        with:
+          tool: cargo-nextest
+
+      - name: Configure cache
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # @v3.3.2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: cargo nextest run --locked
+        run: cargo nextest run --locked
