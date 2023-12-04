@@ -1,6 +1,6 @@
 [package]
 name = "space-acres"
-description = ""
+description = "Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -9,7 +9,6 @@ include = [
     "/src",
     "/Cargo.toml",
 ]
-
 
 [dependencies]
 anyhow = "1.0.75"

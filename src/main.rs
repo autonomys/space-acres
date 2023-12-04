@@ -101,6 +101,7 @@ enum ConfigurationEvent {
 enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationEvent),
+    ShowAboutDialog,
     Ignore,
 }
 
@@ -155,6 +156,8 @@ struct App {
     current_view: View,
     backend_action_sender: mpsc::Sender<BackendAction>,
     open_dialog: Controller<OpenDialog>,
+    menu_popover: gtk::Popover,
+    about_dialog: gtk::AboutDialog,
 }
 
 #[relm4::component(async)]
@@ -176,6 +179,27 @@ impl AsyncComponent for App {
                 set_orientation: gtk::Orientation::Vertical,
 
                 gtk::HeaderBar {
+                    pack_end = &gtk::MenuButton {
+                        set_direction: gtk::ArrowType::None,
+                        set_icon_name: "open-menu-symbolic",
+                        #[wrap(Some)]
+                        set_popover: menu_popover = &gtk::Popover {
+                            set_halign: gtk::Align::End,
+                            set_position: gtk::PositionType::Bottom,
+
+                            gtk::Box {
+                                set_orientation: gtk::Orientation::Vertical,
+                                set_spacing: 5,
+
+                                gtk::Button {
+                                    set_label: "About",
+                                    connect_clicked[sender] => move |_| {
+                                        sender.input(AppInput::ShowAboutDialog);
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
 
                 gtk::Box {
@@ -458,19 +482,20 @@ impl AsyncComponent for App {
                             gtk::Box {
                                 set_height_request: 100,
                                 set_orientation: gtk::Orientation::Vertical,
+                                set_spacing: 10,
 
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
                                     set_label: "Consensus node",
-                                    set_margin_bottom: 10,
                                 },
 
-                                // Match only because `if let Some(x) = y` is not yet supported here
+                                // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                                 #[transition = "SlideUpDown"]
                                 match &node_state.sync_state {
                                     Some(sync_state) => gtk::Box {
                                         set_orientation: gtk::Orientation::Vertical,
+                                        set_spacing: 10,
 
                                         gtk::Box {
                                             gtk::Label {
@@ -504,8 +529,6 @@ impl AsyncComponent for App {
                                         gtk::ProgressBar {
                                             #[watch]
                                             set_fraction: node_state.best_block_number as f64 / sync_state.target as f64,
-                                            set_margin_bottom: 10,
-                                            set_margin_top: 10,
                                         },
                                     },
                                     None => gtk::Box {
@@ -523,23 +546,25 @@ impl AsyncComponent for App {
 
                             gtk::Box {
                                 set_orientation: gtk::Orientation::Vertical,
+                                set_spacing: 10,
                                 set_valign: gtk::Align::Start,
 
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
                                     set_label: "Farmer",
-                                    set_margin_bottom: 10,
                                 },
 
                                 // TODO: Render all farms, not just the first one
-                                // Match only because `if let Some(x) = y` is not yet supported here
+                                // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                                 #[transition = "SlideUpDown"]
                                 match (&farmer_state.plotting_state[0], node_state.sync_state.is_none()) {
                                     (Some(plotting_state), true) => gtk::Box {
                                         set_orientation: gtk::Orientation::Vertical,
 
                                         gtk::Box {
+                                            set_spacing: 10,
+
                                             gtk::Label {
                                                 set_halign: gtk::Align::Start,
 
@@ -571,8 +596,6 @@ impl AsyncComponent for App {
                                         gtk::ProgressBar {
                                             #[watch]
                                             set_fraction: plotting_state.progress as f64 / 100.0,
-                                            set_margin_bottom: 10,
-                                            set_margin_top: 10,
                                         },
                                     },
                                     (None, true) => gtk::Box {
@@ -653,13 +676,34 @@ impl AsyncComponent for App {
                 OpenDialogResponse::Cancel => AppInput::Ignore,
             });
 
-        let model = App {
+        let about_dialog = gtk::AboutDialog::builder()
+            .title("About")
+            .program_name("Space Acres")
+            .version(env!("CARGO_PKG_VERSION"))
+            .authors(env!("CARGO_PKG_AUTHORS").split(':').collect::<Vec<_>>())
+            // TODO: Use https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/6643 once available
+            .license("Zero-Clause BSD: https://opensource.org/license/0bsd/")
+            .website("https://github.com/nazar-pc/space-acres")
+            .comments(env!("CARGO_PKG_DESCRIPTION"))
+            .transient_for(&root)
+            .build();
+        about_dialog.connect_close_request(|about_dialog| {
+            about_dialog.hide();
+            gtk::glib::Propagation::Stop
+        });
+
+        let mut model = App {
             current_view: View::Loading(String::new()),
             backend_action_sender: action_sender,
             open_dialog,
+            // Hack to initialize a field before this data structure is used
+            menu_popover: gtk::Popover::default(),
+            about_dialog,
         };
 
         let widgets = view_output!();
+
+        model.menu_popover = widgets.menu_popover.clone();
 
         AsyncComponentParts { model, widgets }
     }
@@ -676,6 +720,10 @@ impl AsyncComponent for App {
             }
             AppInput::Configuration(event) => {
                 self.process_configuration_event(event).await;
+            }
+            AppInput::ShowAboutDialog => {
+                self.menu_popover.hide();
+                self.about_dialog.show();
             }
             AppInput::Ignore => {
                 // Ignore
