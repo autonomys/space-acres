@@ -14,7 +14,7 @@ use crate::backend::node::{
 };
 use future::FutureExt;
 use futures::channel::mpsc;
-use futures::{future, select, SinkExt};
+use futures::{future, select, SinkExt, StreamExt};
 use parking_lot::Mutex;
 use sc_subspace_chain_specs::GEMINI_3G_CHAIN_SPEC;
 use std::path::Path;
@@ -89,7 +89,9 @@ pub enum BackendNotification {
         progress: f32,
     },
     NotConfigured,
+    // TODO: Indicate what is invalid so that UI can render it properly
     ConfigurationIsInvalid {
+        config: RawConfig,
         error: ConfigError,
     },
     Running {
@@ -108,20 +110,72 @@ pub enum BackendNotification {
     },
 }
 
+/// Control action messages sent to backend to control its behavior
+#[derive(Debug)]
+pub enum BackendAction {
+    NewConfig { config: RawConfig },
+}
+
 // NOTE: this is an async function, but it might do blocking operations and should be running on a
 // dedicated CPU core
-pub async fn create(mut notifications_sender: mpsc::Sender<BackendNotification>) {
-    let (config, consensus_node, farmer, node_runner) = match load(&mut notifications_sender).await
-    {
-        Ok(Some(result)) => result,
-        Ok(None) => {
+pub async fn create(
+    mut backend_action_receiver: mpsc::Receiver<BackendAction>,
+    mut notifications_sender: mpsc::Sender<BackendNotification>,
+) {
+    let loading_result = try {
+        'load: loop {
+            if let Some(result) = load(&mut notifications_sender).await? {
+                break result;
+            }
+
             if let Err(error) = notifications_sender
                 .send(BackendNotification::NotConfigured)
                 .await
             {
                 error!(%error, "Failed to send not configured notification");
+                return;
             }
+
+            // Remove suppression once we have more actions for backend
+            #[allow(clippy::never_loop)]
+            while let Some(backend_action) = backend_action_receiver.next().await {
+                match backend_action {
+                    BackendAction::NewConfig { config } => {
+                        if let Err(error) = Config::try_from_raw_config(&config).await {
+                            notifications_sender
+                                .send(BackendNotification::ConfigurationIsInvalid {
+                                    config: config.clone(),
+                                    error,
+                                })
+                                .await?;
+                        }
+
+                        let config_file_path = RawConfig::default_path().await?;
+                        config
+                            .write_to_path(&config_file_path)
+                            .await
+                            .map_err(|error| {
+                                anyhow::anyhow!(
+                                    "Failed to write config to \"{}\": {}",
+                                    config_file_path.display(),
+                                    error
+                                )
+                            })?;
+
+                        // Try to load config and start again
+                        continue 'load;
+                    }
+                }
+            }
+
             return;
+        }
+    };
+
+    let (config, consensus_node, farmer, node_runner) = match loading_result {
+        Ok(result) => {
+            // Loaded successfully
+            result
         }
         Err(error) => {
             if let Err(error) = notifications_sender
@@ -159,7 +213,6 @@ async fn load(
     };
 
     let Some(config) = check_configuration(&config, notifications_sender).await? else {
-        // TODO: Handle invalid configuration by allow user to fix it
         return Ok(None);
     };
 
@@ -386,7 +439,10 @@ async fn check_configuration(
         }
         Err(error) => {
             notifications_sender
-                .send(BackendNotification::ConfigurationIsInvalid { error })
+                .send(BackendNotification::ConfigurationIsInvalid {
+                    config: config.clone(),
+                    error,
+                })
                 .await?;
 
             Ok(None)

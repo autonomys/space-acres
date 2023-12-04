@@ -1,13 +1,16 @@
-#![feature(const_option, trait_alias)]
+#![feature(const_option, trait_alias, try_blocks)]
 
 mod backend;
 
+use crate::backend::config::{Farm, RawConfig};
 use crate::backend::farmer::{PlottingKind, PlottingState};
 use crate::backend::node::{SyncKind, SyncState};
-use crate::backend::{BackendNotification, FarmerNotification, LoadingStep, NodeNotification};
+use crate::backend::{
+    BackendAction, BackendNotification, FarmerNotification, LoadingStep, NodeNotification,
+};
 use bytesize::ByteSize;
 use futures::channel::mpsc;
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::{set_global_css, RELM_THREADS};
@@ -150,6 +153,7 @@ impl View {
 // TODO: Efficient updates with tracker
 struct App {
     current_view: View,
+    backend_action_sender: mpsc::Sender<BackendAction>,
     open_dialog: Controller<OpenDialog>,
 }
 
@@ -616,6 +620,25 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
+        let (action_sender, action_receiver) = mpsc::channel(1);
+        let (notification_sender, mut notification_receiver) = mpsc::channel(100);
+
+        // Create backend in dedicated thread
+        tokio::task::spawn_blocking(move || {
+            Handle::current().block_on(backend::create(action_receiver, notification_sender));
+        });
+
+        // Forward backend notifications as application inputs
+        tokio::spawn({
+            let sender = sender.clone();
+
+            async move {
+                while let Some(notification) = notification_receiver.next().await {
+                    sender.input(AppInput::BackendNotification(notification));
+                }
+            }
+        });
+
         let open_dialog = OpenDialog::builder()
             .transient_for_native(&root)
             .launch(OpenDialogSettings {
@@ -632,23 +655,11 @@ impl AsyncComponent for App {
 
         let model = App {
             current_view: View::Loading(String::new()),
+            backend_action_sender: action_sender,
             open_dialog,
         };
+
         let widgets = view_output!();
-
-        let (notification_sender, mut notification_receiver) = mpsc::channel(100);
-
-        // Create backend in dedicated thread
-        tokio::task::spawn_blocking(move || {
-            Handle::current().block_on(backend::create(notification_sender));
-        });
-
-        // Forward backend notifications as application inputs
-        tokio::spawn(async move {
-            while let Some(notification) = notification_receiver.next().await {
-                sender.input(AppInput::BackendNotification(notification));
-            }
-        });
 
         AsyncComponentParts { model, widgets }
     }
@@ -663,7 +674,9 @@ impl AsyncComponent for App {
             AppInput::BackendNotification(notification) => {
                 self.process_backend_notification(notification);
             }
-            AppInput::Configuration(event) => self.process_configuration_event(event),
+            AppInput::Configuration(event) => {
+                self.process_configuration_event(event).await;
+            }
             AppInput::Ignore => {
                 // Ignore
             }
@@ -710,12 +723,23 @@ impl App {
                 });
             }
             BackendNotification::NotConfigured => {
-                // TODO: Configuration step
-                self.current_view = View::Error(anyhow::anyhow!("Not configured"));
+                // TODO: Welcome screen first
+                self.current_view = View::Configuration {
+                    reward_address: MaybeValid::Unknown(String::new()),
+                    node_path: MaybeValid::Unknown(PathBuf::new()),
+                    farms: Vec::new(),
+                    pending_directory_selection: None,
+                };
             }
             BackendNotification::ConfigurationIsInvalid { .. } => {
-                // TODO: Configuration step
-                self.current_view = View::Error(anyhow::anyhow!("Configuration is invalid"));
+                // TODO: Toast with configuration error, render old values with corresponding validity status once
+                //  notification has that information
+                self.current_view = View::Configuration {
+                    reward_address: MaybeValid::Unknown(String::new()),
+                    node_path: MaybeValid::Unknown(PathBuf::new()),
+                    farms: Vec::new(),
+                    pending_directory_selection: None,
+                };
             }
             BackendNotification::Running {
                 config,
@@ -784,7 +808,7 @@ impl App {
         self.current_view = View::Loading(s.to_string());
     }
 
-    fn process_configuration_event(&mut self, event: ConfigurationEvent) {
+    async fn process_configuration_event(&mut self, event: ConfigurationEvent) {
         if let View::Configuration {
             reward_address,
             node_path,
@@ -847,7 +871,26 @@ impl App {
                     }
                 }
                 ConfigurationEvent::Start => {
-                    // TODO: Start farming
+                    let config = RawConfig::V0 {
+                        reward_address: String::clone(reward_address),
+                        node_path: PathBuf::clone(node_path),
+                        farms: farms
+                            .iter()
+                            .map(|farm| Farm {
+                                path: PathBuf::clone(&farm.path),
+                                size: String::clone(&farm.size),
+                            })
+                            .collect(),
+                    };
+                    if let Err(error) = self
+                        .backend_action_sender
+                        .send(BackendAction::NewConfig { config })
+                        .await
+                    {
+                        self.current_view = View::Error(anyhow::anyhow!(
+                            "Failed to send config to backend: {error}"
+                        ));
+                    }
                 }
             }
         }

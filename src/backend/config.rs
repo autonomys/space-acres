@@ -78,11 +78,9 @@ impl RawConfig {
         Ok(config_file_path)
     }
 
-    pub async fn read_from_path(
-        config_file_path: &Path,
-    ) -> Result<Option<RawConfig>, RawConfigError> {
+    pub async fn read_from_path(config_file_path: &Path) -> Result<Option<Self>, RawConfigError> {
         match fs::read_to_string(config_file_path).await {
-            Ok(config) => serde_json::from_str::<RawConfig>(&config)
+            Ok(config) => serde_json::from_str::<Self>(&config)
                 .map(Some)
                 .map_err(RawConfigError::FailedToDeserialize),
             Err(error) => {
@@ -93,6 +91,14 @@ impl RawConfig {
                 }
             }
         }
+    }
+
+    pub async fn write_to_path(&self, config_file_path: &Path) -> io::Result<()> {
+        fs::write(
+            config_file_path,
+            serde_json::to_string_pretty(self).expect("Config serialization is infallible; qed"),
+        )
+        .await
     }
 
     pub fn reward_address(&self) -> &str {
@@ -151,7 +157,7 @@ impl Config {
             }
         })?;
 
-        let node_path = PathBuf::from(config.node_path());
+        let node_path = config.node_path().clone();
         check_path(&node_path).await?;
 
         let mut farms = Vec::with_capacity(config.farms().len());
