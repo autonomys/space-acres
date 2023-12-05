@@ -1,0 +1,133 @@
+# This action enables building release executables/installers and can be triggered manually or by release creation.
+#
+# Executables are built both for releases and for manually triggered runs, uploaded to artifacts and assets.
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+
+# Incremental compilation here isn't helpful
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  executables:
+    strategy:
+      matrix:
+        build:
+          # TODO: Package Linux and macOS
+#          - os: ubuntu-22.04
+#            target: x86_64-unknown-linux-gnu
+#            suffix: ubuntu-x86_64-skylake-${{ github.ref_name }}
+#            rustflags: "-C target-cpu=skylake"
+#          - os: ubuntu-22.04
+#            target: aarch64-unknown-linux-gnu
+#            suffix: ubuntu-aarch64-${{ github.ref_name }}
+#            # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
+#            #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+#            rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
+#          - os: macos-12
+#            target: aarch64-apple-darwin
+#            suffix: macos-aarch64-${{ github.ref_name }}
+#            # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
+#            #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+#            rustflags: "--cfg aes_armv8"
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            suffix: windows-x86_64-skylake-${{ github.ref_name }}
+            rustflags: "-C target-cpu=skylake"
+    runs-on: ${{ matrix.build.os }}
+    env:
+      PRODUCTION_TARGET: target/${{ matrix.build.target }}/production
+      RUSTFLAGS: ${{ matrix.build.rustflags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
+
+      - name: Install GTK4 (Ubuntu)
+        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        if: runner.os == 'Linux'
+
+      - name: Install GTK4 (macOS)
+        run: brew install gtk4
+        if: runner.os == 'macOS'
+
+      - name: Install GTK4 (Windows)
+        # TODO: Git commit from `libpng` branch that works around https://github.com/wingtk/gvsbuild/issues/984
+        run: |
+          pipx install git+https://github.com/g40/gvsbuild@20f78d8314b3f753adfd472b4b6c0b6866a4a0f8
+          gvsbuild build gtk4
+          Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
+          Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
+          Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
+        if: runner.os == 'Windows'
+
+      # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
+      # TODO: on macOS, the consensus/domain runtime build is not compatible with LLVM 15.0.7 and
+      # LLVM 15.0.{3, 4, 5, 6} is not released for macOS thus install LLVM 15.0.2 explicitly as a
+      # temporary workaround, and remove once incompatible is fixed.
+      - name: Install LLVM and Clang for macOS
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "15.0.2"
+        if: runner.os == 'macOS'
+
+      # TODO: on Linux and Windows, the consensus/domain runtime build is not compatible with LLVM 16,
+      # thus install LLVM 15 explicitly as a temporary workaround, and remove once incompatible is fixed.
+      - name: Install LLVM and Clang for Linux and Windows
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "15.0"
+        if: runner.os != 'macOS'
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
+      - name: Remove msys64
+        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
+        if: runner.os == 'Windows'
+        # Doesn't exist on self-hosted runners
+        continue-on-error: true
+
+      - name: AArch64 cross-compile packages
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends g++-aarch64-linux-gnu gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+        if: matrix.build.target == 'aarch64-unknown-linux-gnu'
+
+      - name: Build app
+        run: cargo build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+
+      # TODO: Package Linux and macOS
+
+      - name: Package (Windows)
+        run: |
+          Remove-Item -Recurse -Force target/gtk4
+          New-Item target/gtk4 -ItemType Directory
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\*.dll -Destination target\gtk4
+          heat dir target\gtk4 -gg -sfrag -template:fragment -out target\gtk4\gtk4.wxs -cg GTK -dr GTK
+          # TODO
+          cargo wix --include target\gtk4\gtk4.wxs --profile production
+        if: runner.os == 'Windows'
+
+      - name: Upload node and farmer executables to artifacts (Windows)
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # @v3.1.1
+        with:
+          name: installer-${{ matrix.build.suffix }}
+          path: |
+            target/wix/*.exe
+          if-no-files-found: error
+        if: runner.os == 'Windows'
+
+      - name: Upload node and farmer executables to assets (Windows)
+        uses: alexellis/upload-assets@259de5111cb56966d046ced998941e93f91d2c93 # @0.4.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["target/wix/*.exe"]'
+        if: runner.os == 'Windows' && github.event_name == 'push' && github.ref_type == 'tag'

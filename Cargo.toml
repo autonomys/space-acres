@@ -4,11 +4,18 @@ description = "Space Acres is an opinionated unofficial GUI application for farm
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+repository = "https://github.com/nazar-pc/space-acres"
 edition = "2021"
 include = [
     "/src",
     "/Cargo.toml",
 ]
+
+# TODO: Menu shortcut will not be generated automatically in case of re-init: https://github.com/volks73/cargo-wix/issues/141
+[package.metadata.wix]
+product-icon = "res/space-acres.ico"
+# TODO: This option will not have effect until https://github.com/volks73/cargo-wix/issues/270 is fixed in case of re-init
+product-name = "Space Acres"
 
 [dependencies]
 anyhow = "1.0.75"

@@ -32,6 +32,7 @@ use tracing_subscriber::EnvFilter;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 const GLOBAL_CSS: &str = include_str!("../res/app.css");
+const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
 // 2 GB
 const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
 
@@ -683,8 +684,12 @@ impl AsyncComponent for App {
             .authors(env!("CARGO_PKG_AUTHORS").split(':').collect::<Vec<_>>())
             // TODO: Use https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/6643 once available
             .license("Zero-Clause BSD: https://opensource.org/license/0bsd/")
-            .website("https://github.com/nazar-pc/space-acres")
+            .website(env!("CARGO_PKG_REPOSITORY"))
             .comments(env!("CARGO_PKG_DESCRIPTION"))
+            .logo(&gtk::gdk::Texture::for_pixbuf(
+                &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
+                    .expect("Statically correct image; qed"),
+            ))
             .transient_for(&root)
             .build();
         about_dialog.connect_close_request(|about_dialog| {
