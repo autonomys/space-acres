@@ -128,6 +128,64 @@
                                 Source='$(var.CargoTargetBinDir)\space-acres.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='gtk4' Guid='f34c20a7-fec1-4afa-b06c-0945bbbc420f'>
+                            <File Id='gdbus.exe' Name='gdbus.exe' DiskId='1' Source='target\wix\gtk4\bin\gdbus.exe' />
+
+                            <File Id='asprintf.dll' Name='asprintf.dll' DiskId='1' Source='target\wix\gtk4\bin\asprintf.dll' />
+                            <File Id='cairo_2.dll' Name='cairo-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-2.dll' />
+                            <File Id='cairo_gobject_2.dll' Name='cairo-gobject-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-gobject-2.dll' />
+                            <File Id='cairo_script_interpreter_2.dll' Name='cairo-script-interpreter-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-script-interpreter-2.dll' />
+                            <File Id='epoxy_0.dll' Name='epoxy-0.dll' DiskId='1' Source='target\wix\gtk4\bin\epoxy-0.dll' />
+                            <File Id='ffi_8.dll' Name='ffi-8.dll' DiskId='1' Source='target\wix\gtk4\bin\ffi-8.dll' />
+                            <File Id='fontconfig_1.dll' Name='fontconfig-1.dll' DiskId='1' Source='target\wix\gtk4\bin\fontconfig-1.dll' />
+                            <File Id='freetype_6.dll' Name='freetype-6.dll' DiskId='1' Source='target\wix\gtk4\bin\freetype-6.dll' />
+                            <File Id='fribidi_0.dll' Name='fribidi-0.dll' DiskId='1' Source='target\wix\gtk4\bin\fribidi-0.dll' />
+                            <File Id='gdk_pixbuf_2.0_0.dll' Name='gdk_pixbuf-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gdk_pixbuf-2.0-0.dll' />
+                            <File Id='gettextlib_0.21.0.dll' Name='gettextlib-0.21.0.dll' DiskId='1' Source='target\wix\gtk4\bin\gettextlib-0.21.0.dll' />
+                            <File Id='gettextpo.dll' Name='gettextpo.dll' DiskId='1' Source='target\wix\gtk4\bin\gettextpo.dll' />
+                            <File Id='gettextsrc_0.21.0.dll' Name='gettextsrc-0.21.0.dll' DiskId='1' Source='target\wix\gtk4\bin\gettextsrc-0.21.0.dll' />
+                            <File Id='gio_2.0_0.dll' Name='gio-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gio-2.0-0.dll' />
+                            <File Id='glib_2.0_0.dll' Name='glib-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\glib-2.0-0.dll' />
+                            <File Id='gmodule_2.0_0.dll' Name='gmodule-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gmodule-2.0-0.dll' />
+                            <File Id='gobject_2.0_0.dll' Name='gobject-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gobject-2.0-0.dll' />
+                            <File Id='graphene_1.0_0.dll' Name='graphene-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\graphene-1.0-0.dll' />
+                            <File Id='gthread_2.0_0.dll' Name='gthread-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gthread-2.0-0.dll' />
+                            <File Id='gtk_4_1.dll' Name='gtk-4-1.dll' DiskId='1' Source='target\wix\gtk4\bin\gtk-4-1.dll' />
+                            <File Id='harfbuzz_cairo.dll' Name='harfbuzz-cairo.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz-cairo.dll' />
+                            <File Id='harfbuzz_gobject.dll' Name='harfbuzz-gobject.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz-gobject.dll' />
+                            <File Id='harfbuzz_subset.dll' Name='harfbuzz-subset.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz-subset.dll' />
+                            <File Id='harfbuzz.dll' Name='harfbuzz.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz.dll' />
+                            <File Id='iconv.dll' Name='iconv.dll' DiskId='1' Source='target\wix\gtk4\bin\iconv.dll' />
+                            <File Id='intl.dll' Name='intl.dll' DiskId='1' Source='target\wix\gtk4\bin\intl.dll' />
+                            <File Id='jpeg62.dll' Name='jpeg62.dll' DiskId='1' Source='target\wix\gtk4\bin\jpeg62.dll' />
+                            <File Id='libexpat.dll' Name='libexpat.dll' DiskId='1' Source='target\wix\gtk4\bin\libexpat.dll' />
+                            <File Id='libpng16.dll' Name='libpng16.dll' DiskId='1' Source='target\wix\gtk4\bin\libpng16.dll' />
+                            <File Id='pango_1.0_0.dll' Name='pango-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pango-1.0-0.dll' />
+                            <File Id='pangocairo_1.0_0.dll' Name='pangocairo-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangocairo-1.0-0.dll' />
+                            <File Id='pangowin32_1.0_0.dll' Name='pangowin32-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangowin32-1.0-0.dll' />
+                            <File Id='pcre2_16.dll' Name='pcre2-16.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-16.dll' />
+                            <File Id='pcre2_32.dll' Name='pcre2-32.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-32.dll' />
+                            <File Id='pcre2_8.dll' Name='pcre2-8.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-8.dll' />
+                            <File Id='pcre2_posix.dll' Name='pcre2-posix.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-posix.dll' />
+                            <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pixman-1-0.dll' />
+                            <File Id='pkgconf_4.dll' Name='pkgconf-4.dll' DiskId='1' Source='target\wix\gtk4\bin\pkgconf-4.dll' />
+                            <File Id='textstyle.dll' Name='textstyle.dll' DiskId='1' Source='target\wix\gtk4\bin\textstyle.dll' />
+                            <File Id='tiff.dll' Name='tiff.dll' DiskId='1' Source='target\wix\gtk4\bin\tiff.dll' />
+                            <File Id='turbojpeg.dll' Name='turbojpeg.dll' DiskId='1' Source='target\wix\gtk4\bin\turbojpeg.dll' />
+                            <File Id='zlib1.dll' Name='zlib1.dll' DiskId='1' Source='target\wix\gtk4\bin\zlib1.dll' />
+                        </Component>
+                    </Directory>
+
+                    <Directory Id='share' Name='share'>
+                        <Directory Id='glib_2.0' Name='glib-2.0'>
+                            <Directory Id='schemas' Name='schemas'>
+                                <Component Id='glib_2.0_schemas' Guid='89a44ead-b959-44d6-970e-367184effca4'>
+                                    <File Id='gschemas.compiled' Name='gschemas.compiled' DiskId='1' Source='target\wix\gtk4\share\glib-2.0\schemas\gschemas.compiled' />
+                                    <File Id='org.gtk.gtk4.Settings.Debug.gschema.xml' Name='org.gtk.gtk4.Settings.Debug.gschema.xml' DiskId='1' Source='target\wix\gtk4\share\glib-2.0\schemas\org.gtk.gtk4.Settings.Debug.gschema.xml' />
+                                    <File Id='org.gtk.gtk4.Settings.FileChooser.gschema.xml' Name='org.gtk.gtk4.Settings.FileChooser.gschema.xml' DiskId='1' Source='target\wix\gtk4\share\glib-2.0\schemas\org.gtk.gtk4.Settings.FileChooser.gschema.xml' />
+                                </Component>
+                            </Directory>
+                        </Directory>
                     </Directory>
                 </Directory>
             </Directory>
@@ -181,6 +239,8 @@
             <!--<ComponentRef Id='License'/>-->
 
             <ComponentRef Id='binary0'/>
+            <ComponentRef Id='gtk4'/>
+            <ComponentRef Id='glib_2.0_schemas'/>
 
             <Feature
                 Id='Environment'

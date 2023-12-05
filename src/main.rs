@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 #![feature(const_option, trait_alias, try_blocks)]
 
 mod backend;

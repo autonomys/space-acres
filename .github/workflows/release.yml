@@ -14,7 +14,7 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  executables:
+  release:
     strategy:
       matrix:
         build:
@@ -105,14 +105,38 @@ jobs:
 
       # TODO: Package Linux and macOS
 
+      - name: Install cargo-wix (Windows)
+        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+        with:
+          tool: cargo-wix
+        if: runner.os == 'Windows'
+
       - name: Package (Windows)
         run: |
-          Remove-Item -Recurse -Force target/gtk4
-          New-Item target/gtk4 -ItemType Directory
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\*.dll -Destination target\gtk4
-          heat dir target\gtk4 -gg -sfrag -template:fragment -out target\gtk4\gtk4.wxs -cg GTK -dr GTK
-          # TODO
-          cargo wix --include target\gtk4\gtk4.wxs --profile production
+          Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
+
+          New-Item target\wix\gtk4\bin -ItemType Directory
+          New-Item target\wix\gtk4\share\glib-2.0\schemas -ItemType Directory
+
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\*.dll -Destination target\wix\gtk4\bin
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gdbus.exe -Destination target\wix\gtk4\bin
+
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\share\glib-2.0\schemas\gschemas.compiled -Destination target\wix\gtk4\share\glib-2.0\schemas\gschemas.compiled
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\share\glib-2.0\schemas\org.gtk.gtk4.Settings.Debug.gschema.xml -Destination target\wix\gtk4\share\glib-2.0\schemas\org.gtk.gtk4.Settings.Debug.gschema.xml
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\share\glib-2.0\schemas\org.gtk.gtk4.Settings.FileChooser.gschema.xml -Destination target\wix\gtk4\share\glib-2.0\schemas\org.gtk.gtk4.Settings.FileChooser.gschema.xml
+
+          # TODO: Ideally something like this would have worked and we wouldn't need to hardcode stuff in `space-acres.wxs`: https://github.com/volks73/cargo-wix/issues/271
+          # & "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir target\wix\gtk4 -gg -sfrag -template:fragment -out target\wix\gtk4.wxs -cg GTK -dr GTK
+          
+          # TODO: This is a workaround for missing `--target` support: https://github.com/volks73/cargo-wix/issues/272
+          New-Item target\production -ItemType Directory -Force
+          Copy-Item -Path ${{ env.PRODUCTION_TARGET }}\space-acres.exe -Destination target\production\space-acres.exe
+
+          cargo wix --profile production --no-build --nocapture
+          
+          Remove-Item target\production -Recurse -Confirm:$false
+
+          Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
         if: runner.os == 'Windows'
 
       - name: Upload node and farmer executables to artifacts (Windows)
@@ -120,7 +144,7 @@ jobs:
         with:
           name: installer-${{ matrix.build.suffix }}
           path: |
-            target/wix/*.exe
+            target/wix/*.msi
           if-no-files-found: error
         if: runner.os == 'Windows'
 
@@ -129,5 +153,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          asset_paths: '["target/wix/*.exe"]'
+          asset_paths: '["target/wix/*.msi"]'
         if: runner.os == 'Windows' && github.event_name == 'push' && github.ref_type == 'tag'

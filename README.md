@@ -19,8 +19,8 @@ Current features:
 * Farmer plotting/farming with a single farm with displayed plotting/replotting progress
 
 Some of the upcoming features/capabilities (not necessarily in priority order):
-* Automatic builds in CI with pre-built executables
-* Testing on Windows and macOS
+* Automatic builds in CI with pre-built executables/installers (Linux and macOS)
+* Testing on macOS
 * Welcome screen
 * Writing logs to a file
 * Displaying of earned farming rewards or at least link to block explorers
