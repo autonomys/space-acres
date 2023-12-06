@@ -980,6 +980,16 @@ fn main() {
         .expect("The first thing in the app, is not set; qed");
 
     let app = RelmApp::new("network.subspace.space_acres");
+
     set_global_css(GLOBAL_CSS);
+
+    // Prefer dark theme in cross-platform way if environment is configured that way
+    if let Some(settings) = gtk::Settings::default() {
+        settings.set_gtk_application_prefer_dark_theme(!matches!(
+            dark_light::detect(),
+            dark_light::Mode::Light
+        ));
+    }
+
     app.run_async::<App>(());
 }
