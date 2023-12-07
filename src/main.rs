@@ -4,8 +4,9 @@
 mod backend;
 mod frontend;
 
-use crate::backend::{BackendAction, BackendNotification, LoadingStep};
+use crate::backend::{BackendAction, BackendNotification};
 use crate::frontend::configuration::{ConfigurationOutput, ConfigurationView};
+use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::running::{RunningInput, RunningView};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
@@ -35,7 +36,7 @@ enum AppInput {
 }
 
 enum View {
-    Loading(String),
+    Loading,
     Configuration,
     Running,
     Stopped(Option<anyhow::Error>),
@@ -45,7 +46,7 @@ enum View {
 impl View {
     fn title(&self) -> &'static str {
         match self {
-            Self::Loading(_) => "Loading",
+            Self::Loading => "Loading",
             Self::Configuration => "Configuration",
             Self::Running => "Running",
             Self::Stopped(_) => "Stopped",
@@ -58,6 +59,7 @@ impl View {
 struct App {
     current_view: View,
     backend_action_sender: mpsc::Sender<BackendAction>,
+    loading_view: Controller<LoadingView>,
     configuration_view: AsyncController<ConfigurationView>,
     running_view: AsyncController<RunningView>,
     menu_popover: gtk::Popover,
@@ -112,22 +114,7 @@ impl AsyncComponent for App {
 
                     #[transition = "SlideLeftRight"]
                     match &model.current_view {
-                        View::Loading(what) => gtk::Box {
-                            set_halign: gtk::Align::Center,
-                            set_valign: gtk::Align::Center,
-                            set_vexpand: true,
-                            set_orientation: gtk::Orientation::Vertical,
-
-                            gtk::Spinner {
-                                start: (),
-                                set_size_request: (50, 50),
-                            },
-
-                            gtk::Label {
-                                #[watch]
-                                set_label: what,
-                            },
-                        },
+                        View::Loading => model.loading_view.widget().clone(),
                         View::Configuration => model.configuration_view.widget().clone(),
                         View::Running=> model.running_view.widget().clone(),
                         View::Stopped(Some(error)) => {
@@ -165,7 +152,9 @@ impl AsyncComponent for App {
 
         // Create backend in dedicated thread
         tokio::task::spawn_blocking(move || {
-            Handle::current().block_on(backend::create(action_receiver, notification_sender));
+            if true {
+                Handle::current().block_on(backend::create(action_receiver, notification_sender));
+            }
         });
 
         // Forward backend notifications as application inputs
@@ -178,6 +167,8 @@ impl AsyncComponent for App {
                 }
             }
         });
+
+        let loading_view = LoadingView::builder().launch(()).detach();
 
         let configuration_view = ConfigurationView::builder()
             .launch(())
@@ -206,8 +197,9 @@ impl AsyncComponent for App {
         });
 
         let mut model = Self {
-            current_view: View::Loading(String::new()),
+            current_view: View::Loading,
             backend_action_sender: action_sender,
+            loading_view,
             configuration_view,
             running_view,
             // Hack to initialize a field before this data structure is used
@@ -249,38 +241,8 @@ impl App {
         match notification {
             // TODO: Render progress
             BackendNotification::Loading { step, progress: _ } => {
-                self.set_loading_string(match step {
-                    LoadingStep::LoadingConfiguration => "Loading configuration...",
-                    LoadingStep::ReadingConfiguration => "Reading configuration...",
-                    LoadingStep::ConfigurationReadSuccessfully { .. } => {
-                        "Configuration read successfully"
-                    }
-                    LoadingStep::CheckingConfiguration => "Checking configuration...",
-                    LoadingStep::ConfigurationIsValid => "Configuration is valid",
-                    LoadingStep::DecodingChainSpecification => "Decoding chain specification...",
-                    LoadingStep::DecodedChainSpecificationSuccessfully => {
-                        "Decoded chain specification successfully"
-                    }
-                    LoadingStep::CheckingNodePath => "Checking node path...",
-                    LoadingStep::CreatingNodePath => "Creating node path...",
-                    LoadingStep::NodePathReady => "Node path ready",
-                    LoadingStep::PreparingNetworkingStack => "Preparing networking stack...",
-                    LoadingStep::ReadingNetworkKeypair => "Reading network keypair...",
-                    LoadingStep::GeneratingNetworkKeypair => "Generating network keypair...",
-                    LoadingStep::WritingNetworkKeypair => "Writing network keypair to disk...",
-                    LoadingStep::InstantiatingNetworkingStack => {
-                        "Instantiating networking stack..."
-                    }
-                    LoadingStep::NetworkingStackCreatedSuccessfully => {
-                        "Networking stack created successfully"
-                    }
-                    LoadingStep::CreatingConsensusNode => "Creating consensus node...",
-                    LoadingStep::ConsensusNodeCreatedSuccessfully => {
-                        "Consensus node created successfully"
-                    }
-                    LoadingStep::CreatingFarmer => "Creating farmer...",
-                    LoadingStep::FarmerCreatedSuccessfully => "Farmer created successfully",
-                });
+                self.current_view = View::Loading;
+                self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
             BackendNotification::NotConfigured => {
                 // TODO: Welcome screen first
@@ -317,10 +279,6 @@ impl App {
                 self.current_view = View::Error(error);
             }
         }
-    }
-
-    fn set_loading_string(&mut self, s: &'static str) {
-        self.current_view = View::Loading(s.to_string());
     }
 
     async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
