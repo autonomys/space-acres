@@ -1,9 +1,7 @@
 use crate::backend::config::{Farm, RawConfig};
 use bytesize::ByteSize;
 use gtk::prelude::*;
-use relm4::component::{AsyncComponent, AsyncComponentParts};
 use relm4::prelude::*;
-use relm4::AsyncComponentSender;
 use relm4_components::open_dialog::{
     OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
 };
@@ -97,8 +95,8 @@ pub struct ConfigurationView {
     open_dialog: Controller<OpenDialog>,
 }
 
-#[relm4::component(async, pub)]
-impl AsyncComponent for ConfigurationView {
+#[relm4::component(pub)]
+impl Component for ConfigurationView {
     type Init = ();
     type Input = ConfigurationInput;
     type Output = ConfigurationOutput;
@@ -325,15 +323,13 @@ impl AsyncComponent for ConfigurationView {
                             connect_clicked => ConfigurationInput::Start,
                             set_margin_top: 20,
                             #[watch]
-                            set_sensitive: {
-                                // TODO
+                            set_sensitive:
                                 model.reward_address.valid()
                                     && model.node_path.valid()
                                     && !model.farms.is_empty()
                                     && model.farms.iter().all(|farm| {
                                         farm.path.valid() && farm.size.valid()
-                                    })
-                            },
+                                    }),
 
                             gtk::Label {
                                 set_label: "Start",
@@ -346,13 +342,13 @@ impl AsyncComponent for ConfigurationView {
         }
     }
 
-    async fn init(
+    fn init(
         _init: Self::Init,
-        root: Self::Root,
-        sender: AsyncComponentSender<Self>,
-    ) -> AsyncComponentParts<Self> {
+        root: &Self::Root,
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
         let open_dialog = OpenDialog::builder()
-            .transient_for_native(&root)
+            .transient_for_native(root)
             .launch(OpenDialogSettings {
                 folder_mode: true,
                 accept_label: "Select".to_string(),
@@ -373,25 +369,16 @@ impl AsyncComponent for ConfigurationView {
 
         let widgets = view_output!();
 
-        AsyncComponentParts { model, widgets }
+        ComponentParts { model, widgets }
     }
 
-    async fn update(
-        &mut self,
-        input: Self::Input,
-        sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
-    ) {
-        self.process_input(input, sender).await;
+    fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
+        self.process_input(input, sender);
     }
 }
 
 impl ConfigurationView {
-    async fn process_input(
-        &mut self,
-        input: ConfigurationInput,
-        sender: AsyncComponentSender<Self>,
-    ) {
+    fn process_input(&mut self, input: ConfigurationInput, sender: ComponentSender<Self>) {
         match input {
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();

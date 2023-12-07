@@ -2,9 +2,7 @@ use crate::backend::farmer::{PlottingKind, PlottingState};
 use crate::backend::node::{SyncKind, SyncState};
 use crate::backend::{FarmerNotification, NodeNotification};
 use gtk::prelude::*;
-use relm4::component::{AsyncComponent, AsyncComponentParts};
 use relm4::prelude::*;
-use relm4::AsyncComponentSender;
 use subspace_core_primitives::BlockNumber;
 use tracing::warn;
 
@@ -36,8 +34,8 @@ pub struct RunningView {
     farmer_state: FarmerState,
 }
 
-#[relm4::component(async, pub)]
-impl AsyncComponent for RunningView {
+#[relm4::component(pub)]
+impl Component for RunningView {
     type Init = ();
     type Input = RunningInput;
     type Output = ();
@@ -184,11 +182,11 @@ impl AsyncComponent for RunningView {
         }
     }
 
-    async fn init(
+    fn init(
         _init: Self::Init,
-        _root: Self::Root,
-        _sender: AsyncComponentSender<Self>,
-    ) -> AsyncComponentParts<Self> {
+        _root: &Self::Root,
+        _sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
         let model = Self {
             node_state: NodeState::default(),
             farmer_state: FarmerState::default(),
@@ -196,21 +194,16 @@ impl AsyncComponent for RunningView {
 
         let widgets = view_output!();
 
-        AsyncComponentParts { model, widgets }
+        ComponentParts { model, widgets }
     }
 
-    async fn update(
-        &mut self,
-        input: Self::Input,
-        _sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
-    ) {
-        self.process_input(input).await;
+    fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
+        self.process_input(input);
     }
 }
 
 impl RunningView {
-    async fn process_input(&mut self, input: RunningInput) {
+    fn process_input(&mut self, input: RunningInput) {
         match input {
             RunningInput::Initialize {
                 best_block_number,

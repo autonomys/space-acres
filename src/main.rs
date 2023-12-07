@@ -60,8 +60,8 @@ struct App {
     current_view: View,
     backend_action_sender: mpsc::Sender<BackendAction>,
     loading_view: Controller<LoadingView>,
-    configuration_view: AsyncController<ConfigurationView>,
-    running_view: AsyncController<RunningView>,
+    configuration_view: Controller<ConfigurationView>,
+    running_view: Controller<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
 }
