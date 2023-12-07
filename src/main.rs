@@ -12,8 +12,6 @@ use futures::{SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::{set_global_css, RELM_THREADS};
-use std::ops::Deref;
-use std::path::PathBuf;
 use std::thread::available_parallelism;
 use subspace_proof_of_space::chia::ChiaTable;
 use tokio::runtime::Handle;
@@ -26,67 +24,14 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 const GLOBAL_CSS: &str = include_str!("../res/app.css");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
-// 2 GB
-const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
 
 type PosTable = ChiaTable;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum MaybeValid<T> {
-    Unknown(T),
-    Valid(T),
-    Invalid(T),
-}
-
-impl<T> Default for MaybeValid<T>
-where
-    T: Default,
-{
-    fn default() -> Self {
-        Self::Unknown(T::default())
-    }
-}
-
-impl<T> Deref for MaybeValid<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        let (MaybeValid::Unknown(inner) | MaybeValid::Valid(inner) | MaybeValid::Invalid(inner)) =
-            self;
-
-        inner
-    }
-}
-
-impl<T> MaybeValid<T> {
-    fn unknown(&self) -> bool {
-        matches!(self, MaybeValid::Unknown(_))
-    }
-
-    fn valid(&self) -> bool {
-        matches!(self, MaybeValid::Valid(_))
-    }
-
-    fn icon(&self) -> Option<&'static str> {
-        match self {
-            MaybeValid::Unknown(_) => None,
-            MaybeValid::Valid(_) => Some("emblem-ok-symbolic"),
-            MaybeValid::Invalid(_) => Some("window-close-symbolic"),
-        }
-    }
-}
 
 #[derive(Debug)]
 enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
     ShowAboutDialog,
-}
-
-#[derive(Debug, Default)]
-struct DiskFarm {
-    path: MaybeValid<PathBuf>,
-    size: MaybeValid<String>,
 }
 
 enum View {

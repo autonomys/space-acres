@@ -1,5 +1,4 @@
 use crate::backend::config::{Farm, RawConfig};
-use crate::{DiskFarm, MaybeValid, MIN_FARM_SIZE};
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::component::{AsyncComponent, AsyncComponentParts};
@@ -8,10 +7,14 @@ use relm4::AsyncComponentSender;
 use relm4_components::open_dialog::{
     OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
 };
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
 use subspace_farmer::utils::ss58::parse_ss58_reward_address;
 use tracing::{debug, warn};
+
+// 2 GB
+const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DirectoryKind {
@@ -32,6 +35,57 @@ pub enum ConfigurationInput {
 #[derive(Debug)]
 pub enum ConfigurationOutput {
     StartWithNewConfig(RawConfig),
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum MaybeValid<T> {
+    Unknown(T),
+    Valid(T),
+    Invalid(T),
+}
+
+impl<T> Default for MaybeValid<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::Unknown(T::default())
+    }
+}
+
+impl<T> Deref for MaybeValid<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        let (MaybeValid::Unknown(inner) | MaybeValid::Valid(inner) | MaybeValid::Invalid(inner)) =
+            self;
+
+        inner
+    }
+}
+
+impl<T> MaybeValid<T> {
+    fn unknown(&self) -> bool {
+        matches!(self, MaybeValid::Unknown(_))
+    }
+
+    fn valid(&self) -> bool {
+        matches!(self, MaybeValid::Valid(_))
+    }
+
+    fn icon(&self) -> Option<&'static str> {
+        match self {
+            MaybeValid::Unknown(_) => None,
+            MaybeValid::Valid(_) => Some("emblem-ok-symbolic"),
+            MaybeValid::Invalid(_) => Some("window-close-symbolic"),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct DiskFarm {
+    path: MaybeValid<PathBuf>,
+    size: MaybeValid<String>,
 }
 
 #[derive(Debug)]
