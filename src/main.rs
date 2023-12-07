@@ -4,12 +4,9 @@
 mod backend;
 mod frontend;
 
-use crate::backend::farmer::{PlottingKind, PlottingState};
-use crate::backend::node::{SyncKind, SyncState};
-use crate::backend::{
-    BackendAction, BackendNotification, FarmerNotification, LoadingStep, NodeNotification,
-};
+use crate::backend::{BackendAction, BackendNotification, LoadingStep};
 use crate::frontend::configuration::{ConfigurationOutput, ConfigurationView};
+use crate::frontend::running::{RunningInput, RunningView};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::prelude::*;
@@ -18,10 +15,8 @@ use relm4::{set_global_css, RELM_THREADS};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::thread::available_parallelism;
-use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::chia::ChiaTable;
 use tokio::runtime::Handle;
-use tracing::warn;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -94,25 +89,10 @@ struct DiskFarm {
     size: MaybeValid<String>,
 }
 
-#[derive(Debug, Default)]
-struct NodeState {
-    best_block_number: BlockNumber,
-    sync_state: Option<SyncState>,
-}
-
-#[derive(Debug, Default)]
-struct FarmerState {
-    /// One entry per farm
-    plotting_state: Vec<Option<PlottingState>>,
-}
-
 enum View {
     Loading(String),
     Configuration,
-    Running {
-        node_state: NodeState,
-        farmer_state: FarmerState,
-    },
+    Running,
     Stopped(Option<anyhow::Error>),
     Error(anyhow::Error),
 }
@@ -122,7 +102,7 @@ impl View {
         match self {
             Self::Loading(_) => "Loading",
             Self::Configuration => "Configuration",
-            Self::Running { .. } => "Running",
+            Self::Running => "Running",
             Self::Stopped(_) => "Stopped",
             Self::Error(_) => "Error",
         }
@@ -134,6 +114,7 @@ struct App {
     current_view: View,
     backend_action_sender: mpsc::Sender<BackendAction>,
     configuration_view: AsyncController<ConfigurationView>,
+    running_view: AsyncController<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
 }
@@ -203,143 +184,7 @@ impl AsyncComponent for App {
                             },
                         },
                         View::Configuration => model.configuration_view.widget().clone(),
-                        View::Running { node_state, farmer_state } => gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-
-                            gtk::Box {
-                                set_height_request: 100,
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 10,
-
-                                gtk::Label {
-                                    add_css_class: "heading",
-                                    set_halign: gtk::Align::Start,
-                                    set_label: "Consensus node",
-                                },
-
-                                // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
-                                #[transition = "SlideUpDown"]
-                                match &node_state.sync_state {
-                                    Some(sync_state) => gtk::Box {
-                                        set_orientation: gtk::Orientation::Vertical,
-                                        set_spacing: 10,
-
-                                        gtk::Box {
-                                            gtk::Label {
-                                                set_halign: gtk::Align::Start,
-
-                                                #[watch]
-                                                set_label: &{
-                                                    let kind = match sync_state.kind {
-                                                        SyncKind::Dsn => "Syncing from DSN",
-                                                        SyncKind::Regular => "Regular sync",
-                                                    };
-
-                                                    format!(
-                                                        "{} #{}/{}{}",
-                                                        kind,
-                                                        node_state.best_block_number,
-                                                        sync_state.target,
-                                                        sync_state.speed
-                                                            .map(|speed| format!(", {:.2} blocks/s", speed))
-                                                            .unwrap_or_default(),
-                                                    )
-                                                },
-                                            },
-
-                                            gtk::Spinner {
-                                                set_margin_start: 5,
-                                                start: (),
-                                            },
-                                        },
-
-                                        gtk::ProgressBar {
-                                            #[watch]
-                                            set_fraction: node_state.best_block_number as f64 / sync_state.target as f64,
-                                        },
-                                    },
-                                    None => gtk::Box {
-                                        gtk::Label {
-                                            #[watch]
-                                            set_label: &format!("Synced, best block #{}", node_state.best_block_number),
-                                        }
-                                    },
-                                },
-                            },
-
-                            gtk::Separator {
-                                set_margin_all: 10,
-                            },
-
-                            gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 10,
-                                set_valign: gtk::Align::Start,
-
-                                gtk::Label {
-                                    add_css_class: "heading",
-                                    set_halign: gtk::Align::Start,
-                                    set_label: "Farmer",
-                                },
-
-                                // TODO: Render all farms, not just the first one
-                                // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
-                                #[transition = "SlideUpDown"]
-                                match (&farmer_state.plotting_state[0], node_state.sync_state.is_none()) {
-                                    (Some(plotting_state), true) => gtk::Box {
-                                        set_orientation: gtk::Orientation::Vertical,
-
-                                        gtk::Box {
-                                            set_spacing: 10,
-
-                                            gtk::Label {
-                                                set_halign: gtk::Align::Start,
-
-                                                #[watch]
-                                                set_label: &{
-                                                    let kind = match plotting_state.kind {
-                                                        PlottingKind::Initial => "Initial plotting, not farming",
-                                                        PlottingKind::Replotting => "Replotting, farming",
-                                                    };
-
-                                                    format!(
-                                                        "{} {:.2}%{}",
-                                                        kind,
-                                                        plotting_state.progress,
-                                                        plotting_state.speed
-                                                            .map(|speed| format!(", {:.2} sectors/h", 3600.0 / speed))
-                                                            .unwrap_or_default(),
-                                                    )
-                                                },
-                                                set_tooltip: "Farming starts after initial plotting is complete",
-                                            },
-
-                                            gtk::Spinner {
-                                                set_margin_start: 5,
-                                                start: (),
-                                            },
-                                        },
-
-                                        gtk::ProgressBar {
-                                            #[watch]
-                                            set_fraction: plotting_state.progress as f64 / 100.0,
-                                        },
-                                    },
-                                    (None, true) => gtk::Box {
-                                        gtk::Label {
-                                            #[watch]
-                                            set_label: "Farming",
-                                        }
-                                    },
-                                    _ => gtk::Box {
-                                        gtk::Label {
-                                            #[watch]
-                                            set_label: "Waiting for node to sync first",
-                                        }
-                                    },
-                                },
-                            },
-                        }
+                        View::Running=> model.running_view.widget().clone(),
                         View::Stopped(Some(error)) => {
                             // TODO: Better error handling
                             gtk::Label {
@@ -366,7 +211,7 @@ impl AsyncComponent for App {
     }
 
     async fn init(
-        _init: (),
+        _init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -393,6 +238,8 @@ impl AsyncComponent for App {
             .launch(())
             .forward(sender.input_sender(), AppInput::Configuration);
 
+        let running_view = RunningView::builder().launch(()).detach();
+
         let about_dialog = gtk::AboutDialog::builder()
             .title("About")
             .program_name("Space Acres")
@@ -413,10 +260,11 @@ impl AsyncComponent for App {
             gtk::glib::Propagation::Stop
         });
 
-        let mut model = App {
+        let mut model = Self {
             current_view: View::Loading(String::new()),
             backend_action_sender: action_sender,
             configuration_view,
+            running_view,
             // Hack to initialize a field before this data structure is used
             menu_popover: gtk::Popover::default(),
             about_dialog,
@@ -503,54 +351,19 @@ impl App {
                 best_block_number,
             } => {
                 let num_farms = config.farms.len();
-                self.current_view = View::Running {
-                    node_state: NodeState {
-                        best_block_number,
-                        sync_state: None,
-                    },
-                    farmer_state: FarmerState {
-                        plotting_state: vec![None; num_farms],
-                    },
-                };
+                self.current_view = View::Running;
+                self.running_view.emit(RunningInput::Initialize {
+                    best_block_number,
+                    num_farms,
+                });
             }
             BackendNotification::Node(node_notification) => {
-                if let View::Running { node_state, .. } = &mut self.current_view {
-                    match node_notification {
-                        NodeNotification::Syncing(sync_state) => {
-                            node_state.sync_state = Some(sync_state);
-                        }
-                        NodeNotification::Synced => {
-                            node_state.sync_state = None;
-                        }
-                        NodeNotification::BlockImported { number } => {
-                            node_state.best_block_number = number;
-                        }
-                    }
-                }
+                self.running_view
+                    .emit(RunningInput::NodeNotification(node_notification));
             }
             BackendNotification::Farmer(farmer_notification) => {
-                if let View::Running { farmer_state, .. } = &mut self.current_view {
-                    match farmer_notification {
-                        FarmerNotification::Plotting { farm_index, state } => {
-                            if let Some(plotting_state) =
-                                farmer_state.plotting_state.get_mut(farm_index)
-                            {
-                                plotting_state.replace(state);
-                            } else {
-                                warn!(%farm_index, "Unexpected plotting farm index");
-                            }
-                        }
-                        FarmerNotification::Plotted { farm_index } => {
-                            if let Some(plotting_state) =
-                                farmer_state.plotting_state.get_mut(farm_index)
-                            {
-                                plotting_state.take();
-                            } else {
-                                warn!(%farm_index, "Unexpected plotted farm index");
-                            }
-                        }
-                    }
-                }
+                self.running_view
+                    .emit(RunningInput::FarmerNotification(farmer_notification));
             }
             BackendNotification::Stopped { error } => {
                 self.current_view = View::Stopped(error);
