@@ -61,19 +61,19 @@ pub enum LoadingStep {
 
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
-    Syncing(SyncState),
-    Synced,
+    SyncStateUpdate(SyncState),
     BlockImported { number: BlockNumber },
 }
 
 #[derive(Debug, Clone)]
 pub enum FarmerNotification {
-    Plotting {
+    PlottingStateUpdate {
         farm_index: usize,
         state: PlottingState,
     },
-    Plotted {
-        farm_index: usize,
+    PieceCacheSyncProgress {
+        /// Progress so far in %
+        progress: f32,
     },
 }
 
@@ -287,12 +287,8 @@ async fn run(
     let _on_sync_state_change_handler_id = consensus_node.on_sync_state_change({
         let notifications_sender = notifications_sender.clone();
 
-        Arc::new(move |maybe_sync_state| {
-            let notification = if let Some(sync_state) = maybe_sync_state {
-                NodeNotification::Syncing(*sync_state)
-            } else {
-                NodeNotification::Synced
-            };
+        Arc::new(move |&sync_state| {
+            let notification = NodeNotification::SyncStateUpdate(sync_state);
 
             let mut notifications_sender = notifications_sender.clone();
 
@@ -331,14 +327,10 @@ async fn run(
     let _on_plotting_state_change_handler_id = farmer.on_plotting_state_change({
         let notifications_sender = notifications_sender.clone();
 
-        Arc::new(move |&farm_index, maybe_plotting_state| {
-            let notification = if let Some(plotting_state) = maybe_plotting_state {
-                FarmerNotification::Plotting {
-                    farm_index,
-                    state: *plotting_state,
-                }
-            } else {
-                FarmerNotification::Plotted { farm_index }
+        Arc::new(move |&farm_index, &plotting_state| {
+            let notification = FarmerNotification::PlottingStateUpdate {
+                farm_index,
+                state: plotting_state,
             };
 
             let mut notifications_sender = notifications_sender.clone();
@@ -352,6 +344,26 @@ async fn run(
                 })
             {
                 warn!(%error, "Failed to send plotting state backend notification");
+            }
+        })
+    });
+    let _on_piece_cache_sync_progress_handler_id = farmer.on_piece_cache_sync_progress({
+        let notifications_sender = notifications_sender.clone();
+
+        Arc::new(move |&progress| {
+            let notification = FarmerNotification::PieceCacheSyncProgress { progress };
+
+            let mut notifications_sender = notifications_sender.clone();
+
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Farmer(notification))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send piece cache sync progress backend notification");
             }
         })
     });

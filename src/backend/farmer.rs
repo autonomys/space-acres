@@ -1,7 +1,7 @@
 pub(super) mod maybe_node_client;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
-use crate::backend::utils::{Handler2, Handler2Fn};
+use crate::backend::utils::{Handler, Handler2, Handler2Fn, HandlerFn};
 use crate::PosTable;
 use anyhow::anyhow;
 use atomic::Atomic;
@@ -45,18 +45,24 @@ pub enum PlottingKind {
     Replotting,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PlottingState {
-    pub kind: PlottingKind,
-    /// Progress so far in % (not including this sector)
-    pub progress: f32,
-    /// Plotting/replotting speed in sectors/s
-    pub speed: Option<f32>,
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub enum PlottingState {
+    #[default]
+    Unknown,
+    Plotting {
+        kind: PlottingKind,
+        /// Progress so far in % (not including this sector)
+        progress: f32,
+        /// Plotting/replotting speed in sectors/s
+        speed: Option<f32>,
+    },
+    Idle,
 }
 
 #[derive(Default, Debug)]
 struct Handlers {
-    plotting_state_change: Handler2<usize, Option<PlottingState>>,
+    plotting_state_change: Handler2<usize, PlottingState>,
+    piece_cache_sync_progress: Handler<f32>,
 }
 
 pub(super) struct Farmer {
@@ -103,9 +109,13 @@ impl Farmer {
 
     pub(super) fn on_plotting_state_change(
         &self,
-        callback: Handler2Fn<usize, Option<PlottingState>>,
+        callback: Handler2Fn<usize, PlottingState>,
     ) -> HandlerId {
         self.handlers.plotting_state_change.add(callback)
+    }
+
+    pub(super) fn on_piece_cache_sync_progress(&self, callback: HandlerFn<f32>) -> HandlerId {
+        self.handlers.piece_cache_sync_progress.add(callback)
     }
 }
 
@@ -348,6 +358,17 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     info!("Finished collecting already plotted pieces successfully");
 
     let handlers = Arc::new(Handlers::default());
+
+    piece_cache
+        .on_sync_progress(Arc::new({
+            let handlers = Arc::clone(&handlers);
+
+            move |progress| {
+                handlers.piece_cache_sync_progress.call_simple(progress);
+            }
+        }))
+        .detach();
+
     let mut single_disk_farms_stream = single_disk_farms
         .into_iter()
         .enumerate()
@@ -366,7 +387,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                     let last_sector_plotted = Arc::clone(&last_sector_plotted);
 
                     move |plotting_details| {
-                        let state = PlottingState {
+                        let state = PlottingState::Plotting {
                             kind: if plotting_details.replotting {
                                 PlottingKind::Replotting
                             } else {
@@ -378,7 +399,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
                         handlers
                             .plotting_state_change
-                            .call_simple(&(disk_farm_index as usize), &Some(state));
+                            .call_simple(&(disk_farm_index as usize), &state);
 
                         if plotting_details.last_queued {
                             last_sector_plotted
@@ -418,7 +439,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                         {
                             handlers
                                 .plotting_state_change
-                                .call_simple(&(disk_farm_index as usize), &None);
+                                .call_simple(&(disk_farm_index as usize), &PlottingState::Idle);
                         }
                     }
                 };

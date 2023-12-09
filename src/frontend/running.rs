@@ -19,13 +19,14 @@ pub enum RunningInput {
 #[derive(Debug, Default)]
 struct NodeState {
     best_block_number: BlockNumber,
-    sync_state: Option<SyncState>,
+    sync_state: SyncState,
 }
 
 #[derive(Debug, Default)]
 struct FarmerState {
     /// One entry per farm
-    plotting_state: Vec<Option<PlottingState>>,
+    plotting_state: Vec<PlottingState>,
+    piece_cache_sync_progress: f32,
 }
 
 #[derive(Debug)]
@@ -59,8 +60,17 @@ impl Component for RunningView {
 
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match &model.node_state.sync_state {
-                    Some(sync_state) => gtk::Box {
+                match model.node_state.sync_state {
+                    SyncState::Unknown => gtk::Box {
+                        gtk::Label {
+                            #[watch]
+                            set_label: &format!(
+                                "Connecting to the network, best block #{}",
+                                model.node_state.best_block_number
+                            ),
+                        }
+                    },
+                    SyncState::Syncing { kind, target, speed } => gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 10,
 
@@ -70,7 +80,7 @@ impl Component for RunningView {
 
                                 #[watch]
                                 set_label: &{
-                                    let kind = match sync_state.kind {
+                                    let kind = match kind {
                                         SyncKind::Dsn => "Syncing from DSN",
                                         SyncKind::Regular => "Regular sync",
                                     };
@@ -79,8 +89,8 @@ impl Component for RunningView {
                                         "{} #{}/{}{}",
                                         kind,
                                         model.node_state.best_block_number,
-                                        sync_state.target,
-                                        sync_state.speed
+                                        target,
+                                        speed
                                             .map(|speed| format!(", {:.2} blocks/s", speed))
                                             .unwrap_or_default(),
                                     )
@@ -95,10 +105,10 @@ impl Component for RunningView {
 
                         gtk::ProgressBar {
                             #[watch]
-                            set_fraction: model.node_state.best_block_number as f64 / sync_state.target as f64,
+                            set_fraction: model.node_state.best_block_number as f64 / target as f64,
                         },
                     },
-                    None => gtk::Box {
+                    SyncState::Idle => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: &format!("Synced, best block #{}", model.node_state.best_block_number),
@@ -125,19 +135,46 @@ impl Component for RunningView {
                 // TODO: Render all farms, not just the first one
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match (&model.farmer_state.plotting_state[0], model.node_state.sync_state.is_none()) {
-                    (Some(plotting_state), true) => gtk::Box {
+                match (
+                    model.farmer_state.piece_cache_sync_progress,
+                    model.farmer_state.plotting_state.get(0).copied().unwrap_or_default(),
+                    model.node_state.sync_state
+                ) {
+                    (progress, _, _) if progress < 100.0 => gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 10,
 
                         gtk::Box {
-                            set_spacing: 10,
+                            gtk::Label {
+                                set_halign: gtk::Align::Start,
 
+                                #[watch]
+                                set_label: &format!("Piece cache sync {progress:.2}%"),
+                                set_tooltip: "Plotting starts after piece cache sync is complete",
+                            },
+
+                            gtk::Spinner {
+                                set_margin_start: 5,
+                                start: (),
+                            },
+                        },
+
+                        gtk::ProgressBar {
+                            #[watch]
+                            set_fraction: progress as f64 / 100.0,
+                        },
+                    },
+                    (_, PlottingState::Plotting { kind, progress, speed }, SyncState::Idle) => gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 10,
+
+                        gtk::Box {
                             gtk::Label {
                                 set_halign: gtk::Align::Start,
 
                                 #[watch]
                                 set_label: &{
-                                    let kind = match plotting_state.kind {
+                                    let kind = match kind {
                                         PlottingKind::Initial => "Initial plotting, not farming",
                                         PlottingKind::Replotting => "Replotting, farming",
                                     };
@@ -145,8 +182,8 @@ impl Component for RunningView {
                                     format!(
                                         "{} {:.2}%{}",
                                         kind,
-                                        plotting_state.progress,
-                                        plotting_state.speed
+                                        progress,
+                                        speed
                                             .map(|speed| format!(", {:.2} sectors/h", 3600.0 / speed))
                                             .unwrap_or_default(),
                                     )
@@ -162,10 +199,10 @@ impl Component for RunningView {
 
                         gtk::ProgressBar {
                             #[watch]
-                            set_fraction: plotting_state.progress as f64 / 100.0,
+                            set_fraction: progress as f64 / 100.0,
                         },
                     },
-                    (None, true) => gtk::Box {
+                    (_, PlottingState::Idle, SyncState::Idle) => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: "Farming",
@@ -211,41 +248,33 @@ impl RunningView {
             } => {
                 self.node_state = NodeState {
                     best_block_number,
-                    sync_state: None,
+                    sync_state: SyncState::default(),
                 };
                 self.farmer_state = FarmerState {
-                    plotting_state: vec![None; num_farms],
+                    plotting_state: vec![PlottingState::default(); num_farms],
+                    piece_cache_sync_progress: 0.0,
                 };
             }
             RunningInput::NodeNotification(node_notification) => match node_notification {
-                NodeNotification::Syncing(sync_state) => {
-                    self.node_state.sync_state = Some(sync_state);
-                }
-                NodeNotification::Synced => {
-                    self.node_state.sync_state = None;
+                NodeNotification::SyncStateUpdate(sync_state) => {
+                    self.node_state.sync_state = sync_state;
                 }
                 NodeNotification::BlockImported { number } => {
                     self.node_state.best_block_number = number;
                 }
             },
             RunningInput::FarmerNotification(farmer_notification) => match farmer_notification {
-                FarmerNotification::Plotting { farm_index, state } => {
+                FarmerNotification::PlottingStateUpdate { farm_index, state } => {
                     if let Some(plotting_state) =
                         self.farmer_state.plotting_state.get_mut(farm_index)
                     {
-                        plotting_state.replace(state);
+                        *plotting_state = state;
                     } else {
                         warn!(%farm_index, "Unexpected plotting farm index");
                     }
                 }
-                FarmerNotification::Plotted { farm_index } => {
-                    if let Some(plotting_state) =
-                        self.farmer_state.plotting_state.get_mut(farm_index)
-                    {
-                        plotting_state.take();
-                    } else {
-                        warn!(%farm_index, "Unexpected plotted farm index");
-                    }
+                FarmerNotification::PieceCacheSyncProgress { progress } => {
+                    self.farmer_state.piece_cache_sync_progress = progress;
                 }
             },
         }

@@ -97,7 +97,7 @@ pub struct ConfigurationView {
 
 #[relm4::component(pub)]
 impl Component for ConfigurationView {
-    type Init = ();
+    type Init = gtk::Window;
     type Input = ConfigurationInput;
     type Output = ConfigurationOutput;
     type CommandOutput = ();
@@ -343,12 +343,12 @@ impl Component for ConfigurationView {
     }
 
     fn init(
-        _init: Self::Init,
+        parent_root: Self::Init,
         root: &Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let open_dialog = OpenDialog::builder()
-            .transient_for_native(root)
+            .transient_for_native(&parent_root)
             .launch(OpenDialogSettings {
                 folder_mode: true,
                 accept_label: "Select".to_string(),

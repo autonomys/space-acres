@@ -171,7 +171,7 @@ impl AsyncComponent for App {
         let loading_view = LoadingView::builder().launch(()).detach();
 
         let configuration_view = ConfigurationView::builder()
-            .launch(())
+            .launch(root.clone())
             .forward(sender.input_sender(), AppInput::Configuration);
 
         let running_view = RunningView::builder().launch(()).detach();
