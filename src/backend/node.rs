@@ -53,17 +53,22 @@ pub enum SyncKind {
     Regular,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct SyncState {
-    pub kind: SyncKind,
-    pub target: BlockNumber,
-    /// Sync speed in blocks/s
-    pub speed: Option<f32>,
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub enum SyncState {
+    #[default]
+    Unknown,
+    Syncing {
+        kind: SyncKind,
+        target: BlockNumber,
+        /// Sync speed in blocks/s
+        speed: Option<f32>,
+    },
+    Synced,
 }
 
 #[derive(Default, Debug)]
 struct Handlers {
-    sync_state_change: Handler<Option<SyncState>>,
+    sync_state_change: Handler<SyncState>,
     block_imported: Handler<BlockNumber>,
 }
 
@@ -111,7 +116,7 @@ impl ConsensusNode {
             let mut sync_status_interval = tokio::time::interval(SYNC_STATUS_EVENT_INTERVAL);
             sync_status_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-            let mut last_sync_state = None;
+            let mut last_sync_state = SyncState::Unknown;
             self.handlers
                 .sync_state_change
                 .call_simple(&last_sync_state);
@@ -121,7 +126,7 @@ impl ConsensusNode {
 
                 if let Ok(sync_status) = self.full_node.sync_service.status().await {
                     let sync_state = if sync_status.state.is_major_syncing() {
-                        Some(SyncState {
+                        SyncState::Syncing {
                             kind: match self.sync_mode.load(Ordering::Acquire) {
                                 SyncMode::Paused => {
                                     // We are pausing Substrate's sync during sync from DNS
@@ -132,9 +137,11 @@ impl ConsensusNode {
                             target: sync_status.best_seen_block.unwrap_or_default(),
                             // TODO: Sync speed
                             speed: None,
-                        })
+                        }
+                    } else if sync_status.num_connected_peers > 0 {
+                        SyncState::Synced
                     } else {
-                        None
+                        SyncState::Unknown
                     };
 
                     if sync_state != last_sync_state {
@@ -165,7 +172,7 @@ impl ConsensusNode {
         self.full_node.client.info().best_number
     }
 
-    pub(super) fn on_sync_state_change(&self, callback: HandlerFn<Option<SyncState>>) -> HandlerId {
+    pub(super) fn on_sync_state_change(&self, callback: HandlerFn<SyncState>) -> HandlerId {
         self.handlers.sync_state_change.add(callback)
     }
 

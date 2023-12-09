@@ -61,8 +61,7 @@ pub enum LoadingStep {
 
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
-    Syncing(SyncState),
-    Synced,
+    SyncStateUpdate(SyncState),
     BlockImported { number: BlockNumber },
 }
 
@@ -287,12 +286,8 @@ async fn run(
     let _on_sync_state_change_handler_id = consensus_node.on_sync_state_change({
         let notifications_sender = notifications_sender.clone();
 
-        Arc::new(move |maybe_sync_state| {
-            let notification = if let Some(sync_state) = maybe_sync_state {
-                NodeNotification::Syncing(*sync_state)
-            } else {
-                NodeNotification::Synced
-            };
+        Arc::new(move |&sync_state| {
+            let notification = NodeNotification::SyncStateUpdate(sync_state);
 
             let mut notifications_sender = notifications_sender.clone();
 

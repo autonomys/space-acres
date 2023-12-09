@@ -19,7 +19,7 @@ pub enum RunningInput {
 #[derive(Debug, Default)]
 struct NodeState {
     best_block_number: BlockNumber,
-    sync_state: Option<SyncState>,
+    sync_state: SyncState,
 }
 
 #[derive(Debug, Default)]
@@ -59,8 +59,17 @@ impl Component for RunningView {
 
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match &model.node_state.sync_state {
-                    Some(sync_state) => gtk::Box {
+                match model.node_state.sync_state {
+                    SyncState::Unknown => gtk::Box {
+                        gtk::Label {
+                            #[watch]
+                            set_label: &format!(
+                                "Connecting to the network, best block #{}",
+                                model.node_state.best_block_number
+                            ),
+                        }
+                    },
+                    SyncState::Syncing { kind, target, speed } => gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 10,
 
@@ -70,7 +79,7 @@ impl Component for RunningView {
 
                                 #[watch]
                                 set_label: &{
-                                    let kind = match sync_state.kind {
+                                    let kind = match kind {
                                         SyncKind::Dsn => "Syncing from DSN",
                                         SyncKind::Regular => "Regular sync",
                                     };
@@ -79,8 +88,8 @@ impl Component for RunningView {
                                         "{} #{}/{}{}",
                                         kind,
                                         model.node_state.best_block_number,
-                                        sync_state.target,
-                                        sync_state.speed
+                                        target,
+                                        speed
                                             .map(|speed| format!(", {:.2} blocks/s", speed))
                                             .unwrap_or_default(),
                                     )
@@ -95,10 +104,10 @@ impl Component for RunningView {
 
                         gtk::ProgressBar {
                             #[watch]
-                            set_fraction: model.node_state.best_block_number as f64 / sync_state.target as f64,
+                            set_fraction: model.node_state.best_block_number as f64 / target as f64,
                         },
                     },
-                    None => gtk::Box {
+                    SyncState::Synced => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: &format!("Synced, best block #{}", model.node_state.best_block_number),
@@ -125,8 +134,8 @@ impl Component for RunningView {
                 // TODO: Render all farms, not just the first one
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match (&model.farmer_state.plotting_state[0], model.node_state.sync_state.is_none()) {
-                    (Some(plotting_state), true) => gtk::Box {
+                match (&model.farmer_state.plotting_state[0], model.node_state.sync_state) {
+                    (Some(plotting_state), SyncState::Synced) => gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
 
                         gtk::Box {
@@ -165,7 +174,7 @@ impl Component for RunningView {
                             set_fraction: plotting_state.progress as f64 / 100.0,
                         },
                     },
-                    (None, true) => gtk::Box {
+                    (None, SyncState::Synced) => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: "Farming",
@@ -211,18 +220,15 @@ impl RunningView {
             } => {
                 self.node_state = NodeState {
                     best_block_number,
-                    sync_state: None,
+                    sync_state: SyncState::default(),
                 };
                 self.farmer_state = FarmerState {
                     plotting_state: vec![None; num_farms],
                 };
             }
             RunningInput::NodeNotification(node_notification) => match node_notification {
-                NodeNotification::Syncing(sync_state) => {
-                    self.node_state.sync_state = Some(sync_state);
-                }
-                NodeNotification::Synced => {
-                    self.node_state.sync_state = None;
+                NodeNotification::SyncStateUpdate(sync_state) => {
+                    self.node_state.sync_state = sync_state;
                 }
                 NodeNotification::BlockImported { number } => {
                     self.node_state.best_block_number = number;
