@@ -45,18 +45,23 @@ pub enum PlottingKind {
     Replotting,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PlottingState {
-    pub kind: PlottingKind,
-    /// Progress so far in % (not including this sector)
-    pub progress: f32,
-    /// Plotting/replotting speed in sectors/s
-    pub speed: Option<f32>,
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub enum PlottingState {
+    #[default]
+    Unknown,
+    Plotting {
+        kind: PlottingKind,
+        /// Progress so far in % (not including this sector)
+        progress: f32,
+        /// Plotting/replotting speed in sectors/s
+        speed: Option<f32>,
+    },
+    Idle,
 }
 
 #[derive(Default, Debug)]
 struct Handlers {
-    plotting_state_change: Handler2<usize, Option<PlottingState>>,
+    plotting_state_change: Handler2<usize, PlottingState>,
 }
 
 pub(super) struct Farmer {
@@ -103,7 +108,7 @@ impl Farmer {
 
     pub(super) fn on_plotting_state_change(
         &self,
-        callback: Handler2Fn<usize, Option<PlottingState>>,
+        callback: Handler2Fn<usize, PlottingState>,
     ) -> HandlerId {
         self.handlers.plotting_state_change.add(callback)
     }
@@ -366,7 +371,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                     let last_sector_plotted = Arc::clone(&last_sector_plotted);
 
                     move |plotting_details| {
-                        let state = PlottingState {
+                        let state = PlottingState::Plotting {
                             kind: if plotting_details.replotting {
                                 PlottingKind::Replotting
                             } else {
@@ -378,7 +383,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
                         handlers
                             .plotting_state_change
-                            .call_simple(&(disk_farm_index as usize), &Some(state));
+                            .call_simple(&(disk_farm_index as usize), &state);
 
                         if plotting_details.last_queued {
                             last_sector_plotted
@@ -418,7 +423,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                         {
                             handlers
                                 .plotting_state_change
-                                .call_simple(&(disk_farm_index as usize), &None);
+                                .call_simple(&(disk_farm_index as usize), &PlottingState::Idle);
                         }
                     }
                 };

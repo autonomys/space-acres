@@ -63,7 +63,7 @@ pub enum SyncState {
         /// Sync speed in blocks/s
         speed: Option<f32>,
     },
-    Synced,
+    Idle,
 }
 
 #[derive(Default, Debug)]
@@ -139,7 +139,7 @@ impl ConsensusNode {
                             speed: None,
                         }
                     } else if sync_status.num_connected_peers > 0 {
-                        SyncState::Synced
+                        SyncState::Idle
                     } else {
                         SyncState::Unknown
                     };

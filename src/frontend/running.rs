@@ -25,7 +25,7 @@ struct NodeState {
 #[derive(Debug, Default)]
 struct FarmerState {
     /// One entry per farm
-    plotting_state: Vec<Option<PlottingState>>,
+    plotting_state: Vec<PlottingState>,
 }
 
 #[derive(Debug)]
@@ -107,7 +107,7 @@ impl Component for RunningView {
                             set_fraction: model.node_state.best_block_number as f64 / target as f64,
                         },
                     },
-                    SyncState::Synced => gtk::Box {
+                    SyncState::Idle => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: &format!("Synced, best block #{}", model.node_state.best_block_number),
@@ -134,8 +134,8 @@ impl Component for RunningView {
                 // TODO: Render all farms, not just the first one
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match (&model.farmer_state.plotting_state[0], model.node_state.sync_state) {
-                    (Some(plotting_state), SyncState::Synced) => gtk::Box {
+                match (model.farmer_state.plotting_state[0], model.node_state.sync_state) {
+                    (PlottingState::Plotting { kind, progress, speed }, SyncState::Idle) => gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
 
                         gtk::Box {
@@ -146,7 +146,7 @@ impl Component for RunningView {
 
                                 #[watch]
                                 set_label: &{
-                                    let kind = match plotting_state.kind {
+                                    let kind = match kind {
                                         PlottingKind::Initial => "Initial plotting, not farming",
                                         PlottingKind::Replotting => "Replotting, farming",
                                     };
@@ -154,8 +154,8 @@ impl Component for RunningView {
                                     format!(
                                         "{} {:.2}%{}",
                                         kind,
-                                        plotting_state.progress,
-                                        plotting_state.speed
+                                        progress,
+                                        speed
                                             .map(|speed| format!(", {:.2} sectors/h", 3600.0 / speed))
                                             .unwrap_or_default(),
                                     )
@@ -171,10 +171,10 @@ impl Component for RunningView {
 
                         gtk::ProgressBar {
                             #[watch]
-                            set_fraction: plotting_state.progress as f64 / 100.0,
+                            set_fraction: progress as f64 / 100.0,
                         },
                     },
-                    (None, SyncState::Synced) => gtk::Box {
+                    (PlottingState::Idle, SyncState::Idle) => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: "Farming",
@@ -223,7 +223,7 @@ impl RunningView {
                     sync_state: SyncState::default(),
                 };
                 self.farmer_state = FarmerState {
-                    plotting_state: vec![None; num_farms],
+                    plotting_state: vec![PlottingState::default(); num_farms],
                 };
             }
             RunningInput::NodeNotification(node_notification) => match node_notification {
@@ -235,22 +235,13 @@ impl RunningView {
                 }
             },
             RunningInput::FarmerNotification(farmer_notification) => match farmer_notification {
-                FarmerNotification::Plotting { farm_index, state } => {
+                FarmerNotification::PlottingStateUpdate { farm_index, state } => {
                     if let Some(plotting_state) =
                         self.farmer_state.plotting_state.get_mut(farm_index)
                     {
-                        plotting_state.replace(state);
+                        *plotting_state = state;
                     } else {
                         warn!(%farm_index, "Unexpected plotting farm index");
-                    }
-                }
-                FarmerNotification::Plotted { farm_index } => {
-                    if let Some(plotting_state) =
-                        self.farmer_state.plotting_state.get_mut(farm_index)
-                    {
-                        plotting_state.take();
-                    } else {
-                        warn!(%farm_index, "Unexpected plotted farm index");
                     }
                 }
             },

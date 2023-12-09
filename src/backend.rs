@@ -67,12 +67,9 @@ pub enum NodeNotification {
 
 #[derive(Debug, Clone)]
 pub enum FarmerNotification {
-    Plotting {
+    PlottingStateUpdate {
         farm_index: usize,
         state: PlottingState,
-    },
-    Plotted {
-        farm_index: usize,
     },
 }
 
@@ -326,14 +323,10 @@ async fn run(
     let _on_plotting_state_change_handler_id = farmer.on_plotting_state_change({
         let notifications_sender = notifications_sender.clone();
 
-        Arc::new(move |&farm_index, maybe_plotting_state| {
-            let notification = if let Some(plotting_state) = maybe_plotting_state {
-                FarmerNotification::Plotting {
-                    farm_index,
-                    state: *plotting_state,
-                }
-            } else {
-                FarmerNotification::Plotted { farm_index }
+        Arc::new(move |&farm_index, &plotting_state| {
+            let notification = FarmerNotification::PlottingStateUpdate {
+                farm_index,
+                state: plotting_state,
             };
 
             let mut notifications_sender = notifications_sender.clone();
