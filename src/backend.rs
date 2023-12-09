@@ -71,6 +71,10 @@ pub enum FarmerNotification {
         farm_index: usize,
         state: PlottingState,
     },
+    PieceCacheSyncProgress {
+        /// Progress so far in %
+        progress: f32,
+    },
 }
 
 /// Notification messages send from backend about its operation
@@ -340,6 +344,26 @@ async fn run(
                 })
             {
                 warn!(%error, "Failed to send plotting state backend notification");
+            }
+        })
+    });
+    let _on_piece_cache_sync_progress_handler_id = farmer.on_piece_cache_sync_progress({
+        let notifications_sender = notifications_sender.clone();
+
+        Arc::new(move |&progress| {
+            let notification = FarmerNotification::PieceCacheSyncProgress { progress };
+
+            let mut notifications_sender = notifications_sender.clone();
+
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Farmer(notification))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send piece cache sync progress backend notification");
             }
         })
     });

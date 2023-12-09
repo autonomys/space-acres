@@ -26,6 +26,7 @@ struct NodeState {
 struct FarmerState {
     /// One entry per farm
     plotting_state: Vec<PlottingState>,
+    piece_cache_sync_progress: f32,
 }
 
 #[derive(Debug)]
@@ -134,13 +135,40 @@ impl Component for RunningView {
                 // TODO: Render all farms, not just the first one
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match (model.farmer_state.plotting_state[0], model.node_state.sync_state) {
-                    (PlottingState::Plotting { kind, progress, speed }, SyncState::Idle) => gtk::Box {
+                match (
+                    model.farmer_state.piece_cache_sync_progress,
+                    model.farmer_state.plotting_state.get(0).copied().unwrap_or_default(),
+                    model.node_state.sync_state
+                ) {
+                    (progress, _, _) if progress < 100.0 => gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 10,
 
                         gtk::Box {
-                            set_spacing: 10,
+                            gtk::Label {
+                                set_halign: gtk::Align::Start,
 
+                                #[watch]
+                                set_label: &format!("Piece cache sync {progress:.2}%"),
+                                set_tooltip: "Plotting starts after piece cache sync is complete",
+                            },
+
+                            gtk::Spinner {
+                                set_margin_start: 5,
+                                start: (),
+                            },
+                        },
+
+                        gtk::ProgressBar {
+                            #[watch]
+                            set_fraction: progress as f64 / 100.0,
+                        },
+                    },
+                    (_, PlottingState::Plotting { kind, progress, speed }, SyncState::Idle) => gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 10,
+
+                        gtk::Box {
                             gtk::Label {
                                 set_halign: gtk::Align::Start,
 
@@ -174,7 +202,7 @@ impl Component for RunningView {
                             set_fraction: progress as f64 / 100.0,
                         },
                     },
-                    (PlottingState::Idle, SyncState::Idle) => gtk::Box {
+                    (_, PlottingState::Idle, SyncState::Idle) => gtk::Box {
                         gtk::Label {
                             #[watch]
                             set_label: "Farming",
@@ -224,6 +252,7 @@ impl RunningView {
                 };
                 self.farmer_state = FarmerState {
                     plotting_state: vec![PlottingState::default(); num_farms],
+                    piece_cache_sync_progress: 0.0,
                 };
             }
             RunningInput::NodeNotification(node_notification) => match node_notification {
@@ -243,6 +272,9 @@ impl RunningView {
                     } else {
                         warn!(%farm_index, "Unexpected plotting farm index");
                     }
+                }
+                FarmerNotification::PieceCacheSyncProgress { progress } => {
+                    self.farmer_state.piece_cache_sync_progress = progress;
                 }
             },
         }
