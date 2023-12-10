@@ -26,13 +26,18 @@ pub enum ConfigurationInput {
     OpenDirectory(DirectoryKind),
     DirectorySelected(PathBuf),
     FarmSizeChanged { farm_index: usize, size: String },
+    Reconfigure(RawConfig),
     Start,
+    Cancel,
+    Save,
     Ignore,
 }
 
 #[derive(Debug)]
 pub enum ConfigurationOutput {
     StartWithNewConfig(RawConfig),
+    ConfigUpdate(RawConfig),
+    Close,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -93,6 +98,7 @@ pub struct ConfigurationView {
     farms: Vec<DiskFarm>,
     pending_directory_selection: Option<DirectoryKind>,
     open_dialog: Controller<OpenDialog>,
+    reconfiguration: bool,
 }
 
 #[relm4::component(pub)]
@@ -112,6 +118,7 @@ impl Component for ConfigurationView {
 
                 gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
+                    set_spacing: 20,
 
                     gtk::ListBox {
                         gtk::ListBoxRow {
@@ -315,27 +322,60 @@ impl Component for ConfigurationView {
                         },
                     },
 
-                    gtk::Box {
-                        set_halign: gtk::Align::End,
+                    if model.reconfiguration {
+                        gtk::Box {
+                            set_halign: gtk::Align::End,
+                            set_spacing: 10,
 
-                        gtk::Button {
-                            add_css_class: "suggested-action",
-                            connect_clicked => ConfigurationInput::Start,
-                            set_margin_top: 20,
-                            #[watch]
-                            set_sensitive:
-                                model.reward_address.valid()
-                                    && model.node_path.valid()
-                                    && !model.farms.is_empty()
-                                    && model.farms.iter().all(|farm| {
-                                        farm.path.valid() && farm.size.valid()
-                                    }),
+                            gtk::Button {
+                                connect_clicked => ConfigurationInput::Cancel,
 
-                            gtk::Label {
-                                set_label: "Start",
-                                set_margin_all: 10,
+                                gtk::Label {
+                                    set_label: "Cancel",
+                                    set_margin_all: 10,
+                                },
                             },
-                        },
+
+                            gtk::Button {
+                                add_css_class: "suggested-action",
+                                connect_clicked => ConfigurationInput::Save,
+                                #[watch]
+                                set_sensitive:
+                                    model.reward_address.valid()
+                                        && model.node_path.valid()
+                                        && !model.farms.is_empty()
+                                        && model.farms.iter().all(|farm| {
+                                            farm.path.valid() && farm.size.valid()
+                                        }),
+
+                                gtk::Label {
+                                    set_label: "Save",
+                                    set_margin_all: 10,
+                                },
+                            },
+                        }
+                    } else {
+                        gtk::Box {
+                            set_halign: gtk::Align::End,
+
+                            gtk::Button {
+                                add_css_class: "suggested-action",
+                                connect_clicked => ConfigurationInput::Start,
+                                #[watch]
+                                set_sensitive:
+                                    model.reward_address.valid()
+                                        && model.node_path.valid()
+                                        && !model.farms.is_empty()
+                                        && model.farms.iter().all(|farm| {
+                                            farm.path.valid() && farm.size.valid()
+                                        }),
+
+                                gtk::Label {
+                                    set_label: "Start",
+                                    set_margin_all: 10,
+                                },
+                            },
+                        }
                     },
                 },
             },
@@ -365,6 +405,7 @@ impl Component for ConfigurationView {
             farms: Default::default(),
             pending_directory_selection: Default::default(),
             open_dialog,
+            reconfiguration: false,
         };
 
         let widgets = view_output!();
@@ -433,29 +474,63 @@ impl ConfigurationView {
                     })
                 }
             }
+            ConfigurationInput::Reconfigure(raw_config) => {
+                // `Unknown` is a hack to make it actually render the first time
+                self.reward_address = MaybeValid::Unknown(raw_config.reward_address().to_string());
+                self.node_path = MaybeValid::Valid(raw_config.node_path().clone());
+                self.farms = raw_config
+                    .farms()
+                    .iter()
+                    .map(|farm| DiskFarm {
+                        path: MaybeValid::Valid(farm.path.clone()),
+                        // `Unknown` is a hack to make it actually render the first time
+                        size: MaybeValid::Unknown(farm.size.clone()),
+                    })
+                    .collect();
+                self.reconfiguration = true;
+            }
             ConfigurationInput::Start => {
-                let config = RawConfig::V0 {
-                    reward_address: String::clone(&self.reward_address),
-                    node_path: PathBuf::clone(&self.node_path),
-                    farms: self
-                        .farms
-                        .iter()
-                        .map(|farm| Farm {
-                            path: PathBuf::clone(&farm.path),
-                            size: String::clone(&farm.size),
-                        })
-                        .collect(),
-                };
                 if sender
-                    .output(ConfigurationOutput::StartWithNewConfig(config))
+                    .output(ConfigurationOutput::StartWithNewConfig(
+                        self.create_raw_config(),
+                    ))
                     .is_err()
                 {
                     debug!("Failed to send ConfigurationOutput::StartWithNewConfig");
                 }
             }
+            ConfigurationInput::Cancel => {
+                if sender.output(ConfigurationOutput::Close).is_err() {
+                    debug!("Failed to send ConfigurationOutput::Close");
+                }
+            }
+            ConfigurationInput::Save => {
+                if sender
+                    .output(ConfigurationOutput::ConfigUpdate(self.create_raw_config()))
+                    .is_err()
+                {
+                    debug!("Failed to send ConfigurationOutput::ConfigUpdate");
+                }
+            }
             ConfigurationInput::Ignore => {
                 // Ignore
             }
+        }
+    }
+
+    /// Create raw config from own state
+    fn create_raw_config(&self) -> RawConfig {
+        RawConfig::V0 {
+            reward_address: String::clone(&self.reward_address),
+            node_path: PathBuf::clone(&self.node_path),
+            farms: self
+                .farms
+                .iter()
+                .map(|farm| Farm {
+                    path: PathBuf::clone(&farm.path),
+                    size: String::clone(&farm.size),
+                })
+                .collect(),
         }
     }
 }

@@ -4,8 +4,9 @@
 mod backend;
 mod frontend;
 
+use crate::backend::config::RawConfig;
 use crate::backend::{BackendAction, BackendNotification};
-use crate::frontend::configuration::{ConfigurationOutput, ConfigurationView};
+use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::running::{RunningInput, RunningView};
 use futures::channel::mpsc;
@@ -32,12 +33,14 @@ type PosTable = ChiaTable;
 enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
+    OpenReconfiguration,
     ShowAboutDialog,
 }
 
 enum View {
     Loading,
     Configuration,
+    Reconfiguration,
     Running,
     Stopped(Option<anyhow::Error>),
     Error(anyhow::Error),
@@ -48,6 +51,7 @@ impl View {
         match self {
             Self::Loading => "Loading",
             Self::Configuration => "Configuration",
+            Self::Reconfiguration => "Reconfiguration",
             Self::Running => "Running",
             Self::Stopped(_) => "Stopped",
             Self::Error(_) => "Error",
@@ -55,15 +59,57 @@ impl View {
     }
 }
 
+#[derive(Debug, Default)]
+enum StatusBarNotification {
+    #[default]
+    None,
+    Warning(String),
+    Error(String),
+}
+
+impl StatusBarNotification {
+    fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    fn css_classes() -> &'static [&'static str] {
+        &["label", "warning-label", "error-label"]
+    }
+
+    fn css_class(&self) -> &'static str {
+        match self {
+            Self::None => "label",
+            Self::Warning(_) => "warning-label",
+            Self::Error(_) => "error-label",
+        }
+    }
+
+    fn message(&self) -> &str {
+        match self {
+            Self::None => "",
+            Self::Warning(message) | Self::Error(message) => message.as_str(),
+        }
+    }
+}
+
 // TODO: Efficient updates with tracker
 struct App {
     current_view: View,
+    current_raw_config: Option<RawConfig>,
+    status_bar_notification: StatusBarNotification,
     backend_action_sender: mpsc::Sender<BackendAction>,
     loading_view: Controller<LoadingView>,
     configuration_view: Controller<ConfigurationView>,
     running_view: Controller<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
+    backend_notification_sender: mpsc::Sender<BackendNotification>,
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        self.backend_notification_sender.close_channel();
+    }
 }
 
 #[relm4::component(async)]
@@ -98,10 +144,15 @@ impl AsyncComponent for App {
                                 set_spacing: 5,
 
                                 gtk::Button {
+                                    connect_clicked => AppInput::OpenReconfiguration,
+                                    set_label: "Update configuration",
+                                    #[watch]
+                                    set_visible: model.current_raw_config.is_some(),
+                                },
+
+                                gtk::Button {
+                                    connect_clicked => AppInput::ShowAboutDialog,
                                     set_label: "About",
-                                    connect_clicked[sender] => move |_| {
-                                        sender.input(AppInput::ShowAboutDialog);
-                                    },
                                 },
                             },
                         },
@@ -111,11 +162,12 @@ impl AsyncComponent for App {
                 gtk::Box {
                     set_margin_all: 10,
                     set_orientation: gtk::Orientation::Vertical,
+                    set_spacing: 10,
 
                     #[transition = "SlideLeftRight"]
                     match &model.current_view {
                         View::Loading => model.loading_view.widget().clone(),
-                        View::Configuration => model.configuration_view.widget().clone(),
+                        View::Configuration | View::Reconfiguration => model.configuration_view.widget().clone(),
                         View::Running=> model.running_view.widget().clone(),
                         View::Stopped(Some(error)) => {
                             // TODO: Better error handling
@@ -137,6 +189,22 @@ impl AsyncComponent for App {
                             }
                         },
                     },
+
+                    #[name = "status_bar_notification_label"]
+                    gtk::Label {
+                        #[track = "!status_bar_notification_label.has_css_class(model.status_bar_notification.css_class())"]
+                        add_css_class: {
+                            for css_class in StatusBarNotification::css_classes() {
+                                status_bar_notification_label.remove_css_class(css_class);
+                            }
+
+                            model.status_bar_notification.css_class()
+                        },
+                        #[watch]
+                        set_label: model.status_bar_notification.message(),
+                        #[watch]
+                        set_visible: !model.status_bar_notification.is_none(),
+                    },
                 },
             }
         }
@@ -147,13 +215,18 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let (action_sender, action_receiver) = mpsc::channel(1);
-        let (notification_sender, mut notification_receiver) = mpsc::channel(100);
+        let (backend_action_sender, backend_action_receiver) = mpsc::channel(1);
+        let (backend_notification_sender, mut backend_notification_receiver) = mpsc::channel(100);
 
         // Create backend in dedicated thread
-        tokio::task::spawn_blocking(move || {
-            if true {
-                Handle::current().block_on(backend::create(action_receiver, notification_sender));
+        tokio::task::spawn_blocking({
+            let backend_notification_sender = backend_notification_sender.clone();
+
+            move || {
+                Handle::current().block_on(backend::create(
+                    backend_action_receiver,
+                    backend_notification_sender,
+                ));
             }
         });
 
@@ -162,7 +235,7 @@ impl AsyncComponent for App {
             let sender = sender.clone();
 
             async move {
-                while let Some(notification) = notification_receiver.next().await {
+                while let Some(notification) = backend_notification_receiver.next().await {
                     sender.input(AppInput::BackendNotification(notification));
                 }
             }
@@ -198,13 +271,16 @@ impl AsyncComponent for App {
 
         let mut model = Self {
             current_view: View::Loading,
-            backend_action_sender: action_sender,
+            current_raw_config: None,
+            status_bar_notification: StatusBarNotification::None,
+            backend_action_sender,
             loading_view,
             configuration_view,
             running_view,
             // Hack to initialize a field before this data structure is used
             menu_popover: gtk::Popover::default(),
             about_dialog,
+            backend_notification_sender,
         };
 
         let widgets = view_output!();
@@ -228,6 +304,14 @@ impl AsyncComponent for App {
                 self.process_configuration_output(configuration_output)
                     .await;
             }
+            AppInput::OpenReconfiguration => {
+                self.menu_popover.hide();
+                if let Some(raw_config) = self.current_raw_config.clone() {
+                    self.configuration_view
+                        .emit(ConfigurationInput::Reconfigure(raw_config));
+                    self.current_view = View::Reconfiguration;
+                }
+            }
             AppInput::ShowAboutDialog => {
                 self.menu_popover.hide();
                 self.about_dialog.show();
@@ -242,22 +326,37 @@ impl App {
             // TODO: Render progress
             BackendNotification::Loading { step, progress: _ } => {
                 self.current_view = View::Loading;
+                self.status_bar_notification = StatusBarNotification::None;
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
             BackendNotification::NotConfigured => {
                 // TODO: Welcome screen first
                 self.current_view = View::Configuration;
             }
-            BackendNotification::ConfigurationIsInvalid { .. } => {
-                // TODO: Toast with configuration error, render old values with corresponding validity status once
-                //  notification has that information
-                self.current_view = View::Configuration;
+            BackendNotification::ConfigurationIsInvalid { error, .. } => {
+                self.status_bar_notification =
+                    StatusBarNotification::Error(format!("Configuration is invalid: {error}"));
             }
+            BackendNotification::ConfigSaveResult(result) => match result {
+                Ok(()) => {
+                    self.status_bar_notification = StatusBarNotification::Warning(
+                        "Application restart is needed for configuration changes to take effect"
+                            .to_string(),
+                    );
+                }
+                Err(error) => {
+                    self.status_bar_notification = StatusBarNotification::Error(format!(
+                        "Failed to save configuration changes: {error}"
+                    ));
+                }
+            },
             BackendNotification::Running {
                 config,
+                raw_config,
                 best_block_number,
             } => {
                 let num_farms = config.farms.len();
+                self.current_raw_config.replace(raw_config);
                 self.current_view = View::Running;
                 self.running_view.emit(RunningInput::Initialize {
                     best_block_number,
@@ -283,15 +382,32 @@ impl App {
 
     async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
         match configuration_output {
-            ConfigurationOutput::StartWithNewConfig(config) => {
+            ConfigurationOutput::StartWithNewConfig(raw_config) => {
                 if let Err(error) = self
                     .backend_action_sender
-                    .send(BackendAction::NewConfig { config })
+                    .send(BackendAction::NewConfig { raw_config })
                     .await
                 {
                     self.current_view =
                         View::Error(anyhow::anyhow!("Failed to send config to backend: {error}"));
                 }
+            }
+            ConfigurationOutput::ConfigUpdate(raw_config) => {
+                self.current_raw_config.replace(raw_config.clone());
+                // Config is updated when application is already running, switch to corresponding screen
+                self.current_view = View::Running;
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::NewConfig { raw_config })
+                    .await
+                {
+                    self.current_view =
+                        View::Error(anyhow::anyhow!("Failed to send config to backend: {error}"));
+                }
+            }
+            ConfigurationOutput::Close => {
+                // Configuration view is closed when application is already running, switch to corresponding screen
+                self.current_view = View::Running;
             }
         }
     }
