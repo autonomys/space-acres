@@ -10,3 +10,11 @@ progressbar trough {
 progressbar progress {
     min-height: inherit;
 }
+
+.warning-label {
+    color: #ffA400;
+}
+
+.error-label {
+    color: #ff3800;
+}

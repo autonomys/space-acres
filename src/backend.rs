@@ -17,7 +17,7 @@ use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
 use parking_lot::Mutex;
 use sc_subspace_chain_specs::GEMINI_3G_CHAIN_SPEC;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::Arc;
 use subspace_core_primitives::{BlockNumber, PublicKey};
@@ -94,8 +94,10 @@ pub enum BackendNotification {
         config: RawConfig,
         error: ConfigError,
     },
+    ConfigSaveResult(anyhow::Result<()>),
     Running {
         config: Config,
+        raw_config: RawConfig,
         best_block_number: BlockNumber,
     },
     Node(NodeNotification),
@@ -113,7 +115,17 @@ pub enum BackendNotification {
 /// Control action messages sent to backend to control its behavior
 #[derive(Debug)]
 pub enum BackendAction {
-    NewConfig { config: RawConfig },
+    /// Config was created or updated
+    NewConfig { raw_config: RawConfig },
+}
+
+struct LoadedBackend {
+    config: Config,
+    raw_config: RawConfig,
+    config_file_path: PathBuf,
+    consensus_node: ConsensusNode,
+    farmer: Farmer,
+    node_runner: NodeRunner<PieceCache>,
 }
 
 // NOTE: this is an async function, but it might do blocking operations and should be running on a
@@ -124,8 +136,8 @@ pub async fn create(
 ) {
     let loading_result = try {
         'load: loop {
-            if let Some(result) = load(&mut notifications_sender).await? {
-                break result;
+            if let Some(backend_loaded) = load(&mut notifications_sender).await? {
+                break backend_loaded;
             }
 
             if let Err(error) = notifications_sender
@@ -140,18 +152,18 @@ pub async fn create(
             #[allow(clippy::never_loop)]
             while let Some(backend_action) = backend_action_receiver.next().await {
                 match backend_action {
-                    BackendAction::NewConfig { config } => {
-                        if let Err(error) = Config::try_from_raw_config(&config).await {
+                    BackendAction::NewConfig { raw_config } => {
+                        if let Err(error) = Config::try_from_raw_config(&raw_config).await {
                             notifications_sender
                                 .send(BackendNotification::ConfigurationIsInvalid {
-                                    config: config.clone(),
+                                    config: raw_config.clone(),
                                     error,
                                 })
                                 .await?;
                         }
 
                         let config_file_path = RawConfig::default_path().await?;
-                        config
+                        raw_config
                             .write_to_path(&config_file_path)
                             .await
                             .map_err(|error| {
@@ -172,10 +184,10 @@ pub async fn create(
         }
     };
 
-    let (config, consensus_node, farmer, node_runner) = match loading_result {
-        Ok(result) => {
+    let loaded_backend = match loading_result {
+        Ok(loaded_backend) => {
             // Loaded successfully
-            result
+            loaded_backend
         }
         Err(error) => {
             if let Err(error) = notifications_sender
@@ -189,10 +201,8 @@ pub async fn create(
     };
 
     let run_fut = run(
-        config,
-        consensus_node,
-        farmer,
-        node_runner,
+        loaded_backend,
+        &mut backend_action_receiver,
         &mut notifications_sender,
     );
     if let Err(error) = run_fut.await {
@@ -207,12 +217,13 @@ pub async fn create(
 
 async fn load(
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
-) -> anyhow::Result<Option<(Config, ConsensusNode, Farmer, NodeRunner<PieceCache>)>> {
-    let Some(config) = load_configuration(notifications_sender).await? else {
+) -> anyhow::Result<Option<LoadedBackend>> {
+    let (config_file_path, Some(raw_config)) = load_configuration(notifications_sender).await?
+    else {
         return Ok(None);
     };
 
-    let Some(config) = check_configuration(&config, notifications_sender).await? else {
+    let Some(config) = check_configuration(&raw_config, notifications_sender).await? else {
         return Ok(None);
     };
 
@@ -257,16 +268,29 @@ async fn load(
     )
     .await?;
 
-    Ok(Some((config, consensus_node, farmer, node_runner)))
+    Ok(Some(LoadedBackend {
+        config,
+        raw_config,
+        config_file_path,
+        consensus_node,
+        farmer,
+        node_runner,
+    }))
 }
 
 async fn run(
-    config: Config,
-    consensus_node: ConsensusNode,
-    farmer: Farmer,
-    mut node_runner: NodeRunner<PieceCache>,
+    loaded_backend: LoadedBackend,
+    backend_action_receiver: &mut mpsc::Receiver<BackendAction>,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<()> {
+    let LoadedBackend {
+        config,
+        raw_config,
+        config_file_path,
+        consensus_node,
+        farmer,
+        mut node_runner,
+    } = loaded_backend;
     let networking_fut = run_future_in_dedicated_thread(
         Box::pin({
             let span = info_span!("Network");
@@ -280,6 +304,7 @@ async fn run(
     notifications_sender
         .send(BackendNotification::Running {
             config,
+            raw_config,
             best_block_number: consensus_node.best_block_number(),
         })
         .await?;
@@ -371,16 +396,35 @@ async fn run(
     let consensus_node_fut = pin!(consensus_node.run());
     let farmer_fut = pin!(farmer.run());
     let networking_fut = pin!(networking_fut);
+    let process_backend_actions_fut = pin!({
+        let mut notifications_sender = notifications_sender.clone();
+
+        async move {
+            process_backend_actions(
+                &config_file_path,
+                backend_action_receiver,
+                &mut notifications_sender,
+            )
+            .await
+        }
+    });
+    let mut consensus_node_fut = consensus_node_fut.fuse();
+    let mut farmer_fut = farmer_fut.fuse();
+    let mut networking_fut = networking_fut.fuse();
+    let mut process_backend_actions_fut = process_backend_actions_fut.fuse();
 
     let result: anyhow::Result<()> = select! {
-        result = consensus_node_fut.fuse() => {
+        result = consensus_node_fut => {
             result.map_err(anyhow::Error::from)
         }
-        result = farmer_fut.fuse() => {
+        result = farmer_fut => {
             result.map_err(anyhow::Error::from)
         }
-        result = networking_fut.fuse() => {
+        result = networking_fut => {
             result.map_err(|_cancelled| anyhow::anyhow!("Networking exited"))
+        }
+        _ = process_backend_actions_fut => {
+            Ok(())
         }
     };
 
@@ -395,7 +439,7 @@ async fn run(
 
 async fn load_configuration(
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
-) -> anyhow::Result<Option<RawConfig>> {
+) -> anyhow::Result<(PathBuf, Option<RawConfig>)> {
     notifications_sender
         .send(BackendNotification::Loading {
             step: LoadingStep::LoadingConfiguration,
@@ -424,7 +468,7 @@ async fn load_configuration(
         })
         .await?;
 
-    Ok(maybe_config)
+    Ok((config_file_path, maybe_config))
 }
 
 /// Returns `Ok(None)` if configuration failed validation
@@ -742,4 +786,33 @@ async fn create_farmer(
         .await?;
 
     Ok(farmer)
+}
+
+async fn process_backend_actions(
+    config_file_path: &Path,
+    backend_action_receiver: &mut mpsc::Receiver<BackendAction>,
+    notifications_sender: &mut mpsc::Sender<BackendNotification>,
+) {
+    while let Some(action) = backend_action_receiver.next().await {
+        match action {
+            BackendAction::NewConfig { raw_config } => {
+                let result = raw_config
+                    .write_to_path(config_file_path)
+                    .await
+                    .map_err(|error| {
+                        anyhow::anyhow!(
+                            "Failed to write config to \"{}\": {}",
+                            config_file_path.display(),
+                            error
+                        )
+                    });
+                if let Err(error) = notifications_sender
+                    .send(BackendNotification::ConfigSaveResult(result))
+                    .await
+                {
+                    error!(%error, "Failed to send config save result notification");
+                }
+            }
+        }
+    }
 }

@@ -148,8 +148,8 @@ impl Config {
     /// Tries to construct config from given raw config.
     ///
     /// It will check that path exists or parent directory can be accesses.
-    pub async fn try_from_raw_config(config: &RawConfig) -> Result<Self, ConfigError> {
-        let reward_address = config.reward_address();
+    pub async fn try_from_raw_config(raw_config: &RawConfig) -> Result<Self, ConfigError> {
+        let reward_address = raw_config.reward_address();
         let reward_address = parse_ss58_reward_address(reward_address).map_err(|error| {
             ConfigError::InvalidSs58RewardAddress {
                 reward_address: reward_address.to_string(),
@@ -157,12 +157,12 @@ impl Config {
             }
         })?;
 
-        let node_path = config.node_path().clone();
+        let node_path = raw_config.node_path().clone();
         check_path(&node_path).await?;
 
-        let mut farms = Vec::with_capacity(config.farms().len());
+        let mut farms = Vec::with_capacity(raw_config.farms().len());
 
-        for farm in config.farms() {
+        for farm in raw_config.farms() {
             let path = PathBuf::from(&farm.path);
 
             check_path(&path).await?;
