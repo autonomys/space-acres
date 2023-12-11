@@ -13,7 +13,7 @@ use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
-use relm4::{set_global_css, RELM_THREADS};
+use relm4::RELM_THREADS;
 use std::thread::available_parallelism;
 use subspace_proof_of_space::chia::ChiaTable;
 use tokio::runtime::Handle;
@@ -444,7 +444,7 @@ fn main() {
 
     let app = RelmApp::new("network.subspace.space_acres");
 
-    set_global_css(GLOBAL_CSS);
+    app.set_global_css(GLOBAL_CSS);
 
     // Prefer dark theme in cross-platform way if environment is configured that way
     if let Some(settings) = gtk::Settings::default() {

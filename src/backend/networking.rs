@@ -2,9 +2,10 @@ use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, Weak};
+use subspace_farmer::node_client::NodeClientExt;
 use subspace_farmer::piece_cache::PieceCache;
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
-use subspace_farmer::{NodeClient, KNOWN_PEERS_CACHE_SIZE};
+use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::kad::RecordKey;
 use subspace_networking::libp2p::multiaddr::Protocol;
@@ -99,7 +100,7 @@ pub fn create_network<NC>(
     piece_cache: PieceCache,
 ) -> Result<(Node, NodeRunner<PieceCache>), anyhow::Error>
 where
-    NC: NodeClient,
+    NC: NodeClientExt,
 {
     let span = info_span!("Network");
     let _enter = span.enter();

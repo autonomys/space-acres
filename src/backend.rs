@@ -292,12 +292,12 @@ async fn run(
         mut node_runner,
     } = loaded_backend;
     let networking_fut = run_future_in_dedicated_thread(
-        Box::pin({
+        {
             let span = info_span!("Network");
-            let _enter = span.enter();
+            let future = async move { node_runner.run().await }.instrument(span);
 
-            async move { node_runner.run().await }.in_current_span()
-        }),
+            move || future
+        },
         "networking".to_string(),
     )?;
 
@@ -516,7 +516,7 @@ async fn load_chain_specification(
         })
         .await?;
 
-    let chain_spec = node::load_chain_specification(GEMINI_3G_CHAIN_SPEC)
+    let chain_spec = node::load_chain_specification(GEMINI_3G_CHAIN_SPEC.as_bytes())
         .map_err(|error| anyhow::anyhow!(error))?;
 
     notifications_sender

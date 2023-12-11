@@ -2,7 +2,8 @@ use arc_swap::ArcSwapOption;
 use futures::Stream;
 use std::pin::Pin;
 use std::sync::Arc;
-use subspace_farmer::node_client::Error;
+use subspace_core_primitives::SegmentHeader;
+use subspace_farmer::node_client::{Error, NodeClientExt};
 use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_rpc_primitives::{
     FarmerAppInfo, NodeSyncStatus, RewardSignatureResponse, RewardSigningInfo, SlotInfo,
@@ -117,11 +118,11 @@ impl NodeClient for MaybeNodeRpcClient {
             None => Err("Inner node client not injected yet".into()),
         }
     }
+}
 
-    async fn last_segment_headers(
-        &self,
-        limit: u64,
-    ) -> Result<Vec<Option<subspace_core_primitives::SegmentHeader>>, Error> {
+#[async_trait::async_trait]
+impl NodeClientExt for MaybeNodeRpcClient {
+    async fn last_segment_headers(&self, limit: u64) -> Result<Vec<Option<SegmentHeader>>, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.last_segment_headers(limit).await,
             None => Err("Inner node client not injected yet".into()),
