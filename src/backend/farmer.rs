@@ -74,7 +74,7 @@ pub(super) struct Farmer {
 impl Farmer {
     pub(super) async fn run(self) -> anyhow::Result<()> {
         let piece_cache_worker_fut = match run_future_in_dedicated_thread(
-            self.piece_cache_worker_fut,
+            move || self.piece_cache_worker_fut,
             "piece-cache-worker".to_string(),
         ) {
             Ok(piece_cache_worker_fut) => piece_cache_worker_fut,
@@ -85,15 +85,17 @@ impl Farmer {
             }
         };
 
-        let farm_fut =
-            match run_future_in_dedicated_thread(self.farm_fut, "farmer-farm".to_string()) {
-                Ok(piece_cache_worker_fut) => piece_cache_worker_fut,
-                Err(error) => {
-                    return Err(anyhow::anyhow!(
-                        "Failed to spawn piece future in background thread: {error}"
-                    ));
-                }
-            };
+        let farm_fut = match run_future_in_dedicated_thread(
+            move || self.farm_fut,
+            "farmer-farm".to_string(),
+        ) {
+            Ok(piece_cache_worker_fut) => piece_cache_worker_fut,
+            Err(error) => {
+                return Err(anyhow::anyhow!(
+                    "Failed to spawn piece future in background thread: {error}"
+                ));
+            }
+        };
 
         select! {
             _ = piece_cache_worker_fut.fuse() => {
