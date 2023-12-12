@@ -10,13 +10,15 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::running::{RunningInput, RunningView};
 use futures::channel::mpsc;
-use futures::{SinkExt, StreamExt};
+use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::RELM_THREADS;
+use std::future::Future;
 use std::thread::available_parallelism;
+use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
 use subspace_proof_of_space::chia::ChiaTable;
-use tokio::runtime::Handle;
+use tracing::warn;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -103,13 +105,8 @@ struct App {
     running_view: Controller<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
-    backend_notification_sender: mpsc::Sender<BackendNotification>,
-}
-
-impl Drop for App {
-    fn drop(&mut self) {
-        self.backend_notification_sender.close_channel();
-    }
+    // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
+    _background_tasks: Box<dyn Future<Output = ()>>,
 }
 
 #[relm4::component(async)]
@@ -218,28 +215,28 @@ impl AsyncComponent for App {
         let (backend_action_sender, backend_action_receiver) = mpsc::channel(1);
         let (backend_notification_sender, mut backend_notification_receiver) = mpsc::channel(100);
 
-        // Create backend in dedicated thread
-        tokio::task::spawn_blocking({
-            let backend_notification_sender = backend_notification_sender.clone();
-
-            move || {
-                Handle::current().block_on(backend::create(
-                    backend_action_receiver,
-                    backend_notification_sender,
-                ));
-            }
-        });
+        // Create and run backend in dedicated thread
+        let backend_fut = run_future_in_dedicated_thread(
+            move || backend::create(backend_action_receiver, backend_notification_sender),
+            "backend".to_string(),
+        )
+        .expect("Must be able to spawn a thread");
 
         // Forward backend notifications as application inputs
-        tokio::spawn({
-            let sender = sender.clone();
+        let message_forwarder_fut = AsyncJoinOnDrop::new(
+            tokio::spawn({
+                let sender = sender.clone();
 
-            async move {
-                while let Some(notification) = backend_notification_receiver.next().await {
-                    sender.input(AppInput::BackendNotification(notification));
+                async move {
+                    while let Some(notification) = backend_notification_receiver.next().await {
+                        // TODO: This panics on shutdown because component is already shut down, this should be handled
+                        //  more gracefully
+                        sender.input(AppInput::BackendNotification(notification));
+                    }
                 }
-            }
-        });
+            }),
+            true,
+        );
 
         let loading_view = LoadingView::builder().launch(()).detach();
 
@@ -280,7 +277,18 @@ impl AsyncComponent for App {
             // Hack to initialize a field before this data structure is used
             menu_popover: gtk::Popover::default(),
             about_dialog,
-            backend_notification_sender,
+            _background_tasks: Box::new(async move {
+                // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
+                // notification forwarder sending notification to the component that is already shut down
+                select! {
+                    _ = message_forwarder_fut.fuse() => {
+                        warn!("Message forwarder exited");
+                    }
+                    _ = backend_fut.fuse() => {
+                        warn!("Backend exited");
+                    }
+                }
+            }),
         };
 
         let widgets = view_output!();
