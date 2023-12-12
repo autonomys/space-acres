@@ -393,9 +393,9 @@ async fn run(
         })
     });
 
+    let networking_fut = pin!(networking_fut);
     let consensus_node_fut = pin!(consensus_node.run());
     let farmer_fut = pin!(farmer.run());
-    let networking_fut = pin!(networking_fut);
     let process_backend_actions_fut = pin!({
         let mut notifications_sender = notifications_sender.clone();
 
@@ -408,9 +408,11 @@ async fn run(
             .await
         }
     });
+    // Order is important here, we want to destroy dependents first and only then corresponding dependencies to avoid
+    // unnecessary errors and warnings in logs
+    let mut networking_fut = networking_fut.fuse();
     let mut consensus_node_fut = consensus_node_fut.fuse();
     let mut farmer_fut = farmer_fut.fuse();
-    let mut networking_fut = networking_fut.fuse();
     let mut process_backend_actions_fut = process_backend_actions_fut.fuse();
 
     let result: anyhow::Result<()> = select! {
