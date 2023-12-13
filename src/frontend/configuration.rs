@@ -201,7 +201,7 @@ impl Component for ConfigurationView {
                                         set_text: model.node_path.display().to_string().as_str(),
                                         set_tooltip_markup: Some(
                                             "Absolute path where node files will be stored, prepare to \
-                                            dedicate at least 100GiB of space for it, good quality SSD \
+                                            dedicate at least 100 GiB of space for it, good quality SSD \
                                             recommended"
                                         ),
                                     },

@@ -18,21 +18,15 @@ Current version supports Gemini 3g chain only and doesn't allow to select anythi
 ## Features
 
 Current features:
-* Initial configuration
+* Configuration (only essentials)
 * Node sync with displayed progress
 * Farmer plotting/farming with a single farm with displayed plotting/replotting progress
 
-Some of the upcoming features/capabilities (not necessarily in priority order):
-* Automatic builds in CI with pre-built executables/installers (Linux and macOS)
-* Testing on macOS
-* Welcome screen
-* Writing logs to a file
-* Displaying of earned farming rewards or at least link to block explorers
-* Better status reporting of the node and farmer (piece cache sync, etc.)
-* Displaying sync/plotting/replotting speed (UI already supports this, but there is no backend code to calculate the speed)
-* Support for multiple farms (backend and config file already support this if you edit config manually, but you will not see them in UI)
-* Farmer benchmarking support
-* Re-configuration screen with old configuration filled instead of starting from scratch
+Upcoming features/capabilities: see open issues, also consider contributing if something is missing!
+
+## Installation
+
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for details
 
 ## Project structure
 
@@ -43,8 +37,11 @@ The project at high level is structured in a few large modules:
   * `networking` contains networking stack that is shared between `farmer` and `node` with a wrapper data structure that abstracts away its internals
   * `node` contains consensus node with a wrapper data structure that abstracts away its internals
   * `utils` contains some low-level utilities
-* `main.rs` contains UI and communication with backend, though UI will move into `frontend` in the future
-* `res/app.css` contains a few small non-critical tweaks for presentation, it will likely be necessary to ship a GTK4 theme with the app in the future to ensure consistent look
+* `frontend` handles majority of frontend logic with each module corresponding to a major application screen/view
+* `main.rs` handles high-level UI and communication with backend, wiring everything together
+* `res` contains various non-code resources required for application operation and/or packaging
+  * `app.css` contains a few small non-critical tweaks for presentation, it will likely be necessary to ship a GTK4 theme with the app in the future to ensure consistent look
+* `wix` contains initially auto-generated, but then modified configuration for [cargo-wix](https://github.com/volks73/cargo-wix) that is essential for Windows packaging
 
 Application supports bare minimum configuration and doesn't support operator functionality (not yet anyway).
 
