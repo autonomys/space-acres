@@ -10,7 +10,7 @@ use tracing::warn;
 pub enum RunningInput {
     Initialize {
         best_block_number: BlockNumber,
-        num_farms: usize,
+        initial_plotting_states: Vec<PlottingState>,
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification),
@@ -244,14 +244,14 @@ impl RunningView {
         match input {
             RunningInput::Initialize {
                 best_block_number,
-                num_farms,
+                initial_plotting_states,
             } => {
                 self.node_state = NodeState {
                     best_block_number,
                     sync_state: SyncState::default(),
                 };
                 self.farmer_state = FarmerState {
-                    plotting_state: vec![PlottingState::default(); num_farms],
+                    plotting_state: initial_plotting_states,
                     piece_cache_sync_progress: 0.0,
                 };
             }

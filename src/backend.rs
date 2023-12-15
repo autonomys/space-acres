@@ -99,6 +99,7 @@ pub enum BackendNotification {
         config: Config,
         raw_config: RawConfig,
         best_block_number: BlockNumber,
+        initial_plotting_states: Vec<PlottingState>,
     },
     Node(NodeNotification),
     Farmer(FarmerNotification),
@@ -306,6 +307,7 @@ async fn run(
             config,
             raw_config,
             best_block_number: consensus_node.best_block_number(),
+            initial_plotting_states: farmer.initial_plotting_states().to_vec(),
         })
         .await?;
 

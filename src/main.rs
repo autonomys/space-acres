@@ -359,16 +359,16 @@ impl App {
                 }
             },
             BackendNotification::Running {
-                config,
+                config: _,
                 raw_config,
                 best_block_number,
+                initial_plotting_states,
             } => {
-                let num_farms = config.farms.len();
                 self.current_raw_config.replace(raw_config);
                 self.current_view = View::Running;
                 self.running_view.emit(RunningInput::Initialize {
                     best_block_number,
-                    num_farms,
+                    initial_plotting_states,
                 });
             }
             BackendNotification::Node(node_notification) => {
