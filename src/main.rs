@@ -9,19 +9,49 @@ use crate::backend::{BackendAction, BackendNotification};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::running::{RunningInput, RunningView};
+use atomic::Atomic;
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::RELM_THREADS;
 use std::future::Future;
+use std::process::{Command, ExitCode, Stdio, Termination};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::thread::available_parallelism;
+use std::{env, io, process};
 use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
 use subspace_proof_of_space::chia::ChiaTable;
-use tracing::warn;
+use tracing::{info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
+
+#[derive(Debug, Copy, Clone)]
+enum AppStatusCode {
+    Exit,
+    Restart,
+    Unknown(i32),
+}
+
+impl AppStatusCode {
+    fn from_status_code(status_code: i32) -> Self {
+        match status_code {
+            0 => Self::Exit,
+            100 => Self::Restart,
+            code => Self::Unknown(code),
+        }
+    }
+
+    fn into_status_code(self) -> i32 {
+        match self {
+            AppStatusCode::Exit => 0,
+            AppStatusCode::Restart => 100,
+            AppStatusCode::Unknown(code) => code,
+        }
+    }
+}
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -37,6 +67,7 @@ enum AppInput {
     Configuration(ConfigurationOutput),
     OpenReconfiguration,
     ShowAboutDialog,
+    Restart,
 }
 
 enum View {
@@ -65,7 +96,11 @@ impl View {
 enum StatusBarNotification {
     #[default]
     None,
-    Warning(String),
+    Warning {
+        message: String,
+        /// Whether to show restart button
+        restart: bool,
+    },
     Error(String),
 }
 
@@ -81,7 +116,7 @@ impl StatusBarNotification {
     fn css_class(&self) -> &'static str {
         match self {
             Self::None => "label",
-            Self::Warning(_) => "warning-label",
+            Self::Warning { .. } => "warning-label",
             Self::Error(_) => "error-label",
         }
     }
@@ -89,9 +124,20 @@ impl StatusBarNotification {
     fn message(&self) -> &str {
         match self {
             Self::None => "",
-            Self::Warning(message) | Self::Error(message) => message.as_str(),
+            Self::Warning { message, .. } | Self::Error(message) => message.as_str(),
         }
     }
+
+    fn restart_button(&self) -> bool {
+        match self {
+            Self::Warning { restart, .. } => *restart,
+            _ => false,
+        }
+    }
+}
+
+struct AppInit {
+    exit_status_code: Arc<Atomic<AppStatusCode>>,
 }
 
 // TODO: Efficient updates with tracker
@@ -105,13 +151,14 @@ struct App {
     running_view: Controller<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
+    exit_status_code: Arc<Atomic<AppStatusCode>>,
     // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
     _background_tasks: Box<dyn Future<Output = ()>>,
 }
 
 #[relm4::component(async)]
 impl AsyncComponent for App {
-    type Init = ();
+    type Init = AppInit;
     type Input = AppInput;
     type Output = ();
     type CommandOutput = ();
@@ -187,20 +234,33 @@ impl AsyncComponent for App {
                         },
                     },
 
-                    #[name = "status_bar_notification_label"]
-                    gtk::Label {
-                        #[track = "!status_bar_notification_label.has_css_class(model.status_bar_notification.css_class())"]
-                        add_css_class: {
-                            for css_class in StatusBarNotification::css_classes() {
-                                status_bar_notification_label.remove_css_class(css_class);
-                            }
-
-                            model.status_bar_notification.css_class()
-                        },
-                        #[watch]
-                        set_label: model.status_bar_notification.message(),
+                    gtk::Box {
+                        set_halign: gtk::Align::Center,
+                        set_spacing: 10,
                         #[watch]
                         set_visible: !model.status_bar_notification.is_none(),
+
+                        #[name = "status_bar_notification_label"]
+                        gtk::Label {
+                            #[track = "!status_bar_notification_label.has_css_class(model.status_bar_notification.css_class())"]
+                            add_css_class: {
+                                for css_class in StatusBarNotification::css_classes() {
+                                    status_bar_notification_label.remove_css_class(css_class);
+                                }
+
+                                model.status_bar_notification.css_class()
+                            },
+                            #[watch]
+                            set_label: model.status_bar_notification.message(),
+                        },
+
+                        gtk::Button {
+                            add_css_class: "suggested-action",
+                            connect_clicked => AppInput::Restart,
+                            set_label: "Restart",
+                            #[watch]
+                            set_visible: model.status_bar_notification.restart_button(),
+                        },
                     },
                 },
             }
@@ -208,7 +268,7 @@ impl AsyncComponent for App {
     }
 
     async fn init(
-        _init: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -277,6 +337,7 @@ impl AsyncComponent for App {
             // Hack to initialize a field before this data structure is used
             menu_popover: gtk::Popover::default(),
             about_dialog,
+            exit_status_code: init.exit_status_code,
             _background_tasks: Box::new(async move {
                 // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
                 // notification forwarder sending notification to the component that is already shut down
@@ -324,6 +385,11 @@ impl AsyncComponent for App {
                 self.menu_popover.hide();
                 self.about_dialog.show();
             }
+            AppInput::Restart => {
+                self.exit_status_code
+                    .store(AppStatusCode::Restart, Ordering::Release);
+                relm4::main_application().quit();
+            }
         }
     }
 }
@@ -347,10 +413,12 @@ impl App {
             }
             BackendNotification::ConfigSaveResult(result) => match result {
                 Ok(()) => {
-                    self.status_bar_notification = StatusBarNotification::Warning(
-                        "Application restart is needed for configuration changes to take effect"
-                            .to_string(),
-                    );
+                    self.status_bar_notification = StatusBarNotification::Warning {
+                        message:
+                            "Application restart is needed for configuration changes to take effect"
+                                .to_string(),
+                        restart: true,
+                    };
                 }
                 Err(error) => {
                     self.status_bar_notification = StatusBarNotification::Error(format!(
@@ -421,7 +489,7 @@ impl App {
     }
 }
 
-fn main() {
+fn app() -> AppStatusCode {
     // TODO: Log into files
     tracing_subscriber::registry()
         .with(
@@ -462,5 +530,57 @@ fn main() {
         ));
     }
 
-    app.run_async::<App>(());
+    let exit_status_code = Arc::new(Atomic::new(AppStatusCode::Exit));
+
+    app.run_async::<App>(AppInit {
+        exit_status_code: Arc::clone(&exit_status_code),
+    });
+
+    exit_status_code.load(Ordering::Acquire)
+}
+
+fn supervisor() -> io::Result<()> {
+    loop {
+        let mut child_process = Command::new(env::current_exe()?)
+            .env("CHILD_PROCESS", "1")
+            .stdin(Stdio::null())
+            // TODO: Use pipes and capture stdout/stderr to write logs to files
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()?;
+
+        match child_process.wait()?.code() {
+            Some(status_code) => {
+                match AppStatusCode::from_status_code(status_code) {
+                    AppStatusCode::Exit => {
+                        // Exited gracefully
+                        info!("Application exited gracefully");
+                        break;
+                    }
+                    AppStatusCode::Restart => {
+                        info!("Restarting application");
+                        continue;
+                    }
+                    AppStatusCode::Unknown(status_code) => {
+                        warn!(%status_code, "Application exited with unexpected status code");
+                        process::exit(status_code);
+                    }
+                }
+            }
+            None => {
+                warn!("Application terminated by signal");
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn main() -> ExitCode {
+    if env::var("CHILD_PROCESS").is_ok() {
+        ExitCode::from(app().into_status_code() as u8)
+    } else {
+        supervisor().report()
+    }
 }
