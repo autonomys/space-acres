@@ -8,7 +8,7 @@ use atomic::Atomic;
 use event_listener_primitives::HandlerId;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
+use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt};
 use lru::LruCache;
 use parking_lot::Mutex;
@@ -68,6 +68,7 @@ struct Handlers {
 pub(super) struct Farmer {
     farm_fut: BoxFuture<'static, anyhow::Result<()>>,
     piece_cache_worker_fut: BoxFuture<'static, ()>,
+    initial_plotting_states: Vec<PlottingState>,
     handlers: Arc<Handlers>,
 }
 
@@ -107,6 +108,10 @@ impl Farmer {
         }
 
         Ok(())
+    }
+
+    pub(super) fn initial_plotting_states(&self) -> &[PlottingState] {
+        &self.initial_plotting_states
     }
 
     pub(super) fn on_plotting_state_change(
@@ -371,6 +376,21 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         }))
         .detach();
 
+    let initial_plotting_states = single_disk_farms
+        .iter()
+        .map(|single_disk_farm| async {
+            if usize::from(single_disk_farm.total_sectors_count().await)
+                == single_disk_farm.plotted_sectors_count().await
+            {
+                PlottingState::Idle
+            } else {
+                PlottingState::Unknown
+            }
+        })
+        .collect::<FuturesOrdered<_>>()
+        .collect()
+        .await;
+
     let mut single_disk_farms_stream = single_disk_farms
         .into_iter()
         .enumerate()
@@ -478,6 +498,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     anyhow::Ok(Farmer {
         farm_fut,
         piece_cache_worker_fut,
+        initial_plotting_states,
         handlers,
     })
 }
