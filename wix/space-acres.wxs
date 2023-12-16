@@ -192,21 +192,34 @@
             <Directory Id="ProgramMenuFolder">
               <Directory Id="ApplicationProgramsFolder" Name="Space Acres"/>
             </Directory>
-			      <Directory Id="DesktopFolder" Name="Desktop">
-            </Directory>
+			      <Directory Id="DesktopFolder" Name="Desktop"/>
+			      <Directory Id="StartupFolder" Name="Startup"/>
         </Directory>
 
         <DirectoryRef Id="ApplicationProgramsFolder">
-          <Component Id="AppStart" Guid="ddbbc45d-1558-41ff-b1fb-0569df38f7aa">
-            <Shortcut Id="AppStartShortcut"
-              Name="Space Acres"
-              Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
-              Target="[APPLICATIONFOLDER]bin\space-acres.exe"
-              WorkingDirectory="APPLICATIONROOTDIRECTORY"
-              Icon="ProductICO"/>
-            <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
-            <RegistryValue Root="HKCU" Key="Software\nazar-pc\space-acres" Name="StartShortcut" Type="integer" Value="1" KeyPath="yes"/>
-           </Component>
+            <Component Id="AppStart" Guid="ddbbc45d-1558-41ff-b1fb-0569df38f7aa">
+                <Shortcut Id="AppStartShortcut"
+                    Name="Space Acres"
+                    Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
+                    Target="[APPLICATIONFOLDER]bin\space-acres.exe"
+                    WorkingDirectory="APPLICATIONROOTDIRECTORY"
+                    Icon="ProductICO"/>
+                <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\nazar-pc\space-acres" Name="StartShortcut" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="StartupFolder">
+            <Component Id="AppStartup" Guid="5666cacf-0b49-4c51-826d-1c3f57fd2c64">
+                <Shortcut Id="AppStartupShortcut"
+                    Name="Space Acres"
+                    Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
+                    Target="[APPLICATIONFOLDER]bin\space-acres.exe --startup"
+                    WorkingDirectory="APPLICATIONROOTDIRECTORY"
+                    Icon="ProductICO"/>
+                <RemoveFolder Id="StartupFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\nazar-pc\space-acres" Name="StartupShortcut" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
         </DirectoryRef>
 
         <DirectoryRef Id="DesktopFolder">
@@ -252,27 +265,39 @@
             </Feature>
 
             <Feature
-              Id='StartShort'
-              Title='Start menu shortcut'
-              Description='Add a shortcut to the start menu'
-              Level='1'
-              AllowAdvertise='no'
-              Display='expand'
-              Absent='allow'>
+                Id='StartShort'
+                Title='Start menu shortcut'
+                Description='Add a shortcut to the start menu'
+                Level='1'
+                AllowAdvertise='no'
+                Display='expand'
+                Absent='allow'>
 
-              <ComponentRef Id="AppStart" />
+                <ComponentRef Id="AppStart" />
             </Feature>
 
             <Feature
-              Id='DeskShort'
-              Title='Desktop shortcut'
-              Description='Add a shortcut to the desktop'
-              Level='1'
-              AllowAdvertise='no'
-              Display='expand'
-              Absent='allow'>
+                Id='StartupShort'
+                Title='Add to startup'
+                Description='Start Space Acres during startup'
+                Level='1'
+                AllowAdvertise='no'
+                Display='expand'
+                Absent='allow'>
 
-              <ComponentRef Id="AppDesk" />
+                <ComponentRef Id="AppStartup" />
+            </Feature>
+
+            <Feature
+                Id='DeskShort'
+                Title='Desktop shortcut'
+                Description='Add a shortcut to the desktop'
+                Level='1'
+                AllowAdvertise='no'
+                Display='expand'
+                Absent='allow'>
+
+                <ComponentRef Id="AppDesk" />
             </Feature>
         </Feature>
 
