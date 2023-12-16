@@ -13,7 +13,7 @@ include = [
 
 # TODO: Menu shortcut will not be generated automatically in case of re-init: https://github.com/volks73/cargo-wix/issues/141
 [package.metadata.wix]
-product-icon = "res/space-acres.ico"
+product-icon = "res/windows/space-acres.ico"
 # TODO: This option will not have effect until https://github.com/volks73/cargo-wix/issues/270 is fixed in case of re-init
 product-name = "Space Acres"
 
@@ -67,6 +67,9 @@ thiserror = "1.0.50"
 tokio = { version = "1.34.0", features = ["fs", "time"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
 # that are suspected to be CPU-intensive, and that are unlikely to require debugging (as some of

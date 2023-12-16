@@ -308,7 +308,7 @@
           Add/Remove Programs control panel requires commenting out or
           removing the following `Icon` and `Property` tags.
         -->
-        <Icon Id='ProductICO' SourceFile='res/space-acres.ico'/>
+        <Icon Id='ProductICO' SourceFile='res\windows\space-acres.ico'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
         <Property Id='ARPHELPLINK' Value='https://github.com/nazar-pc/space-acres'/>
