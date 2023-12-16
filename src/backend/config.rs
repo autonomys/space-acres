@@ -63,7 +63,7 @@ impl RawConfig {
             return Err(RawConfigError::FailedToDetermineConfigDirectory);
         };
 
-        let app_config_dir = config_local_dir.join("space-acres");
+        let app_config_dir = config_local_dir.join(env!("CARGO_PKG_NAME"));
         let config_file_path = match fs::create_dir(&app_config_dir).await {
             Ok(()) => app_config_dir.join("config.json"),
             Err(error) => {
