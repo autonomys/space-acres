@@ -10,6 +10,7 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::running::{RunningInput, RunningView};
 use atomic::Atomic;
+use clap::Parser;
 use duct::cmd;
 use file_rotate::compression::Compression;
 use file_rotate::suffix::AppendCount;
@@ -149,6 +150,7 @@ impl StatusBarNotification {
 
 struct AppInit {
     exit_status_code: Arc<Atomic<AppStatusCode>>,
+    minimize_on_start: bool,
 }
 
 // TODO: Efficient updates with tracker
@@ -391,6 +393,10 @@ impl AsyncComponent for App {
 
         model.menu_popover = widgets.menu_popover.clone();
 
+        if init.minimize_on_start {
+            root.minimize();
+        }
+
         AsyncComponentParts { model, widgets }
     }
 
@@ -524,185 +530,225 @@ impl App {
     }
 }
 
-fn app() -> AppStatusCode {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                // TODO: Workaround for https://github.com/tokio-rs/tracing/issues/2214, also on
-                //  Windows terminal doesn't support the same colors as bash does
-                .with_ansi(if cfg!(windows) {
-                    false
-                } else {
-                    supports_color::on(supports_color::Stream::Stderr).is_some()
-                })
-                .with_filter(
-                    EnvFilter::builder()
-                        .with_default_directive(LevelFilter::INFO.into())
-                        .from_env_lossy(),
-                ),
-        )
-        .init();
-
-    info!(
-        "Starting {} {}",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION")
-    );
-
-    // The default in `relm4` is `1`, set this back to Tokio's default
-    RELM_THREADS
-        .set(
-            available_parallelism()
-                .map(|cores| cores.get())
-                .unwrap_or(1),
-        )
-        .expect("The first thing in the app, is not set; qed");
-
-    let app = RelmApp::new("network.subspace.space_acres");
-
-    app.set_global_css(GLOBAL_CSS);
-
-    // Prefer dark theme in cross-platform way if environment is configured that way
-    if let Some(settings) = gtk::Settings::default() {
-        settings.set_gtk_application_prefer_dark_theme(!matches!(
-            dark_light::detect(),
-            dark_light::Mode::Light
-        ));
-    }
-
-    let exit_status_code = Arc::new(Atomic::new(AppStatusCode::Exit));
-
-    app.run_async::<App>(AppInit {
-        exit_status_code: Arc::clone(&exit_status_code),
-    });
-
-    let exit_status_code = exit_status_code.load(Ordering::Acquire);
-    info!(
-        ?exit_status_code,
-        "Exiting {} {}",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION")
-    );
-    exit_status_code
+#[derive(Debug, Parser)]
+#[clap(about, version)]
+struct Cli {
+    /// Used for startup to minimize the window
+    #[arg(long)]
+    startup: bool,
+    /// Used by child process such that supervisor parent process can control it
+    #[arg(long)]
+    child_process: bool,
+    /// The rest of the arguments that will be sent to GTK4 as is
+    #[arg(raw = true)]
+    gtk_arguments: Vec<String>,
 }
 
-fn supervisor() -> io::Result<()> {
-    let maybe_app_data_dir = dirs::data_local_dir()
-        .map(|data_local_dir| data_local_dir.join(env!("CARGO_PKG_NAME")))
-        .and_then(|app_data_dir| {
-            if !app_data_dir.exists() {
-                if let Err(error) = fs::create_dir_all(&app_data_dir) {
-                    eprintln!(
-                        "App data directory \"{}\" doesn't exist and can't be created: {}",
-                        app_data_dir.display(),
-                        error
-                    );
-                    return None;
-                }
-            }
-
-            Some(app_data_dir)
-        });
-    let mut maybe_logger = maybe_app_data_dir.as_ref().map(|app_data_dir| {
-        FileRotate::new(
-            app_data_dir.join("space-acres.log"),
-            AppendCount::new(LOG_FILE_LIMIT_COUNT),
-            ContentLimit::Bytes(LOG_FILE_LIMIT_SIZE),
-            Compression::OnRotate(0),
-            #[cfg(unix)]
-            None,
-        )
-    });
-
-    let mut log_read_buffer = vec![0u8; LOG_READ_BUFFER];
-
-    loop {
-        let expression = cmd!(env::current_exe()?)
-            .env("CHILD_PROCESS", "1")
-            .stderr_to_stdout()
-            // We use non-zero status codes and they don't mean error necessarily
-            .unchecked();
-
-        let exit_status = if let Some(logger) = maybe_logger.as_mut() {
-            let mut expression = expression.reader()?;
-
-            let mut stdout = io::stdout();
-            loop {
-                match expression.read(&mut log_read_buffer) {
-                    Ok(bytes_count) => {
-                        if bytes_count == 0 {
-                            break;
-                        }
-
-                        let write_result: io::Result<()> = try {
-                            stdout.write_all(&log_read_buffer[..bytes_count])?;
-                            logger.write_all(&log_read_buffer[..bytes_count])?;
-                        };
-
-                        if let Err(error) = write_result {
-                            eprintln!("Error while writing output of child process: {error}");
-                            break;
-                        }
-                    }
-                    Err(error) => {
-                        if error.kind() == io::ErrorKind::Interrupted {
-                            // Try again
-                            continue;
-                        }
-                        eprintln!("Error while reading output of child process: {error}");
-                        break;
-                    }
-                }
-            }
-
-            stdout.flush()?;
-            if let Err(error) = logger.flush() {
-                eprintln!("Error while flushing logs: {error}");
-            }
-
-            match expression.try_wait()? {
-                Some(output) => output.status,
-                None => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Logs writing ended before child process did, exiting",
-                    ));
-                }
-            }
+impl Cli {
+    fn run(self) -> ExitCode {
+        if self.child_process {
+            ExitCode::from(self.app().into_status_code() as u8)
         } else {
-            eprintln!("App data directory doesn't exist, not creating log file");
-            expression.run()?.status
-        };
-
-        match exit_status.code() {
-            Some(status_code) => match AppStatusCode::from_status_code(status_code) {
-                AppStatusCode::Exit => {
-                    eprintln!("Application exited gracefully");
-                    break;
-                }
-                AppStatusCode::Restart => {
-                    eprintln!("Restarting application");
-                    continue;
-                }
-                AppStatusCode::Unknown(status_code) => {
-                    eprintln!("Application exited with unexpected status code {status_code}");
-                    process::exit(status_code);
-                }
-            },
-            None => {
-                eprintln!("Application terminated by signal");
-                break;
-            }
+            self.supervisor().report()
         }
     }
 
-    Ok(())
+    fn app(self) -> AppStatusCode {
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::fmt::layer()
+                    // TODO: Workaround for https://github.com/tokio-rs/tracing/issues/2214, also on
+                    //  Windows terminal doesn't support the same colors as bash does
+                    .with_ansi(if cfg!(windows) {
+                        false
+                    } else {
+                        supports_color::on(supports_color::Stream::Stderr).is_some()
+                    })
+                    .with_filter(
+                        EnvFilter::builder()
+                            .with_default_directive(LevelFilter::INFO.into())
+                            .from_env_lossy(),
+                    ),
+            )
+            .init();
+
+        info!(
+            "Starting {} {}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        );
+
+        // The default in `relm4` is `1`, set this back to Tokio's default
+        RELM_THREADS
+            .set(
+                available_parallelism()
+                    .map(|cores| cores.get())
+                    .unwrap_or(1),
+            )
+            .expect("The first thing in the app, is not set; qed");
+
+        let app = RelmApp::new("network.subspace.space_acres");
+        let app = app.with_args({
+            let mut args = self.gtk_arguments;
+            // Application itself is expected as the first argument
+            args.insert(0, env::args().next().expect("Guaranteed to exist; qed"));
+            args
+        });
+
+        app.set_global_css(GLOBAL_CSS);
+
+        // Prefer dark theme in cross-platform way if environment is configured that way
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_application_prefer_dark_theme(!matches!(
+                dark_light::detect(),
+                dark_light::Mode::Light
+            ));
+        }
+
+        let exit_status_code = Arc::new(Atomic::new(AppStatusCode::Exit));
+
+        app.run_async::<App>(AppInit {
+            exit_status_code: Arc::clone(&exit_status_code),
+            minimize_on_start: self.startup,
+        });
+
+        let exit_status_code = exit_status_code.load(Ordering::Acquire);
+        info!(
+            ?exit_status_code,
+            "Exiting {} {}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION")
+        );
+        exit_status_code
+    }
+
+    fn supervisor(mut self) -> io::Result<()> {
+        let maybe_app_data_dir = dirs::data_local_dir()
+            .map(|data_local_dir| data_local_dir.join(env!("CARGO_PKG_NAME")))
+            .and_then(|app_data_dir| {
+                if !app_data_dir.exists() {
+                    if let Err(error) = fs::create_dir_all(&app_data_dir) {
+                        eprintln!(
+                            "App data directory \"{}\" doesn't exist and can't be created: {}",
+                            app_data_dir.display(),
+                            error
+                        );
+                        return None;
+                    }
+                }
+
+                Some(app_data_dir)
+            });
+        let mut maybe_logger = maybe_app_data_dir.as_ref().map(|app_data_dir| {
+            FileRotate::new(
+                app_data_dir.join("space-acres.log"),
+                AppendCount::new(LOG_FILE_LIMIT_COUNT),
+                ContentLimit::Bytes(LOG_FILE_LIMIT_SIZE),
+                Compression::OnRotate(0),
+                #[cfg(unix)]
+                None,
+            )
+        });
+
+        let mut log_read_buffer = vec![0u8; LOG_READ_BUFFER];
+
+        loop {
+            let mut args = vec!["--child-process".to_string()];
+            if self.startup {
+                // In case of restart we no longer want to minimize the app
+                self.startup = false;
+
+                args.push("--startup".to_string());
+            }
+            args.push("--".to_string());
+            args.extend_from_slice(&self.gtk_arguments);
+
+            let expression = cmd(env::current_exe()?, args)
+                .stderr_to_stdout()
+                // We use non-zero status codes and they don't mean error necessarily
+                .unchecked();
+
+            // if startup {
+            //     expression.
+            // }
+
+            let exit_status = if let Some(logger) = maybe_logger.as_mut() {
+                let mut expression = expression.reader()?;
+
+                let mut stdout = io::stdout();
+                loop {
+                    match expression.read(&mut log_read_buffer) {
+                        Ok(bytes_count) => {
+                            if bytes_count == 0 {
+                                break;
+                            }
+
+                            let write_result: io::Result<()> = try {
+                                stdout.write_all(&log_read_buffer[..bytes_count])?;
+                                logger.write_all(&log_read_buffer[..bytes_count])?;
+                            };
+
+                            if let Err(error) = write_result {
+                                eprintln!("Error while writing output of child process: {error}");
+                                break;
+                            }
+                        }
+                        Err(error) => {
+                            if error.kind() == io::ErrorKind::Interrupted {
+                                // Try again
+                                continue;
+                            }
+                            eprintln!("Error while reading output of child process: {error}");
+                            break;
+                        }
+                    }
+                }
+
+                stdout.flush()?;
+                if let Err(error) = logger.flush() {
+                    eprintln!("Error while flushing logs: {error}");
+                }
+
+                match expression.try_wait()? {
+                    Some(output) => output.status,
+                    None => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::Other,
+                            "Logs writing ended before child process did, exiting",
+                        ));
+                    }
+                }
+            } else {
+                eprintln!("App data directory doesn't exist, not creating log file");
+                expression.run()?.status
+            };
+
+            match exit_status.code() {
+                Some(status_code) => match AppStatusCode::from_status_code(status_code) {
+                    AppStatusCode::Exit => {
+                        eprintln!("Application exited gracefully");
+                        break;
+                    }
+                    AppStatusCode::Restart => {
+                        eprintln!("Restarting application");
+                        continue;
+                    }
+                    AppStatusCode::Unknown(status_code) => {
+                        eprintln!("Application exited with unexpected status code {status_code}");
+                        process::exit(status_code);
+                    }
+                },
+                None => {
+                    eprintln!("Application terminated by signal");
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn main() -> ExitCode {
-    if env::var("CHILD_PROCESS").is_ok() {
-        ExitCode::from(app().into_status_code() as u8)
-    } else {
-        supervisor().report()
-    }
+    Cli::parse().run()
 }
