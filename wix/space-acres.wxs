@@ -122,7 +122,7 @@
                         </Component>
                         <Component Id='binary0' Guid='*'>
                             <File
-                                Id='exe0'
+                                Id='space_acres.exe'
                                 Name='space-acres.exe'
                                 DiskId='1'
                                 Source='$(var.CargoTargetBinDir)\space-acres.exe'
@@ -303,9 +303,12 @@
             -->
             <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>
             <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
-
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">
+                WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
+            </Publish>
+            <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Run Space Acres" />
         </UI>
-
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
         <!--
           Enabling the EULA dialog in the installer requires uncommenting
@@ -336,6 +339,7 @@
         -->
         <!--<WixVariable Id='WixUIDialogBmp' Value='wix\Dialog.bmp'/>-->
 
+        <Property Id="WixShellExecTarget" Value="[#space_acres.exe]" />
+        <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
     </Product>
-
 </Wix>
