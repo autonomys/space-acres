@@ -6,6 +6,10 @@ use relm4::prelude::*;
 use subspace_core_primitives::BlockNumber;
 use tracing::warn;
 
+/// Maximum blocks to store in the import queue.
+// HACK: This constant comes from Substrate's sync, but it is not public in there
+const MAX_IMPORTING_BLOCKS: BlockNumber = 2048;
+
 #[derive(Debug)]
 pub enum RunningInput {
     Initialize {
@@ -256,11 +260,37 @@ impl RunningView {
                 };
             }
             RunningInput::NodeNotification(node_notification) => match node_notification {
-                NodeNotification::SyncStateUpdate(sync_state) => {
+                NodeNotification::SyncStateUpdate(mut sync_state) => {
+                    if let SyncState::Syncing {
+                        target: new_target, ..
+                    } = &mut sync_state
+                    {
+                        *new_target = (*new_target).max(self.node_state.best_block_number);
+
+                        // Ensure target is never below current block
+                        if let SyncState::Syncing {
+                            target: old_target, ..
+                        } = &self.node_state.sync_state
+                        {
+                            // If old target was within `MAX_IMPORTING_BLOCKS` from new target, keep old target
+                            if old_target
+                                .checked_sub(*new_target)
+                                .map(|diff| diff <= MAX_IMPORTING_BLOCKS)
+                                .unwrap_or_default()
+                            {
+                                *new_target = *old_target;
+                            }
+                        }
+                    }
                     self.node_state.sync_state = sync_state;
                 }
                 NodeNotification::BlockImported { number } => {
                     self.node_state.best_block_number = number;
+
+                    // Ensure target is never below current block
+                    if let SyncState::Syncing { target, .. } = &mut self.node_state.sync_state {
+                        *target = (*target).max(self.node_state.best_block_number);
+                    }
                 }
             },
             RunningInput::FarmerNotification(farmer_notification) => match farmer_notification {
