@@ -325,11 +325,35 @@ impl AsyncComponent for App {
             // TODO: Use https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/6643 once available
             .license("Zero-Clause BSD: https://opensource.org/license/0bsd/")
             .website(env!("CARGO_PKG_REPOSITORY"))
+            .website_label("GitHub")
             .comments(env!("CARGO_PKG_DESCRIPTION"))
             .logo(&gtk::gdk::Texture::for_pixbuf(
                 &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
                     .expect("Statically correct image; qed"),
             ))
+            .system_information({
+                let config_directory = dirs::config_local_dir()
+                    .map(|config_local_dir| {
+                        config_local_dir
+                            .join(env!("CARGO_PKG_NAME"))
+                            .display()
+                            .to_string()
+                    })
+                    .unwrap_or_else(|| "Unknown".to_string());
+                let data_directory = dirs::data_local_dir()
+                    .map(|data_local_dir| {
+                        data_local_dir
+                            .join(env!("CARGO_PKG_NAME"))
+                            .display()
+                            .to_string()
+                    })
+                    .unwrap_or_else(|| "Unknown".to_string());
+
+                format!(
+                    "Config directory: {config_directory}\n\
+                    Data directory (including logs): {data_directory}",
+                )
+            })
             .transient_for(&root)
             .build();
         about_dialog.connect_close_request(|about_dialog| {
