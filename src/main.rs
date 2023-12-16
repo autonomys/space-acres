@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(const_option, trait_alias, try_blocks)]
 
 mod backend;
@@ -10,23 +10,34 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::running::{RunningInput, RunningView};
 use atomic::Atomic;
+use duct::cmd;
+use file_rotate::compression::Compression;
+use file_rotate::suffix::AppendCount;
+use file_rotate::{ContentLimit, FileRotate};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::RELM_THREADS;
 use std::future::Future;
-use std::process::{Command, ExitCode, Stdio, Termination};
+use std::io::{Read, Write};
+use std::process::{ExitCode, Termination};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::thread::available_parallelism;
-use std::{env, io, process};
+use std::{env, fs, io, process};
 use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
 use subspace_proof_of_space::chia::ChiaTable;
 use tracing::{info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
+
+/// Number of log files to keep
+const LOG_FILE_LIMIT_COUNT: usize = 5;
+/// Size of one log file
+const LOG_FILE_LIMIT_SIZE: usize = 1024 * 1024 * 10;
+const LOG_READ_BUFFER: usize = 1024 * 1024;
 
 #[derive(Debug, Copy, Clone)]
 enum AppStatusCode {
@@ -490,7 +501,6 @@ impl App {
 }
 
 fn app() -> AppStatusCode {
-    // TODO: Log into files
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
@@ -508,6 +518,12 @@ fn app() -> AppStatusCode {
                 ),
         )
         .init();
+
+    info!(
+        "Starting {} {}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    );
 
     // The default in `relm4` is `1`, set this back to Tokio's default
     RELM_THREADS
@@ -536,39 +552,121 @@ fn app() -> AppStatusCode {
         exit_status_code: Arc::clone(&exit_status_code),
     });
 
-    exit_status_code.load(Ordering::Acquire)
+    let exit_status_code = exit_status_code.load(Ordering::Acquire);
+    info!(
+        ?exit_status_code,
+        "Exiting {} {}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    );
+    exit_status_code
 }
 
 fn supervisor() -> io::Result<()> {
-    loop {
-        let mut child_process = Command::new(env::current_exe()?)
-            .env("CHILD_PROCESS", "1")
-            .stdin(Stdio::null())
-            // TODO: Use pipes and capture stdout/stderr to write logs to files
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()?;
+    let maybe_app_data_dir = dirs::data_local_dir()
+        .map(|data_local_dir| data_local_dir.join(env!("CARGO_PKG_NAME")))
+        .and_then(|app_data_dir| {
+            if !app_data_dir.exists() {
+                if let Err(error) = fs::create_dir_all(&app_data_dir) {
+                    eprintln!(
+                        "App data directory \"{}\" doesn't exist and can't be created: {}",
+                        app_data_dir.display(),
+                        error
+                    );
+                    return None;
+                }
+            }
 
-        match child_process.wait()?.code() {
-            Some(status_code) => {
-                match AppStatusCode::from_status_code(status_code) {
-                    AppStatusCode::Exit => {
-                        // Exited gracefully
-                        info!("Application exited gracefully");
+            Some(app_data_dir)
+        });
+    let mut maybe_logger = maybe_app_data_dir.as_ref().map(|app_data_dir| {
+        FileRotate::new(
+            app_data_dir.join("space-acres.log"),
+            AppendCount::new(LOG_FILE_LIMIT_COUNT),
+            ContentLimit::Bytes(LOG_FILE_LIMIT_SIZE),
+            Compression::OnRotate(0),
+            #[cfg(unix)]
+            None,
+        )
+    });
+
+    let mut log_read_buffer = vec![0u8; LOG_READ_BUFFER];
+
+    loop {
+        let expression = cmd!(env::current_exe()?)
+            .env("CHILD_PROCESS", "1")
+            .stderr_to_stdout()
+            // We use non-zero status codes and they don't mean error necessarily
+            .unchecked();
+
+        let exit_status = if let Some(logger) = maybe_logger.as_mut() {
+            let mut expression = expression.reader()?;
+
+            let mut stdout = io::stdout();
+            loop {
+                match expression.read(&mut log_read_buffer) {
+                    Ok(bytes_count) => {
+                        if bytes_count == 0 {
+                            break;
+                        }
+
+                        let write_result: io::Result<()> = try {
+                            stdout.write_all(&log_read_buffer[..bytes_count])?;
+                            logger.write_all(&log_read_buffer[..bytes_count])?;
+                        };
+
+                        if let Err(error) = write_result {
+                            eprintln!("Error while writing output of child process: {error}");
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        if error.kind() == io::ErrorKind::Interrupted {
+                            // Try again
+                            continue;
+                        }
+                        eprintln!("Error while reading output of child process: {error}");
                         break;
-                    }
-                    AppStatusCode::Restart => {
-                        info!("Restarting application");
-                        continue;
-                    }
-                    AppStatusCode::Unknown(status_code) => {
-                        warn!(%status_code, "Application exited with unexpected status code");
-                        process::exit(status_code);
                     }
                 }
             }
+
+            stdout.flush()?;
+            if let Err(error) = logger.flush() {
+                eprintln!("Error while flushing logs: {error}");
+            }
+
+            match expression.try_wait()? {
+                Some(output) => output.status,
+                None => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Logs writing ended before child process did, exiting",
+                    ));
+                }
+            }
+        } else {
+            eprintln!("App data directory doesn't exist, not creating log file");
+            expression.run()?.status
+        };
+
+        match exit_status.code() {
+            Some(status_code) => match AppStatusCode::from_status_code(status_code) {
+                AppStatusCode::Exit => {
+                    eprintln!("Application exited gracefully");
+                    break;
+                }
+                AppStatusCode::Restart => {
+                    eprintln!("Restarting application");
+                    continue;
+                }
+                AppStatusCode::Unknown(status_code) => {
+                    eprintln!("Application exited with unexpected status code {status_code}");
+                    process::exit(status_code);
+                }
+            },
             None => {
-                warn!("Application terminated by signal");
+                eprintln!("Application terminated by signal");
                 break;
             }
         }
