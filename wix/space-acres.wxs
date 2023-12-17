@@ -122,7 +122,7 @@
                         </Component>
                         <Component Id='binary0' Guid='*'>
                             <File
-                                Id='exe0'
+                                Id='space_acres.exe'
                                 Name='space-acres.exe'
                                 DiskId='1'
                                 Source='$(var.CargoTargetBinDir)\space-acres.exe'
@@ -192,21 +192,34 @@
             <Directory Id="ProgramMenuFolder">
               <Directory Id="ApplicationProgramsFolder" Name="Space Acres"/>
             </Directory>
-			      <Directory Id="DesktopFolder" Name="Desktop">
-            </Directory>
+			      <Directory Id="DesktopFolder" Name="Desktop"/>
+			      <Directory Id="StartupFolder" Name="Startup"/>
         </Directory>
 
         <DirectoryRef Id="ApplicationProgramsFolder">
-          <Component Id="AppStart" Guid="ddbbc45d-1558-41ff-b1fb-0569df38f7aa">
-            <Shortcut Id="AppStartShortcut"
-              Name="Space Acres"
-              Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
-              Target="[APPLICATIONFOLDER]bin\space-acres.exe"
-              WorkingDirectory="APPLICATIONROOTDIRECTORY"
-              Icon="ProductICO"/>
-            <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
-            <RegistryValue Root="HKCU" Key="Software\nazar-pc\space-acres" Name="StartShortcut" Type="integer" Value="1" KeyPath="yes"/>
-           </Component>
+            <Component Id="AppStart" Guid="ddbbc45d-1558-41ff-b1fb-0569df38f7aa">
+                <Shortcut Id="AppStartShortcut"
+                    Name="Space Acres"
+                    Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
+                    Target="[APPLICATIONFOLDER]bin\space-acres.exe"
+                    WorkingDirectory="APPLICATIONROOTDIRECTORY"
+                    Icon="ProductICO"/>
+                <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\nazar-pc\space-acres" Name="StartShortcut" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="StartupFolder">
+            <Component Id="AppStartup" Guid="5666cacf-0b49-4c51-826d-1c3f57fd2c64">
+                <Shortcut Id="AppStartupShortcut"
+                    Name="Space Acres"
+                    Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
+                    Target="[APPLICATIONFOLDER]bin\space-acres.exe --startup"
+                    WorkingDirectory="APPLICATIONROOTDIRECTORY"
+                    Icon="ProductICO"/>
+                <RemoveFolder Id="StartupFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\nazar-pc\space-acres" Name="StartupShortcut" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
         </DirectoryRef>
 
         <DirectoryRef Id="DesktopFolder">
@@ -252,27 +265,39 @@
             </Feature>
 
             <Feature
-              Id='StartShort'
-              Title='Start menu shortcut'
-              Description='Add a shortcut to the start menu'
-              Level='1'
-              AllowAdvertise='no'
-              Display='expand'
-              Absent='allow'>
+                Id='StartShort'
+                Title='Start menu shortcut'
+                Description='Add a shortcut to the start menu'
+                Level='1'
+                AllowAdvertise='no'
+                Display='expand'
+                Absent='allow'>
 
-              <ComponentRef Id="AppStart" />
+                <ComponentRef Id="AppStart" />
             </Feature>
 
             <Feature
-              Id='DeskShort'
-              Title='Desktop shortcut'
-              Description='Add a shortcut to the desktop'
-              Level='1'
-              AllowAdvertise='no'
-              Display='expand'
-              Absent='allow'>
+                Id='StartupShort'
+                Title='Add to startup'
+                Description='Start Space Acres during startup'
+                Level='1'
+                AllowAdvertise='no'
+                Display='expand'
+                Absent='allow'>
 
-              <ComponentRef Id="AppDesk" />
+                <ComponentRef Id="AppStartup" />
+            </Feature>
+
+            <Feature
+                Id='DeskShort'
+                Title='Desktop shortcut'
+                Description='Add a shortcut to the desktop'
+                Level='1'
+                AllowAdvertise='no'
+                Display='expand'
+                Absent='allow'>
+
+                <ComponentRef Id="AppDesk" />
             </Feature>
         </Feature>
 
@@ -283,7 +308,7 @@
           Add/Remove Programs control panel requires commenting out or
           removing the following `Icon` and `Property` tags.
         -->
-        <Icon Id='ProductICO' SourceFile='res/space-acres.ico'/>
+        <Icon Id='ProductICO' SourceFile='res\windows\space-acres.ico'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
         <Property Id='ARPHELPLINK' Value='https://github.com/nazar-pc/space-acres'/>
@@ -303,9 +328,12 @@
             -->
             <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>
             <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
-
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">
+                WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
+            </Publish>
+            <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Run Space Acres" />
         </UI>
-
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
         <!--
           Enabling the EULA dialog in the installer requires uncommenting
@@ -336,6 +364,7 @@
         -->
         <!--<WixVariable Id='WixUIDialogBmp' Value='wix\Dialog.bmp'/>-->
 
+        <Property Id="WixShellExecTarget" Value="[#space_acres.exe]" />
+        <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
     </Product>
-
 </Wix>

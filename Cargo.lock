@@ -1578,9 +1578,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.10"
+version = "4.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41fffed7514f420abec6d183b1d3acfd9099c79c3a10a06ade4f8203f1411272"
+checksum = "bfaff671f6b22ca62406885ece523383b9b64022e341e53e009a62ebc47a45f2"
 dependencies = [
  "clap_builder",
  "clap_derive 4.4.7",
@@ -1588,9 +1588,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.9"
+version = "4.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63361bae7eef3771745f02d8d892bec2fee5f6e34af316ba556e7f97a7069ff1"
+checksum = "a216b506622bb1d316cd51328dce24e07bdff4a6128a47c7e7fad11878d5adbb"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1918,7 +1918,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.4.10",
+ "clap 4.4.11",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -9059,7 +9059,7 @@ name = "sc-storage-monitor"
 version = "0.1.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c#c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c"
 dependencies = [
- "clap 4.4.10",
+ "clap 4.4.11",
  "fs4",
  "log",
  "sc-client-db",
@@ -10528,13 +10528,14 @@ dependencies = [
 
 [[package]]
 name = "space-acres"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "arc-swap",
  "async-trait",
  "atomic",
  "bytesize",
+ "clap 4.4.11",
  "dark-light",
  "dirs 5.0.1",
  "duct",
@@ -10578,6 +10579,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
+ "winres",
 ]
 
 [[package]]
@@ -10789,7 +10791,7 @@ dependencies = [
  "blake2",
  "blake3",
  "bytesize",
- "clap 4.4.10",
+ "clap 4.4.11",
  "criterion",
  "derive_more",
  "event-listener-primitives",
@@ -10880,7 +10882,7 @@ dependencies = [
  "async-trait",
  "backoff",
  "bytes",
- "clap 4.4.10",
+ "clap 4.4.11",
  "derive_more",
  "either",
  "event-listener-primitives",
@@ -12965,6 +12967,15 @@ checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "winres"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b68db261ef59e9e52806f688020631e987592bd83619edccda9c47d42cde4f6c"
+dependencies = [
+ "toml 0.5.11",
 ]
 
 [[package]]
