@@ -619,10 +619,9 @@ impl Cli {
 
         // Prefer dark theme in cross-platform way if environment is configured that way
         if let Some(settings) = gtk::Settings::default() {
-            settings.set_gtk_application_prefer_dark_theme(!matches!(
-                dark_light::detect(),
-                dark_light::Mode::Light
-            ));
+            if matches!(dark_light::detect(), dark_light::Mode::Dark) {
+                settings.set_gtk_application_prefer_dark_theme(true);
+            }
         }
 
         let exit_status_code = Arc::new(Atomic::new(AppStatusCode::Exit));
