@@ -214,7 +214,8 @@
                 <Shortcut Id="AppStartupShortcut"
                     Name="Space Acres"
                     Description="Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
-                    Target="[APPLICATIONFOLDER]bin\space-acres.exe --startup"
+                    Target="[APPLICATIONFOLDER]bin\space-acres.exe"
+                    Arguments="--startup"
                     WorkingDirectory="APPLICATIONROOTDIRECTORY"
                     Icon="ProductICO"/>
                 <RemoveFolder Id="StartupFolder" On="uninstall"/>
