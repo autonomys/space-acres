@@ -72,12 +72,12 @@ jobs:
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
           
           # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
-          Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > wix\actual-dlls.log
-          if (Compare-Object -ReferenceObject (Get-Content -Path wix\expected-dlls.log) -DifferenceObject (Get-Content -Path wix\actual-dlls.log)) {
+          Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
+          if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
             Write-Output "Expected DLLs:"
-            Get-Content wix\expected-dlls.log
+            Get-Content res\windows\wix\expected-dlls.log
             Write-Output "Actual DLLs:"
-            Get-Content wix\actual-dlls.log
+            Get-Content actual-dlls.log
             Throw "Actual DLLs do not match expected"
           }
         if: runner.os == 'Windows'
