@@ -18,11 +18,11 @@ jobs:
     strategy:
       matrix:
         build:
-          # TODO: Package Linux and macOS
-#          - os: ubuntu-22.04
-#            target: x86_64-unknown-linux-gnu
-#            suffix: ubuntu-x86_64-skylake-${{ github.ref_name }}
-#            rustflags: "-C target-cpu=skylake"
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            suffix: ubuntu-x86_64-skylake-${{ github.ref_name }}
+            rustflags: "-C target-cpu=skylake"
+          # TODO: Package for more Linux distributions/packaging formats/architectures and macOS
 #          - os: ubuntu-22.04
 #            target: aarch64-unknown-linux-gnu
 #            suffix: ubuntu-aarch64-${{ github.ref_name }}
@@ -41,7 +41,6 @@ jobs:
             rustflags: "-C target-cpu=skylake"
     runs-on: ${{ matrix.build.os }}
     env:
-      PRODUCTION_TARGET: target/${{ matrix.build.target }}/production
       RUSTFLAGS: ${{ matrix.build.rustflags }}
 
     steps:
@@ -87,6 +86,7 @@ jobs:
         run: |
           Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
           Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
+        if: runner.os == 'Windows'
 
       # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
       # TODO: on macOS, the consensus/domain runtime build is not compatible with LLVM 15.0.7 and
@@ -155,7 +155,7 @@ jobs:
           Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
         if: runner.os == 'Windows'
 
-      - name: Upload node and farmer executables to artifacts (Windows)
+      - name: Upload installer to artifacts (Windows)
         uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # @v3.1.1
         with:
           name: installer-${{ matrix.build.suffix }}
@@ -164,10 +164,38 @@ jobs:
           if-no-files-found: error
         if: runner.os == 'Windows'
 
-      - name: Upload node and farmer executables to assets (Windows)
+      - name: Upload installer to assets (Windows)
         uses: alexellis/upload-assets@259de5111cb56966d046ced998941e93f91d2c93 # @0.4.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           asset_paths: '["target/wix/*.msi"]'
         if: runner.os == 'Windows' && github.event_name == 'push' && github.ref_type == 'tag'
+
+      - name: Install cargo-deb (Linux)
+        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+        with:
+          tool: cargo-deb
+        if: runner.os == 'Linux'
+
+      - name: Package (Linux)
+        run: |
+          cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip
+        if: runner.os == 'Linux'
+
+      - name: Upload installer to artifacts (Linux)
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # @v3.1.1
+        with:
+          name: installer-${{ matrix.build.suffix }}
+          path: |
+            target/${{ matrix.build.target }}/debian/*.deb
+          if-no-files-found: error
+        if: runner.os == 'Linux'
+
+      - name: Upload installer to assets (Linux)
+        uses: alexellis/upload-assets@259de5111cb56966d046ced998941e93f91d2c93 # @0.4.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["target/${{ matrix.build.target }}/debian/*.deb"]'
+        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_type == 'tag'

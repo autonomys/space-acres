@@ -1,12 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Space Acres
-Categories=Network
-GenericName=Subspace Network Farming Software
 Comment=Space Acres is an opinionated unofficial GUI application for farming on Subspace Network
-Keywords=subspace;farmer;farming
 Icon=/usr/share/icons/hicolor/apps/space-acres.png
-Exec=space-acres
-Terminal=false
-StartupNotify=false
-StartupWMClass=space-acres
+Exec=space-acres --startup

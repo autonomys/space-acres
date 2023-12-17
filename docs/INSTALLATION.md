@@ -59,7 +59,21 @@ for your architecture (most likely X64).
 
 ## Linux
 
-There are no official packages for Linux yet and if you build from source you hopefully know what you are doing.
+For **Ubuntu 22.04 or newer** (older versions not supported) go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
+file with `.deb` extension for your architecture (most likely `amd64`).
+
+Then open terminal and run following commands to switch to downloads directory and install an app:
+```bash
+cd Downloads
+sudo apt install ./space-acres*.deb
+```
+
+Replace `Downloads` with correct name of downloads directory if you have non-English Ubuntu installation or if you
+downloaded file into a custom location. In case you have multiple versions of Space Acres downloaded, you might want to
+replace `space-acres*.deb` with a full name of the file you've downloaded.
+
+There are no official packages for other Linux distributions yet and if you build from source you hopefully know what
+you are doing.
 Consider [contributing to Linux packaging](https://github.com/nazar-pc/space-acres/issues/6) though!
 
 ## macOS
