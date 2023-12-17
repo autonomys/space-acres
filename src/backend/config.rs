@@ -7,6 +7,8 @@ use std::str::FromStr;
 use subspace_core_primitives::PublicKey;
 use subspace_farmer::utils::ss58::{parse_ss58_reward_address, Ss58ParsingError};
 use tokio::fs;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 
 // TODO: Replace with `DiskFarm`
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,11 +96,19 @@ impl RawConfig {
     }
 
     pub async fn write_to_path(&self, config_file_path: &Path) -> io::Result<()> {
-        fs::write(
-            config_file_path,
-            serde_json::to_string_pretty(self).expect("Config serialization is infallible; qed"),
-        )
-        .await
+        let mut options = OpenOptions::new();
+        options.write(true).truncate(true).create(true);
+        #[cfg(unix)]
+        options.mode(0x600);
+        options
+            .open(config_file_path)
+            .await?
+            .write_all(
+                serde_json::to_string_pretty(self)
+                    .expect("Config serialization is infallible; qed")
+                    .as_bytes(),
+            )
+            .await
     }
 
     pub fn reward_address(&self) -> &str {

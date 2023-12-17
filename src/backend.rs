@@ -28,6 +28,8 @@ use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::{Node, NodeRunner};
 use tokio::fs;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use tokio::runtime::Handle;
 use tracing::{error, info_span, warn, Instrument};
 
@@ -657,7 +659,14 @@ async fn create_networking_stack(
             })?;
         }
 
-        fs::write(&keypair_path, network_keypair.secret())
+        let mut options = OpenOptions::new();
+        options.write(true).truncate(true).create(true);
+        #[cfg(unix)]
+        options.mode(0x600);
+        options
+            .open(&keypair_path)
+            .await?
+            .write_all(network_keypair.secret().as_ref())
             .await
             .map_err(|error| {
                 anyhow::anyhow!(

@@ -610,7 +610,7 @@ fn supervisor() -> io::Result<()> {
             ContentLimit::Bytes(LOG_FILE_LIMIT_SIZE),
             Compression::OnRotate(0),
             #[cfg(unix)]
-            None,
+            Some(0o600),
         )
     });
 
