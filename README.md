@@ -37,11 +37,13 @@ The project at high level is structured in a few large modules:
   * `networking` contains networking stack that is shared between `farmer` and `node` with a wrapper data structure that abstracts away its internals
   * `node` contains consensus node with a wrapper data structure that abstracts away its internals
   * `utils` contains some low-level utilities
+* `docs` contains documentation files
 * `frontend` handles majority of frontend logic with each module corresponding to a major application screen/view
-* `main.rs` handles high-level UI and communication with backend, wiring everything together
 * `res` contains various non-code resources required for application operation and/or packaging
   * `app.css` contains a few small non-critical tweaks for presentation, it will likely be necessary to ship a GTK4 theme with the app in the future to ensure consistent look
-* `wix` contains initially auto-generated, but then modified configuration for [cargo-wix](https://github.com/volks73/cargo-wix) that is essential for Windows packaging
+  * `linux` contains Linux-specific resources
+  * `windows` contains Windows-specific resources
+* `main.rs` handles high-level UI and communication with backend, wiring everything together
 
 Application supports bare minimum configuration and doesn't support operator functionality (not yet anyway).
 
