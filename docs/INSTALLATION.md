@@ -20,7 +20,7 @@ farm properly if you don't have enough CPU.
 
 ### Storage
 
-HDDs are not supported and will never be. Don't ask about it, don't try using smart caching, tiered storage or other
+**HDDs are not supported and will never be**. Don't ask about it, don't try using smart caching, tiered storage or other
 ways to accelerate it, you'll be 100% disappointed and just waste your time.
 
 **Node will require 100 GiB of good quality SSD**. Doesn't have to be anything amazing, but something mid-range from a
@@ -38,8 +38,8 @@ farming rewards for literally no benefit in exchange*.
 
 ### Required ports
 
-Application uses TCP and UDP ports 30333 and 30433 for P2P communication with the rest of the network, both should be
-open and exposed publicly on your router/firewall (settings for this are typically called "port forwarding"). Without
+Application uses **TCP and UDP ports 30333 and 30433** for P2P communication with the rest of the network, both should
+be open and exposed publicly on your router/firewall (settings for this are typically called "port forwarding"). Without
 this application may sometimes work fine and sometimes have a hard time syncing or plotting, so it is
 **strongly recommended**.
 
@@ -47,7 +47,8 @@ this application may sometimes work fine and sometimes have a hard time syncing 
 
 For Windows go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
 file with `.msi` extension. It is not digitally signed, so you'll have to agree to accept the risk when downloading and
-installing it for now.
+installing it for now. Note that while things might work on other versions of Windows, **only Windows 10 and 11** with
+latest updates supported.
 
 ### Dependencies
 

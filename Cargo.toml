@@ -13,6 +13,8 @@ include = [
 
 # TODO: Menu shortcut will not be generated automatically in case of re-init: https://github.com/volks73/cargo-wix/issues/141
 [package.metadata.wix]
+# Custom location to keep the root of the project cleaner
+include = ["res/windows/wix/space-acres.wxs"]
 product-icon = "res/windows/space-acres.ico"
 # TODO: This option will not have effect until https://github.com/volks73/cargo-wix/issues/270 is fixed in case of re-init
 product-name = "Space Acres"
