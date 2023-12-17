@@ -22,6 +22,7 @@ use relm4::prelude::*;
 use relm4::RELM_THREADS;
 use std::future::Future;
 use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -39,6 +40,9 @@ const LOG_FILE_LIMIT_COUNT: usize = 5;
 /// Size of one log file
 const LOG_FILE_LIMIT_SIZE: usize = 1024 * 1024 * 10;
 const LOG_READ_BUFFER: usize = 1024 * 1024;
+/// If `true`, this means supervisor will not be able to capture logs from child application and logger needs to be in
+/// the child process itself, while supervisor will not attempt to read stdout/stderr at all
+const WINDOWS_SUBSYSTEM_WINDOWS: bool = cfg!(all(windows, not(debug_assertions)));
 
 #[derive(Debug, Copy, Clone)]
 enum AppStatusCode {
@@ -554,23 +558,39 @@ impl Cli {
     }
 
     fn app(self) -> AppStatusCode {
-        tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::fmt::layer()
-                    // TODO: Workaround for https://github.com/tokio-rs/tracing/issues/2214, also on
-                    //  Windows terminal doesn't support the same colors as bash does
-                    .with_ansi(if cfg!(windows) {
-                        false
-                    } else {
-                        supports_color::on(supports_color::Stream::Stderr).is_some()
-                    })
-                    .with_filter(
-                        EnvFilter::builder()
-                            .with_default_directive(LevelFilter::INFO.into())
-                            .from_env_lossy(),
-                    ),
-            )
-            .init();
+        let maybe_app_data_dir = Self::app_data_dir();
+
+        {
+            let layer = tracing_subscriber::fmt::layer()
+                // TODO: Workaround for https://github.com/tokio-rs/tracing/issues/2214, also on
+                //  Windows terminal doesn't support the same colors as bash does
+                .with_ansi(if cfg!(windows) {
+                    false
+                } else {
+                    supports_color::on(supports_color::Stream::Stderr).is_some()
+                });
+            let filter = EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy();
+            if WINDOWS_SUBSYSTEM_WINDOWS {
+                if let Some(app_data_dir) = &maybe_app_data_dir {
+                    let logger = std::sync::Mutex::new(Self::new_logger(app_data_dir));
+                    let layer = layer.with_writer(logger);
+
+                    tracing_subscriber::registry()
+                        .with(layer.with_filter(filter))
+                        .init();
+                } else {
+                    tracing_subscriber::registry()
+                        .with(layer.with_filter(filter))
+                        .init();
+                }
+            } else {
+                tracing_subscriber::registry()
+                    .with(layer.with_filter(filter))
+                    .init();
+            }
+        }
 
         info!(
             "Starting {} {}",
@@ -623,34 +643,7 @@ impl Cli {
     }
 
     fn supervisor(mut self) -> io::Result<()> {
-        let maybe_app_data_dir = dirs::data_local_dir()
-            .map(|data_local_dir| data_local_dir.join(env!("CARGO_PKG_NAME")))
-            .and_then(|app_data_dir| {
-                if !app_data_dir.exists() {
-                    if let Err(error) = fs::create_dir_all(&app_data_dir) {
-                        eprintln!(
-                            "App data directory \"{}\" doesn't exist and can't be created: {}",
-                            app_data_dir.display(),
-                            error
-                        );
-                        return None;
-                    }
-                }
-
-                Some(app_data_dir)
-            });
-        let mut maybe_logger = maybe_app_data_dir.as_ref().map(|app_data_dir| {
-            FileRotate::new(
-                app_data_dir.join("space-acres.log"),
-                AppendCount::new(LOG_FILE_LIMIT_COUNT),
-                ContentLimit::Bytes(LOG_FILE_LIMIT_SIZE),
-                Compression::OnRotate(0),
-                #[cfg(unix)]
-                None,
-            )
-        });
-
-        let mut log_read_buffer = vec![0u8; LOG_READ_BUFFER];
+        let maybe_app_data_dir = Self::app_data_dir();
 
         loop {
             let mut args = vec!["--child-process".to_string()];
@@ -663,17 +656,19 @@ impl Cli {
             args.push("--".to_string());
             args.extend_from_slice(&self.gtk_arguments);
 
-            let expression = cmd(env::current_exe()?, args)
-                .stderr_to_stdout()
-                // We use non-zero status codes and they don't mean error necessarily
-                .unchecked();
+            let exit_status = if let Some(app_data_dir) = (!WINDOWS_SUBSYSTEM_WINDOWS)
+                .then_some(maybe_app_data_dir.as_ref())
+                .flatten()
+            {
+                let mut expression = cmd(env::current_exe()?, args)
+                    .stderr_to_stdout()
+                    // We use non-zero status codes and they don't mean error necessarily
+                    .unchecked()
+                    .reader()?;
 
-            // if startup {
-            //     expression.
-            // }
+                let mut logger = Self::new_logger(app_data_dir);
 
-            let exit_status = if let Some(logger) = maybe_logger.as_mut() {
-                let mut expression = expression.reader()?;
+                let mut log_read_buffer = vec![0u8; LOG_READ_BUFFER];
 
                 let mut stdout = io::stdout();
                 loop {
@@ -718,9 +713,22 @@ impl Cli {
                         ));
                     }
                 }
+            } else if WINDOWS_SUBSYSTEM_WINDOWS {
+                cmd(env::current_exe()?, args)
+                    .stdin_null()
+                    .stdout_null()
+                    .stderr_null()
+                    // We use non-zero status codes and they don't mean error necessarily
+                    .unchecked()
+                    .run()?
+                    .status
             } else {
                 eprintln!("App data directory doesn't exist, not creating log file");
-                expression.run()?.status
+                cmd(env::current_exe()?, args)
+                    // We use non-zero status codes and they don't mean error necessarily
+                    .unchecked()
+                    .run()?
+                    .status
             };
 
             match exit_status.code() {
@@ -746,6 +754,36 @@ impl Cli {
         }
 
         Ok(())
+    }
+
+    fn app_data_dir() -> Option<PathBuf> {
+        dirs::data_local_dir()
+            .map(|data_local_dir| data_local_dir.join(env!("CARGO_PKG_NAME")))
+            .and_then(|app_data_dir| {
+                if !app_data_dir.exists() {
+                    if let Err(error) = fs::create_dir_all(&app_data_dir) {
+                        eprintln!(
+                            "App data directory \"{}\" doesn't exist and can't be created: {}",
+                            app_data_dir.display(),
+                            error
+                        );
+                        return None;
+                    }
+                }
+
+                Some(app_data_dir)
+            })
+    }
+
+    fn new_logger(app_data_dir: &Path) -> FileRotate<AppendCount> {
+        FileRotate::new(
+            app_data_dir.join("space-acres.log"),
+            AppendCount::new(LOG_FILE_LIMIT_COUNT),
+            ContentLimit::Bytes(LOG_FILE_LIMIT_SIZE),
+            Compression::OnRotate(0),
+            #[cfg(unix)]
+            None,
+        )
     }
 }
 
