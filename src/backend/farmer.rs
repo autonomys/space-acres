@@ -379,7 +379,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     let initial_plotting_states = single_disk_farms
         .iter()
         .map(|single_disk_farm| async {
-            if usize::from(single_disk_farm.total_sectors_count().await)
+            if usize::from(single_disk_farm.total_sectors_count())
                 == single_disk_farm.plotted_sectors_count().await
             {
                 PlottingState::Idle
