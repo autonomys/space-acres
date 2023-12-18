@@ -20,6 +20,7 @@ use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::RELM_THREADS;
+use relm4_icons::icon_name;
 use std::future::Future;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -194,7 +195,7 @@ impl AsyncComponent for App {
                 gtk::HeaderBar {
                     pack_end = &gtk::MenuButton {
                         set_direction: gtk::ArrowType::None,
-                        set_icon_name: "open-menu-symbolic",
+                        set_icon_name: icon_name::MENU_LARGE,
                         #[wrap(Some)]
                         set_popover: menu_popover = &gtk::Popover {
                             set_halign: gtk::Align::End,
@@ -616,6 +617,7 @@ impl Cli {
         });
 
         app.set_global_css(GLOBAL_CSS);
+        relm4_icons::initialize_icons();
 
         // Prefer dark theme in cross-platform way if environment is configured that way
         if let Some(settings) = gtk::Settings::default() {

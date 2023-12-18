@@ -3976,6 +3976,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "gvdb"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bb9136c388a1e7b3017d18fe7c2f263b0a2b13f215c48e8eb44935d413ce0f9"
+dependencies = [
+ "byteorder",
+ "flate2",
+ "quick-xml",
+ "safe-transmute",
+ "serde",
+ "serde_json",
+ "walkdir",
+ "zvariant",
+]
+
+[[package]]
 name = "h2"
 version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7591,6 +7607,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
 name = "quicksink"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7966,6 +7992,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "relm4-icons"
+version = "0.7.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0d2413577ec528e0a4de8d05e7b1f6840e60f2cf14a70b16dfd8d862654c06c"
+dependencies = [
+ "gtk4",
+ "gvdb",
+]
+
+[[package]]
 name = "relm4-macros"
 version = "0.7.0-beta.2"
 source = "git+https://github.com/Relm4/Relm4?rev=f216c7f5ba1324413cb16e45c37e0b9297473ec2#f216c7f5ba1324413cb16e45c37e0b9297473ec2"
@@ -8302,6 +8338,12 @@ name = "ryu"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
+
+[[package]]
+name = "safe-transmute"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98a01dab6acf992653be49205bdd549f32f17cb2803e8eacf1560bf97259aae8"
 
 [[package]]
 name = "safe_arch"
@@ -10561,6 +10603,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "relm4",
  "relm4-components",
+ "relm4-icons",
  "sc-client-api",
  "sc-client-db",
  "sc-consensus-slots",

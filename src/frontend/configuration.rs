@@ -5,6 +5,7 @@ use relm4::prelude::*;
 use relm4_components::open_dialog::{
     OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
 };
+use relm4_icons::icon_name;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -79,8 +80,8 @@ impl<T> MaybeValid<T> {
     fn icon(&self) -> Option<&'static str> {
         match self {
             MaybeValid::Unknown(_) => None,
-            MaybeValid::Valid(_) => Some("emblem-ok-symbolic"),
-            MaybeValid::Invalid(_) => Some("window-close-symbolic"),
+            MaybeValid::Valid(_) => Some(icon_name::CHECKMARK),
+            MaybeValid::Invalid(_) => Some(icon_name::CROSS),
         }
     }
 }
@@ -150,6 +151,9 @@ impl Component for ConfigurationView {
                                     set_placeholder_text: Some(
                                         "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
                                     ),
+                                    set_primary_icon_name: Some(icon_name::WALLET2),
+                                    set_primary_icon_activatable: false,
+                                    set_primary_icon_sensitive: false,
                                     #[watch]
                                     set_secondary_icon_name: model.reward_address.icon(),
                                     set_secondary_icon_activatable: false,
@@ -193,6 +197,9 @@ impl Component for ConfigurationView {
                                                 "/media/subspace-node"
                                             },
                                         ),
+                                        set_primary_icon_name: Some(icon_name::SSD),
+                                        set_primary_icon_activatable: false,
+                                        set_primary_icon_sensitive: false,
                                         #[watch]
                                         set_secondary_icon_name: model.node_path.icon(),
                                         set_secondary_icon_activatable: false,
@@ -210,18 +217,7 @@ impl Component for ConfigurationView {
                                         connect_clicked => ConfigurationInput::OpenDirectory(
                                             DirectoryKind::NodePath
                                         ),
-
-                                        gtk::Box {
-                                            set_spacing: 10,
-
-                                            gtk::Image {
-                                                set_icon_name: Some("folder-new-symbolic"),
-                                            },
-
-                                            gtk::Label {
-                                                set_label: "Select",
-                                            },
-                                        },
+                                        set_label: "Select",
                                     },
                                 },
                             },
@@ -259,6 +255,9 @@ impl Component for ConfigurationView {
                                                     "/media/subspace-farm"
                                                 },
                                             ),
+                                            set_primary_icon_name: Some(icon_name::SSD),
+                                            set_primary_icon_activatable: false,
+                                            set_primary_icon_sensitive: false,
                                             #[watch]
                                             set_secondary_icon_name: model.farms.get(0).map(|farm| farm.path.icon()).unwrap_or_default(),
                                             set_secondary_icon_activatable: false,
@@ -275,18 +274,7 @@ impl Component for ConfigurationView {
                                             connect_clicked => ConfigurationInput::OpenDirectory(
                                                 DirectoryKind::FarmPath(0)
                                             ),
-
-                                            gtk::Box {
-                                                set_spacing: 10,
-
-                                                gtk::Image {
-                                                    set_icon_name: Some("folder-new-symbolic"),
-                                                },
-
-                                                gtk::Label {
-                                                    set_label: "Select",
-                                                },
-                                            },
+                                            set_label: "Select",
                                         },
                                     },
 
@@ -306,6 +294,9 @@ impl Component for ConfigurationView {
                                         set_placeholder_text: Some(
                                             "4T, 2.5TB, 500GiB, etc.",
                                         ),
+                                        set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
+                                        set_primary_icon_activatable: false,
+                                        set_primary_icon_sensitive: false,
                                         #[watch]
                                         set_secondary_icon_name: model.farms.get(0).map(|farm| farm.size.icon()).unwrap_or_default(),
                                         set_secondary_icon_activatable: false,

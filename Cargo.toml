@@ -50,6 +50,7 @@ mimalloc = "0.1.39"
 names = "0.14.0"
 parking_lot = "0.12.1"
 relm4 = { version = "0.7.0-beta.2", git = "https://github.com/Relm4/Relm4", rev = "f216c7f5ba1324413cb16e45c37e0b9297473ec2" }
+relm4-icons = { version = "0.7.0-alpha.2", features = ["checkmark", "cross", "menu-large", "size-horizontally", "ssd", "wallet2"] }
 relm4-components = { version = "0.7.0-beta.2", git = "https://github.com/Relm4/Relm4", rev = "f216c7f5ba1324413cb16e45c37e0b9297473ec2", default-features = false }
 sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
 sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
