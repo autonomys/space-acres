@@ -10,9 +10,7 @@ use sc_client_db::{DatabaseSource, PruningMode};
 use sc_consensus_slots::SlotProportion;
 use sc_network::config::{Ed25519Secret, NetworkConfiguration, NodeKeyConfig, SyncMode};
 use sc_service::config::{KeystoreConfig, OffchainWorkerConfig};
-use sc_service::{
-    BasePath, BlocksPruning, Configuration, NativeExecutionDispatch, Role, RpcMethods,
-};
+use sc_service::{BasePath, BlocksPruning, Configuration, Role, RpcMethods};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use sc_subspace_chain_specs::ConsensusChainSpec;
 use sp_core::crypto::Ss58AddressFormat;
@@ -26,7 +24,7 @@ use subspace_core_primitives::BlockNumber;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
-use subspace_runtime::{RuntimeApi, RuntimeGenesisConfig};
+use subspace_runtime::{ExecutorDispatch, RuntimeApi, RuntimeGenesisConfig};
 use subspace_service::{FullClient, NewFull, SubspaceConfiguration, SubspaceNetworking};
 use tokio::runtime::Handle;
 use tokio::time::MissedTickBehavior;
@@ -178,24 +176,6 @@ impl ConsensusNode {
 
     pub(super) fn on_block_imported(&self, callback: HandlerFn<BlockNumber>) -> HandlerId {
         self.handlers.block_imported.add(callback)
-    }
-}
-
-/// Executor dispatch for subspace runtime
-pub(super) struct ExecutorDispatch;
-
-impl NativeExecutionDispatch for ExecutorDispatch {
-    type ExtendHostFunctions = (
-        sp_consensus_subspace::consensus::HostFunctions,
-        sp_domains_fraud_proof::HostFunctions,
-    );
-
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        subspace_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        subspace_runtime::native_version()
     }
 }
 
