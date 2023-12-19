@@ -10607,7 +10607,6 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "sc-consensus-slots",
- "sc-executor",
  "sc-network",
  "sc-service",
  "sc-storage-monitor",
