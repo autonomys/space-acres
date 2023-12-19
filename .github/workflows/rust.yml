@@ -72,14 +72,44 @@ jobs:
         run: brew install gtk4
         if: runner.os == 'macOS'
 
-      - name: Install GTK4 (Windows)
-        # TODO: Git commit from `libpng` branch that works around https://github.com/wingtk/gvsbuild/issues/984
+      - name: Configure GTK4 cache (Windows)
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # @v3.3.2
+        with:
+          path: C:\gtk-build
+          key: ${{ runner.os }}-gtk4
+        if: runner.os == 'Windows'
+
+      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
+      - name: Move git binary (Windows)
         run: |
-          pipx install git+https://github.com/g40/gvsbuild@20f78d8314b3f753adfd472b4b6c0b6866a4a0f8
+          Move-Item "C:\Program Files\Git\usr\bin" "C:\Program Files\Git\usr\notbin"
+          Move-Item "C:\Program Files\Git\bin" "C:\Program Files\Git\notbin"
+        if: runner.os == 'Windows'
+
+      - name: Install GTK4 (Windows)
+        run: |
+          pipx install gvsbuild
           gvsbuild build gtk4
           Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
           Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
+          
+          # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
+          Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
+          if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
+            Write-Output "Expected DLLs:"
+            Get-Content res\windows\wix\expected-dlls.log
+            Write-Output "Actual DLLs:"
+            Get-Content actual-dlls.log
+            Throw "Actual DLLs do not match expected"
+          }
+        if: runner.os == 'Windows'
+
+      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
+      - name: Restore git binary (Windows)
+        run: |
+          Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
+          Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
         if: runner.os == 'Windows'
 
       # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
@@ -145,14 +175,44 @@ jobs:
         run: brew install gtk4
         if: runner.os == 'macOS'
 
-      - name: Install GTK4 (Windows)
-        # TODO: Git commit from `libpng` branch that works around https://github.com/wingtk/gvsbuild/issues/984
+      - name: Configure GTK4 cache (Windows)
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # @v3.3.2
+        with:
+          path: C:\gtk-build
+          key: ${{ runner.os }}-gtk4
+        if: runner.os == 'Windows'
+
+      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
+      - name: Move git binary (Windows)
         run: |
-          pipx install git+https://github.com/g40/gvsbuild@20f78d8314b3f753adfd472b4b6c0b6866a4a0f8
+          Move-Item "C:\Program Files\Git\usr\bin" "C:\Program Files\Git\usr\notbin"
+          Move-Item "C:\Program Files\Git\bin" "C:\Program Files\Git\notbin"
+        if: runner.os == 'Windows'
+
+      - name: Install GTK4 (Windows)
+        run: |
+          pipx install gvsbuild
           gvsbuild build gtk4
           Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
           Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
+          
+          # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
+          Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
+          if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
+            Write-Output "Expected DLLs:"
+            Get-Content res\windows\wix\expected-dlls.log
+            Write-Output "Actual DLLs:"
+            Get-Content actual-dlls.log
+            Throw "Actual DLLs do not match expected"
+          }
+        if: runner.os == 'Windows'
+
+      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
+      - name: Restore git binary (Windows)
+        run: |
+          Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
+          Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
         if: runner.os == 'Windows'
 
       # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
