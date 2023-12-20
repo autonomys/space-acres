@@ -8,6 +8,7 @@ use sc_client_api::client::BlockchainEvents;
 use sc_client_api::HeaderBackend;
 use sc_client_db::{DatabaseSource, PruningMode};
 use sc_consensus_slots::SlotProportion;
+use sc_informant::OutputFormat;
 use sc_network::config::{Ed25519Secret, NetworkConfiguration, NodeKeyConfig, SyncMode};
 use sc_service::config::{KeystoreConfig, OffchainWorkerConfig};
 use sc_service::{BasePath, BlocksPruning, Configuration, Role, RpcMethods};
@@ -332,7 +333,9 @@ fn create_consensus_chain_config(
         announce_block: true,
         data_path: Default::default(),
         base_path: BasePath::new(base_path),
-        informant_output_format: Default::default(),
+        informant_output_format: OutputFormat {
+            enable_color: false,
+        },
         // Substrate's default
         runtime_cache_size: 2,
     }
