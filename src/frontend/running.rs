@@ -1,7 +1,12 @@
+mod farm;
+
+use crate::backend::config::RawConfig;
 use crate::backend::farmer::{PlottingKind, PlottingState};
 use crate::backend::node::{SyncKind, SyncState};
 use crate::backend::{FarmerNotification, NodeNotification};
+use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use gtk::prelude::*;
+use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use subspace_core_primitives::BlockNumber;
 use tracing::warn;
@@ -15,6 +20,7 @@ pub enum RunningInput {
     Initialize {
         best_block_number: BlockNumber,
         initial_plotting_states: Vec<PlottingState>,
+        raw_config: RawConfig,
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification),
@@ -37,6 +43,7 @@ struct FarmerState {
 pub struct RunningView {
     node_state: NodeState,
     farmer_state: FarmerState,
+    farms: FactoryHashMap<usize, FarmWidget>,
 }
 
 #[relm4::component(pub)]
@@ -62,7 +69,6 @@ impl Component for RunningView {
                     set_label: "Consensus node",
                 },
 
-                // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
                 match model.node_state.sync_state {
                     SyncState::Unknown => gtk::Box {
@@ -79,6 +85,8 @@ impl Component for RunningView {
                         set_spacing: 10,
 
                         gtk::Box {
+                            set_spacing: 5,
+
                             gtk::Label {
                                 set_halign: gtk::Align::Start,
 
@@ -102,7 +110,6 @@ impl Component for RunningView {
                             },
 
                             gtk::Spinner {
-                                set_margin_start: 5,
                                 start: (),
                             },
                         },
@@ -139,86 +146,83 @@ impl Component for RunningView {
                 // TODO: Render all farms, not just the first one
                 // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
                 #[transition = "SlideUpDown"]
-                match (
-                    model.farmer_state.piece_cache_sync_progress,
-                    model.farmer_state.plotting_state.get(0).copied().unwrap_or_default(),
-                    model.node_state.sync_state
-                ) {
-                    (progress, _, _) if progress < 100.0 => gtk::Box {
+                if model.farmer_state.piece_cache_sync_progress < 100.0 {
+                    gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 10,
 
                         gtk::Box {
+                            set_spacing: 5,
+                            set_tooltip: "Plotting starts after piece cache sync is complete",
+
                             gtk::Label {
                                 set_halign: gtk::Align::Start,
 
                                 #[watch]
-                                set_label: &format!("Piece cache sync {progress:.2}%"),
-                                set_tooltip: "Plotting starts after piece cache sync is complete",
+                                set_label: &format!(
+                                    "Piece cache sync {:.2}%",
+                                    model.farmer_state.piece_cache_sync_progress
+                                ),
                             },
 
                             gtk::Spinner {
-                                set_margin_start: 5,
                                 start: (),
                             },
                         },
 
                         gtk::ProgressBar {
                             #[watch]
-                            set_fraction: progress as f64 / 100.0,
+                            set_fraction: model.farmer_state.piece_cache_sync_progress as f64 / 100.0,
                         },
-                    },
-                    (_, PlottingState::Plotting { kind, progress, speed }, SyncState::Idle) => gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 10,
+                    }
+                } else {
+                    gtk::Label {
+                        set_halign: gtk::Align::Start,
+                        #[watch]
+                        set_label: &{
+                            if matches!(model.node_state.sync_state, SyncState::Idle) {
+                                let mut statuses = Vec::new();
+                                let plotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
+                                    matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Initial, .. })
+                                });
+                                let replotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
+                                    matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Replotting, .. })
+                                });
+                                let idle = model.farmer_state.plotting_state.iter().any(|plotting_state| {
+                                    matches!(plotting_state, PlottingState::Idle)
+                                });
+                                if plotting {
+                                    statuses.push(if statuses.is_empty() {
+                                        "Plotting"
+                                    } else {
+                                        "plotting"
+                                    });
+                                }
+                                if matches!(model.node_state.sync_state, SyncState::Idle) && (replotting || idle) {
+                                    statuses.push(if statuses.is_empty() {
+                                        "Farming"
+                                    } else {
+                                        "farming"
+                                    });
+                                }
+                                if replotting {
+                                    statuses.push(if statuses.is_empty() {
+                                        "Replotting"
+                                    } else {
+                                        "replotting"
+                                    });
+                                }
 
-                        gtk::Box {
-                            gtk::Label {
-                                set_halign: gtk::Align::Start,
-
-                                #[watch]
-                                set_label: &{
-                                    let kind = match kind {
-                                        PlottingKind::Initial => "Initial plotting, not farming",
-                                        PlottingKind::Replotting => "Replotting, farming",
-                                    };
-
-                                    format!(
-                                        "{} {:.2}%{}",
-                                        kind,
-                                        progress,
-                                        speed
-                                            .map(|speed| format!(", {:.2} sectors/h", 3600.0 / speed))
-                                            .unwrap_or_default(),
-                                    )
-                                },
-                                set_tooltip: "Farming starts after initial plotting is complete",
-                            },
-
-                            gtk::Spinner {
-                                set_margin_start: 5,
-                                start: (),
-                            },
+                                statuses.join(", ")
+                            } else {
+                                "Waiting for node to sync first".to_string()
+                            }
                         },
-
-                        gtk::ProgressBar {
-                            #[watch]
-                            set_fraction: progress as f64 / 100.0,
-                        },
-                    },
-                    (_, PlottingState::Idle, SyncState::Idle) => gtk::Box {
-                        gtk::Label {
-                            #[watch]
-                            set_label: "Farming",
-                        }
-                    },
-                    _ => gtk::Box {
-                        gtk::Label {
-                            #[watch]
-                            set_label: "Waiting for node to sync first",
-                        }
-                    },
+                        // TODO: Show summarized state of all farms: Plotting, Replotting, Farming
+                    }
                 },
+
+                model.farms.widget(),
             },
         }
     }
@@ -228,9 +232,21 @@ impl Component for RunningView {
         _root: &Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let farms = FactoryHashMap::builder()
+            .launch(
+                gtk::Box::builder()
+                    .margin_start(10)
+                    .margin_end(10)
+                    .orientation(gtk::Orientation::Vertical)
+                    .spacing(10)
+                    .build(),
+            )
+            .detach();
+
         let model = Self {
             node_state: NodeState::default(),
             farmer_state: FarmerState::default(),
+            farms,
         };
 
         let widgets = view_output!();
@@ -249,7 +265,23 @@ impl RunningView {
             RunningInput::Initialize {
                 best_block_number,
                 initial_plotting_states,
+                raw_config,
             } => {
+                for (farm_index, (initial_plotting_state, farm)) in initial_plotting_states
+                    .iter()
+                    .copied()
+                    .zip(raw_config.farms().iter().cloned())
+                    .enumerate()
+                {
+                    self.farms.insert(
+                        farm_index,
+                        FarmWidgetInit {
+                            initial_plotting_state,
+                            farm,
+                        },
+                    );
+                }
+
                 self.node_state = NodeState {
                     best_block_number,
                     sync_state: SyncState::default(),
@@ -282,6 +314,13 @@ impl RunningView {
                             }
                         }
                     }
+
+                    let old_synced = matches!(self.node_state.sync_state, SyncState::Idle);
+                    let new_synced = matches!(sync_state, SyncState::Idle);
+                    if old_synced != new_synced {
+                        self.farms
+                            .broadcast(FarmWidgetInput::NodeSynced(new_synced));
+                    }
                     self.node_state.sync_state = sync_state;
                 }
                 NodeNotification::BlockImported { number } => {
@@ -295,6 +334,9 @@ impl RunningView {
             },
             RunningInput::FarmerNotification(farmer_notification) => match farmer_notification {
                 FarmerNotification::PlottingStateUpdate { farm_index, state } => {
+                    self.farms
+                        .send(&farm_index, FarmWidgetInput::PlottingStateUpdate(state));
+
                     if let Some(plotting_state) =
                         self.farmer_state.plotting_state.get_mut(farm_index)
                     {
@@ -304,6 +346,13 @@ impl RunningView {
                     }
                 }
                 FarmerNotification::PieceCacheSyncProgress { progress } => {
+                    let old_synced = self.farmer_state.piece_cache_sync_progress == 100.0;
+                    let new_synced = progress == 100.0;
+                    if old_synced != new_synced {
+                        self.farms
+                            .broadcast(FarmWidgetInput::PieceCacheSynced(new_synced));
+                    }
+
                     self.farmer_state.piece_cache_sync_progress = progress;
                 }
             },

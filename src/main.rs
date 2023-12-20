@@ -258,7 +258,7 @@ impl AsyncComponent for App {
                         #[watch]
                         set_visible: !model.status_bar_notification.is_none(),
 
-                        #[name = "status_bar_notification_label"]
+                        #[name(status_bar_notification_label)]
                         gtk::Label {
                             #[track = "!status_bar_notification_label.has_css_class(model.status_bar_notification.css_class())"]
                             add_css_class: {
@@ -478,11 +478,12 @@ impl App {
                 best_block_number,
                 initial_plotting_states,
             } => {
-                self.current_raw_config.replace(raw_config);
+                self.current_raw_config.replace(raw_config.clone());
                 self.current_view = View::Running;
                 self.running_view.emit(RunningInput::Initialize {
                     best_block_number,
                     initial_plotting_states,
+                    raw_config,
                 });
             }
             BackendNotification::Node(node_notification) => {
