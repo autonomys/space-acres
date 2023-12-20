@@ -147,6 +147,10 @@ fn available_parallelism() -> usize {
     }
 }
 
+fn should_farm_during_initial_plotting() -> bool {
+    available_parallelism() > 8
+}
+
 #[derive(Debug, Clone)]
 pub struct DiskFarm {
     pub directory: PathBuf,
@@ -197,7 +201,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let sector_downloading_concurrency = NonZeroUsize::new(2).expect("Not zero; qed");
     let sector_encoding_concurrency = NonZeroUsize::new(1).expect("Not zero; qed");
-    let farm_during_initial_plotting = false;
+    let farm_during_initial_plotting = should_farm_during_initial_plotting();
     let available_parallelism = available_parallelism();
     let farming_thread_pool_size = available_parallelism;
     let plotting_thread_pool_size = available_parallelism;
