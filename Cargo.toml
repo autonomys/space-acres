@@ -2,7 +2,7 @@
 name = "space-acres"
 description = "Space Acres is an opinionated unofficial GUI application for farming on Subspace Network"
 license = "0BSD"
-version = "0.0.9"
+version = "0.0.10"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 repository = "https://github.com/nazar-pc/space-acres"
 edition = "2021"
@@ -59,22 +59,22 @@ sc-informant = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b
 sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
 sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
 sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
-sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
+sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
 serde = { version = "1.0.193", features = ["derive"]}
 serde_json = "1.0.108"
 sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
-sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
+sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
 sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
-subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-networking = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-runtime = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
-subspace-service = { git = "https://github.com/subspace/subspace", rev = "309a07ddae9369f2a37997e78ddcea40aea025f0" }
+subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-networking = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-runtime = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
+subspace-service = { git = "https://github.com/subspace/subspace", rev = "1b8b5f310685a9cc0ef8192042257435ace285af" }
 supports-color = "2.0.0"
 thiserror = "1.0.50"
 tokio = { version = "1.34.0", features = ["fs", "time"] }
