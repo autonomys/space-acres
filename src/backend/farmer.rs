@@ -22,7 +22,7 @@ use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
 use subspace_farmer::single_disk_farm::{
-    SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions, SingleDiskFarmSummary,
+    SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
 use subspace_farmer::utils::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
@@ -300,7 +300,17 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             }
         };
 
-        print_disk_farm_info(disk_farm.directory, disk_farm_index);
+        let info = single_disk_farm.info();
+        println!("Single disk farm {disk_farm_index}:");
+        println!("  ID: {}", info.id());
+        println!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
+        println!("  Public key: 0x{}", hex::encode(info.public_key()));
+        println!(
+            "  Allocated space: {} ({})",
+            bytesize::to_string(info.allocated_space(), true),
+            bytesize::to_string(info.allocated_space(), false)
+        );
+        println!("  Directory: {}", disk_farm.directory.display());
 
         single_disk_farms.push(single_disk_farm);
     }
@@ -505,29 +515,4 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         initial_plotting_states,
         handlers,
     })
-}
-
-fn print_disk_farm_info(directory: PathBuf, disk_farm_index: usize) {
-    println!("Single disk farm {disk_farm_index}:");
-    match SingleDiskFarm::collect_summary(directory) {
-        SingleDiskFarmSummary::Found { info, directory } => {
-            println!("  ID: {}", info.id());
-            println!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
-            println!("  Public key: 0x{}", hex::encode(info.public_key()));
-            println!(
-                "  Allocated space: {} ({})",
-                bytesize::to_string(info.allocated_space(), true),
-                bytesize::to_string(info.allocated_space(), false)
-            );
-            println!("  Directory: {}", directory.display());
-        }
-        SingleDiskFarmSummary::NotFound { directory } => {
-            println!("  Plot directory: {}", directory.display());
-            println!("  No farm found here yet");
-        }
-        SingleDiskFarmSummary::Error { directory, error } => {
-            println!("  Directory: {}", directory.display());
-            println!("  Failed to open farm info: {error}");
-        }
-    }
 }
