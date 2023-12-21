@@ -355,7 +355,7 @@ impl RunningView {
                         let previous_diff = self.farmer_state.reward_address_balance
                             - self.farmer_state.initial_reward_address_balance;
                         self.farmer_state.initial_reward_address_balance =
-                            imported_block.reward_address_balance + previous_diff;
+                            imported_block.reward_address_balance - previous_diff;
                     }
                     self.farmer_state.reward_address_balance =
                         imported_block.reward_address_balance;
