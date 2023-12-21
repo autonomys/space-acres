@@ -56,6 +56,13 @@ impl fmt::Debug for ChainSpec {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ChainInfo {
+    pub chain_name: String,
+    pub protocol_id: String,
+    pub token_symbol: String,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SyncKind {
     Dsn,
@@ -90,6 +97,7 @@ struct Handlers {
 pub(super) struct ConsensusNode {
     full_node: NewFull<FullClient<RuntimeApi, ExecutorDispatch>>,
     sync_mode: Arc<Atomic<SyncMode>>,
+    chain_info: ChainInfo,
     handlers: Handlers,
 }
 
@@ -103,10 +111,12 @@ impl ConsensusNode {
     fn new(
         full_node: NewFull<FullClient<RuntimeApi, ExecutorDispatch>>,
         sync_mode: Arc<Atomic<SyncMode>>,
+        chain_info: ChainInfo,
     ) -> Self {
         Self {
             full_node,
             sync_mode,
+            chain_info,
             handlers: Handlers::default(),
         }
     }
@@ -211,6 +221,10 @@ impl ConsensusNode {
             &reward_address_storage_key,
         )
         .unwrap_or_default()
+    }
+
+    pub(super) fn chain_info(&self) -> &ChainInfo {
+        &self.chain_info
     }
 
     pub(super) fn on_sync_state_change(&self, callback: HandlerFn<SyncState>) -> HandlerId {
@@ -421,6 +435,18 @@ pub(super) async fn create_consensus_node(
     let pot_external_entropy = pot_external_entropy(&chain_spec)?;
     let dsn_bootstrap_nodes = dsn_bootstrap_nodes(&chain_spec)?;
 
+    let chain_info = ChainInfo {
+        chain_name: chain_spec.0.name().to_string(),
+        protocol_id: chain_spec.0.protocol_id().unwrap_or_default().to_string(),
+        token_symbol: chain_spec
+            .0
+            .properties()
+            .get("tokenSymbol")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string(),
+    };
+
     let consensus_chain_config = create_consensus_chain_config(keypair, base_path, chain_spec);
     let sync_mode = Arc::clone(&consensus_chain_config.network.sync_mode);
 
@@ -480,5 +506,5 @@ pub(super) async fn create_consensus_node(
         sc_service::Error::Other(format!("Failed to start storage monitor: {error:?}"))
     })?;
 
-    Ok(ConsensusNode::new(consensus_node, sync_mode))
+    Ok(ConsensusNode::new(consensus_node, sync_mode, chain_info))
 }

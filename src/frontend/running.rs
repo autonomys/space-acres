@@ -2,7 +2,7 @@ mod farm;
 
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::{PlottingKind, PlottingState};
-use crate::backend::node::{SyncKind, SyncState};
+use crate::backend::node::{ChainInfo, SyncKind, SyncState};
 use crate::backend::{FarmerNotification, NodeNotification};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use gtk::prelude::*;
@@ -24,6 +24,7 @@ pub enum RunningInput {
         initial_plotting_states: Vec<PlottingState>,
         farm_during_initial_plotting: bool,
         raw_config: RawConfig,
+        chain_info: ChainInfo,
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification),
@@ -43,6 +44,7 @@ struct FarmerState {
     plotting_state: Vec<PlottingState>,
     farm_during_initial_plotting: bool,
     piece_cache_sync_progress: f32,
+    reward_address: String,
 }
 
 #[derive(Debug)]
@@ -50,6 +52,7 @@ pub struct RunningView {
     node_state: NodeState,
     farmer_state: FarmerState,
     farms: FactoryHashMap<usize, FarmWidget>,
+    chain_info: ChainInfo,
 }
 
 #[relm4::component(pub)]
@@ -72,7 +75,11 @@ impl Component for RunningView {
                 gtk::Label {
                     add_css_class: "heading",
                     set_halign: gtk::Align::Start,
-                    set_label: "Consensus node",
+                    #[watch]
+                    set_label: &format!(
+                        "{} consensus node",
+                        model.chain_info.chain_name.strip_prefix("Subspace ").unwrap_or(&model.chain_info.chain_name)
+                    ),
                 },
 
                 #[transition = "SlideUpDown"]
@@ -231,17 +238,36 @@ impl Component for RunningView {
                             set_halign: gtk::Align::End,
                             set_hexpand: true,
 
-                            gtk::Label {
-                                set_tooltip: "Total account balance and coins farmed since application started",
+                            gtk::LinkButton {
+                                remove_css_class: "link",
+                                set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
                                 #[watch]
-                                set_label: &format!(
-                                    "{:.2}<span color=\"#3bbf2c\"><sup>+{:.2}</sup></span> tSSC",
-                                    (model.farmer_state.reward_address_balance / (SSC / 100)) as f32 / 100.0,
-                                    ((model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance) / (SSC / 100)) as f32 / 100.0
+                                // TODO: Would be great to have `gemini-3g` in chain spec, but it is
+                                //  not available in there in clean form
+                                set_uri: &format!(
+                                    "https://explorer.subspace.network/#/{}/consensus/accounts/{}",
+                                    model.chain_info.protocol_id.strip_prefix("subspace-").unwrap_or(&model.chain_info.protocol_id),
+                                    model.farmer_state.reward_address
                                 ),
-                                set_use_markup: true,
+                                set_use_underline: false,
+
+                                gtk::Label {
+                                    #[watch]
+                                    set_label: &{
+                                        let current_balance = model.farmer_state.reward_address_balance;
+                                        let balance_increase = model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance;
+                                        let current_balance = (current_balance / (SSC / 100)) as f32 / 100.0;
+                                        let balance_increase = (balance_increase / (SSC / 100)) as f32 / 100.0;
+                                        let token_symbol = &model.chain_info.token_symbol;
+
+                                        format!(
+                                            "{current_balance:.2}<span color=\"#3bbf2c\"><sup>+{balance_increase:.2}</sup></span> {token_symbol}"
+                                        )
+                                    },
+                                    set_use_markup: true,
+                                },
                             }
-                        }
+                        },
                     }
                 },
 
@@ -270,6 +296,7 @@ impl Component for RunningView {
             node_state: NodeState::default(),
             farmer_state: FarmerState::default(),
             farms,
+            chain_info: ChainInfo::default(),
         };
 
         let widgets = view_output!();
@@ -291,6 +318,7 @@ impl RunningView {
                 initial_plotting_states,
                 farm_during_initial_plotting,
                 raw_config,
+                chain_info,
             } => {
                 for (farm_index, (initial_plotting_state, farm)) in initial_plotting_states
                     .iter()
@@ -315,10 +343,12 @@ impl RunningView {
                 self.farmer_state = FarmerState {
                     initial_reward_address_balance: reward_address_balance,
                     reward_address_balance,
+                    reward_address: raw_config.reward_address().to_string(),
                     plotting_state: initial_plotting_states,
                     farm_during_initial_plotting,
                     piece_cache_sync_progress: 0.0,
                 };
+                self.chain_info = chain_info;
             }
             RunningInput::NodeNotification(node_notification) => match node_notification {
                 NodeNotification::SyncStateUpdate(mut sync_state) => {
