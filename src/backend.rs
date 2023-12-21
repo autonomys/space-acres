@@ -104,6 +104,7 @@ pub enum BackendNotification {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_plotting_states: Vec<PlottingState>,
+        farm_during_initial_plotting: bool,
     },
     Node(NodeNotification),
     Farmer(FarmerNotification),
@@ -313,6 +314,7 @@ async fn run(
             best_block_number: consensus_node.best_block_number(),
             reward_address_balance: consensus_node.account_balance(&config.reward_address),
             initial_plotting_states: farmer.initial_plotting_states().to_vec(),
+            farm_during_initial_plotting: farmer.farm_during_initial_plotting(),
         })
         .await?;
 

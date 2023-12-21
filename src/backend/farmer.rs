@@ -69,6 +69,7 @@ pub(super) struct Farmer {
     farm_fut: BoxFuture<'static, anyhow::Result<()>>,
     piece_cache_worker_fut: BoxFuture<'static, ()>,
     initial_plotting_states: Vec<PlottingState>,
+    farm_during_initial_plotting: bool,
     handlers: Arc<Handlers>,
 }
 
@@ -112,6 +113,10 @@ impl Farmer {
 
     pub(super) fn initial_plotting_states(&self) -> &[PlottingState] {
         &self.initial_plotting_states
+    }
+
+    pub(super) fn farm_during_initial_plotting(&self) -> bool {
+        self.farm_during_initial_plotting
     }
 
     pub(super) fn on_plotting_state_change(
@@ -513,6 +518,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         farm_fut,
         piece_cache_worker_fut,
         initial_plotting_states,
+        farm_during_initial_plotting,
         handlers,
     })
 }
