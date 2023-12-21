@@ -479,6 +479,7 @@ impl App {
                 reward_address_balance,
                 initial_plotting_states,
                 farm_during_initial_plotting,
+                chain_info,
             } => {
                 self.current_raw_config.replace(raw_config.clone());
                 self.current_view = View::Running;
@@ -488,6 +489,7 @@ impl App {
                     initial_plotting_states,
                     farm_during_initial_plotting,
                     raw_config,
+                    chain_info,
                 });
             }
             BackendNotification::Node(node_notification) => {

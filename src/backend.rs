@@ -10,7 +10,8 @@ use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::farmer::{DiskFarm, Farmer, FarmerOptions, PlottingState};
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
-    dsn_bootstrap_nodes, BlockImported, ChainSpec, ConsensusNode, SyncState, GENESIS_HASH, RPC_PORT,
+    dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode, SyncState,
+    GENESIS_HASH, RPC_PORT,
 };
 use future::FutureExt;
 use futures::channel::mpsc;
@@ -105,6 +106,7 @@ pub enum BackendNotification {
         reward_address_balance: Balance,
         initial_plotting_states: Vec<PlottingState>,
         farm_during_initial_plotting: bool,
+        chain_info: ChainInfo,
     },
     Node(NodeNotification),
     Farmer(FarmerNotification),
@@ -315,6 +317,7 @@ async fn run(
             reward_address_balance: consensus_node.account_balance(&config.reward_address),
             initial_plotting_states: farmer.initial_plotting_states().to_vec(),
             farm_during_initial_plotting: farmer.farm_during_initial_plotting(),
+            chain_info: consensus_node.chain_info().clone(),
         })
         .await?;
 
