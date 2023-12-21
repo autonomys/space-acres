@@ -476,12 +476,14 @@ impl App {
                 config: _,
                 raw_config,
                 best_block_number,
+                reward_address_balance,
                 initial_plotting_states,
             } => {
                 self.current_raw_config.replace(raw_config.clone());
                 self.current_view = View::Running;
                 self.running_view.emit(RunningInput::Initialize {
                     best_block_number,
+                    reward_address_balance,
                     initial_plotting_states,
                     raw_config,
                 });

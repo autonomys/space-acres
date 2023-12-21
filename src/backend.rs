@@ -10,7 +10,7 @@ use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::farmer::{DiskFarm, Farmer, FarmerOptions, PlottingState};
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
-    dsn_bootstrap_nodes, ChainSpec, ConsensusNode, SyncState, GENESIS_HASH, RPC_PORT,
+    dsn_bootstrap_nodes, BlockImported, ChainSpec, ConsensusNode, SyncState, GENESIS_HASH, RPC_PORT,
 };
 use future::FutureExt;
 use futures::channel::mpsc;
@@ -27,6 +27,7 @@ use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::{Node, NodeRunner};
+use subspace_runtime_primitives::Balance;
 use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -64,7 +65,7 @@ pub enum LoadingStep {
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
     SyncStateUpdate(SyncState),
-    BlockImported { number: BlockNumber },
+    BlockImported(BlockImported),
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +102,7 @@ pub enum BackendNotification {
         config: Config,
         raw_config: RawConfig,
         best_block_number: BlockNumber,
+        reward_address_balance: Balance,
         initial_plotting_states: Vec<PlottingState>,
     },
     Node(NodeNotification),
@@ -306,9 +308,10 @@ async fn run(
 
     notifications_sender
         .send(BackendNotification::Running {
-            config,
+            config: config.clone(),
             raw_config,
             best_block_number: consensus_node.best_block_number(),
+            reward_address_balance: consensus_node.account_balance(&config.reward_address),
             initial_plotting_states: farmer.initial_plotting_states().to_vec(),
         })
         .await?;
@@ -335,9 +338,10 @@ async fn run(
     });
     let _on_imported_block_handler_id = consensus_node.on_block_imported({
         let notifications_sender = notifications_sender.clone();
+        // let reward_address_storage_key = account_storage_key(&config.reward_address);
 
-        Arc::new(move |&number| {
-            let notification = NodeNotification::BlockImported { number };
+        Arc::new(move |&block_imported| {
+            let notification = NodeNotification::BlockImported(block_imported);
 
             let mut notifications_sender = notifications_sender.clone();
 
@@ -398,7 +402,7 @@ async fn run(
     });
 
     let networking_fut = pin!(networking_fut);
-    let consensus_node_fut = pin!(consensus_node.run());
+    let consensus_node_fut = pin!(consensus_node.run(&config.reward_address));
     let farmer_fut = pin!(farmer.run());
     let process_backend_actions_fut = pin!({
         let mut notifications_sender = notifications_sender.clone();
