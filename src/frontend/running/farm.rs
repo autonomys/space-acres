@@ -8,6 +8,7 @@ use std::path::PathBuf;
 pub(super) struct FarmWidgetInit {
     pub(super) initial_plotting_state: PlottingState,
     pub(super) farm: Farm,
+    pub(super) farm_during_initial_plotting: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -24,6 +25,7 @@ pub(super) struct FarmWidget {
     plotting_state: PlottingState,
     is_piece_cache_synced: bool,
     is_node_synced: bool,
+    farm_during_initial_plotting: bool,
 }
 
 #[relm4::factory(pub(super))]
@@ -58,7 +60,11 @@ impl FactoryComponent for FarmWidget {
 
                     gtk::Box {
                         set_spacing: 5,
-                        set_tooltip: "Farming starts after initial plotting is complete",
+                        set_tooltip: if self.farm_during_initial_plotting {
+                            "Farming runs in parallel to plotting on CPUs with more than 8 logical cores"
+                        } else {
+                            "Farming starts after initial plotting is complete on CPUs with 8 or less logical cores"
+                        },
 
                         gtk::Label {
                             set_halign: gtk::Align::Start,
@@ -66,7 +72,13 @@ impl FactoryComponent for FarmWidget {
                             #[watch]
                             set_label: &{
                                 let kind = match kind {
-                                    PlottingKind::Initial => "Initial plotting, not farming",
+                                    PlottingKind::Initial => {
+                                        if self.farm_during_initial_plotting {
+                                            "Initial plotting, farming"
+                                        } else {
+                                            "Initial plotting, not farming"
+                                        }
+                                    },
                                     PlottingKind::Replotting => "Replotting, farming",
                                 };
 
@@ -114,6 +126,7 @@ impl FactoryComponent for FarmWidget {
             plotting_state: init.initial_plotting_state,
             is_piece_cache_synced: false,
             is_node_synced: false,
+            farm_during_initial_plotting: init.farm_during_initial_plotting,
         }
     }
 

@@ -478,6 +478,7 @@ impl App {
                 best_block_number,
                 reward_address_balance,
                 initial_plotting_states,
+                farm_during_initial_plotting,
             } => {
                 self.current_raw_config.replace(raw_config.clone());
                 self.current_view = View::Running;
@@ -485,6 +486,7 @@ impl App {
                     best_block_number,
                     reward_address_balance,
                     initial_plotting_states,
+                    farm_during_initial_plotting,
                     raw_config,
                 });
             }

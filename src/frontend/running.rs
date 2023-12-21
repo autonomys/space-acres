@@ -22,6 +22,7 @@ pub enum RunningInput {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_plotting_states: Vec<PlottingState>,
+        farm_during_initial_plotting: bool,
         raw_config: RawConfig,
     },
     NodeNotification(NodeNotification),
@@ -40,6 +41,7 @@ struct FarmerState {
     reward_address_balance: Balance,
     /// One entry per farm
     plotting_state: Vec<PlottingState>,
+    farm_during_initial_plotting: bool,
     piece_cache_sync_progress: f32,
 }
 
@@ -203,7 +205,7 @@ impl Component for RunningView {
                                             "plotting"
                                         });
                                     }
-                                    if matches!(model.node_state.sync_state, SyncState::Idle) && (replotting || idle) {
+                                    if matches!(model.node_state.sync_state, SyncState::Idle) && (model.farmer_state.farm_during_initial_plotting || replotting || idle) {
                                         statuses.push(if statuses.is_empty() {
                                             "Farming"
                                         } else {
@@ -287,6 +289,7 @@ impl RunningView {
                 best_block_number,
                 reward_address_balance,
                 initial_plotting_states,
+                farm_during_initial_plotting,
                 raw_config,
             } => {
                 for (farm_index, (initial_plotting_state, farm)) in initial_plotting_states
@@ -300,6 +303,7 @@ impl RunningView {
                         FarmWidgetInit {
                             initial_plotting_state,
                             farm,
+                            farm_during_initial_plotting,
                         },
                     );
                 }
@@ -312,6 +316,7 @@ impl RunningView {
                     initial_reward_address_balance: reward_address_balance,
                     reward_address_balance,
                     plotting_state: initial_plotting_states,
+                    farm_during_initial_plotting,
                     piece_cache_sync_progress: 0.0,
                 };
             }
