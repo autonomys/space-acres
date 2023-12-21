@@ -1,11 +1,17 @@
+mod utils;
+
+use crate::backend::node::utils::account_storage_key;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
 use atomic::Atomic;
 use event_listener_primitives::HandlerId;
+use frame_system::AccountInfo;
 use futures::{select, FutureExt, StreamExt};
 use names::{Generator, Name};
+use pallet_balances::AccountData;
+use parity_scale_codec::Decode;
 use sc_client_api::client::BlockchainEvents;
-use sc_client_api::HeaderBackend;
+use sc_client_api::{HeaderBackend, StorageProvider};
 use sc_client_db::{DatabaseSource, PruningMode};
 use sc_consensus_slots::SlotProportion;
 use sc_informant::OutputFormat;
@@ -15,20 +21,24 @@ use sc_service::{BasePath, BlocksPruning, Configuration, Role, RpcMethods};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use sc_subspace_chain_specs::ConsensusChainSpec;
 use sp_core::crypto::Ss58AddressFormat;
+use sp_core::storage::StorageKey;
+use sp_core::H256;
 use sp_runtime::traits::Header;
 use std::fmt;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
 use subspace_runtime::{ExecutorDispatch, RuntimeApi, RuntimeGenesisConfig};
+use subspace_runtime_primitives::{Balance, Nonce};
 use subspace_service::{FullClient, NewFull, SubspaceConfiguration, SubspaceNetworking};
 use tokio::runtime::Handle;
 use tokio::time::MissedTickBehavior;
+use tracing::error;
 
 pub(super) const GENESIS_HASH: &str =
     "418040fc282f5e5ddd432c46d05297636f6f75ce68d66499ff4cbda69ccd180b";
@@ -65,10 +75,16 @@ pub enum SyncState {
     Idle,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct BlockImported {
+    pub number: BlockNumber,
+    pub reward_address_balance: Balance,
+}
+
 #[derive(Default, Debug)]
 struct Handlers {
     sync_state_change: Handler<SyncState>,
-    block_imported: Handler<BlockNumber>,
+    block_imported: Handler<BlockImported>,
 }
 
 pub(super) struct ConsensusNode {
@@ -95,22 +111,38 @@ impl ConsensusNode {
         }
     }
 
-    pub(super) async fn run(mut self) -> Result<(), sc_service::Error> {
+    pub(super) async fn run(mut self, reward_address: &PublicKey) -> Result<(), sc_service::Error> {
         self.full_node.network_starter.start_network();
 
-        let task_manager = self.full_node.task_manager.future();
-        let block_import_notifications_fut = async {
-            let mut block_import_stream = self.full_node.client.every_import_notification_stream();
+        let spawn_essential_handle = self.full_node.task_manager.spawn_essential_handle();
+        spawn_essential_handle.spawn_blocking(
+            "block-import-notifications",
+            Some("space-acres-node"),
+            {
+                let client = self.full_node.client.clone();
+                let reward_address_storage_key = account_storage_key(reward_address);
 
-            while let Some(block_import) = block_import_stream.next().await {
-                // Nothing else to do
-                if block_import.is_new_best {
-                    self.handlers
-                        .block_imported
-                        .call_simple(block_import.header.number());
+                async move {
+                    let mut block_import_stream = client.every_import_notification_stream();
+
+                    while let Some(block_import) = block_import_stream.next().await {
+                        if block_import.is_new_best {
+                            self.handlers.block_imported.call_simple(&BlockImported {
+                                number: *block_import.header.number(),
+                                // TODO: This is not pretty that we do it here, but not clear what would be a
+                                //  nicer API
+                                reward_address_balance: get_total_account_balance(
+                                    &client,
+                                    block_import.header.hash(),
+                                    &reward_address_storage_key,
+                                )
+                                .unwrap_or_default(),
+                            });
+                        }
+                    }
                 }
-            }
-        };
+            },
+        );
         let sync_status_notifications_fut = async {
             let mut sync_status_interval = tokio::time::interval(SYNC_STATUS_EVENT_INTERVAL);
             sync_status_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -152,12 +184,11 @@ impl ConsensusNode {
             }
         };
 
+        let task_manager = self.full_node.task_manager.future();
+
         select! {
             result = task_manager.fuse() => {
                 result?;
-            }
-            _ = block_import_notifications_fut.fuse() => {
-                // Nothing else to do
             }
             _ = sync_status_notifications_fut.fuse() => {
                 // Nothing else to do
@@ -171,13 +202,51 @@ impl ConsensusNode {
         self.full_node.client.info().best_number
     }
 
+    pub(super) fn account_balance(&self, account: &PublicKey) -> Balance {
+        let reward_address_storage_key = account_storage_key(account);
+
+        get_total_account_balance(
+            &self.full_node.client,
+            self.full_node.client.info().best_hash,
+            &reward_address_storage_key,
+        )
+        .unwrap_or_default()
+    }
+
     pub(super) fn on_sync_state_change(&self, callback: HandlerFn<SyncState>) -> HandlerId {
         self.handlers.sync_state_change.add(callback)
     }
 
-    pub(super) fn on_block_imported(&self, callback: HandlerFn<BlockNumber>) -> HandlerId {
+    pub(super) fn on_block_imported(&self, callback: HandlerFn<BlockImported>) -> HandlerId {
         self.handlers.block_imported.add(callback)
     }
+}
+
+fn get_total_account_balance(
+    client: &FullClient<RuntimeApi, ExecutorDispatch>,
+    block_hash: H256,
+    address_storage_key: &StorageKey,
+) -> Option<Balance> {
+    let encoded_account_info = match client.storage(block_hash, address_storage_key) {
+        Ok(maybe_encoded_account_info) => maybe_encoded_account_info?,
+        Err(error) => {
+            error!(%error, "Failed to query account balance");
+            return None;
+        }
+    };
+
+    let account_info = match AccountInfo::<Nonce, AccountData<Balance>>::decode(
+        &mut encoded_account_info.0.as_slice(),
+    ) {
+        Ok(account_info) => account_info,
+        Err(error) => {
+            error!(%error, "Failed to decode account info");
+            return None;
+        }
+    };
+
+    let account_data = account_info.data;
+    Some(account_data.free + account_data.reserved + account_data.frozen)
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {

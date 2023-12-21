@@ -9,6 +9,7 @@ use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use subspace_core_primitives::BlockNumber;
+use subspace_runtime_primitives::{Balance, SSC};
 use tracing::warn;
 
 /// Maximum blocks to store in the import queue.
@@ -19,6 +20,7 @@ const MAX_IMPORTING_BLOCKS: BlockNumber = 2048;
 pub enum RunningInput {
     Initialize {
         best_block_number: BlockNumber,
+        reward_address_balance: Balance,
         initial_plotting_states: Vec<PlottingState>,
         raw_config: RawConfig,
     },
@@ -34,6 +36,8 @@ struct NodeState {
 
 #[derive(Debug, Default)]
 struct FarmerState {
+    initial_reward_address_balance: Balance,
+    reward_address_balance: Balance,
     /// One entry per farm
     plotting_state: Vec<PlottingState>,
     piece_cache_sync_progress: f32,
@@ -176,49 +180,66 @@ impl Component for RunningView {
                         },
                     }
                 } else {
-                    gtk::Label {
-                        set_halign: gtk::Align::Start,
-                        #[watch]
-                        set_label: &{
-                            if matches!(model.node_state.sync_state, SyncState::Idle) {
-                                let mut statuses = Vec::new();
-                                let plotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
-                                    matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Initial, .. })
-                                });
-                                let replotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
-                                    matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Replotting, .. })
-                                });
-                                let idle = model.farmer_state.plotting_state.iter().any(|plotting_state| {
-                                    matches!(plotting_state, PlottingState::Idle)
-                                });
-                                if plotting {
-                                    statuses.push(if statuses.is_empty() {
-                                        "Plotting"
-                                    } else {
-                                        "plotting"
+                    gtk::Box {
+                        gtk::Label {
+                            set_halign: gtk::Align::Start,
+                            #[watch]
+                            set_label: &{
+                                if matches!(model.node_state.sync_state, SyncState::Idle) {
+                                    let mut statuses = Vec::new();
+                                    let plotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
+                                        matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Initial, .. })
                                     });
-                                }
-                                if matches!(model.node_state.sync_state, SyncState::Idle) && (replotting || idle) {
-                                    statuses.push(if statuses.is_empty() {
-                                        "Farming"
-                                    } else {
-                                        "farming"
+                                    let replotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
+                                        matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Replotting, .. })
                                     });
-                                }
-                                if replotting {
-                                    statuses.push(if statuses.is_empty() {
-                                        "Replotting"
-                                    } else {
-                                        "replotting"
+                                    let idle = model.farmer_state.plotting_state.iter().any(|plotting_state| {
+                                        matches!(plotting_state, PlottingState::Idle)
                                     });
-                                }
+                                    if plotting {
+                                        statuses.push(if statuses.is_empty() {
+                                            "Plotting"
+                                        } else {
+                                            "plotting"
+                                        });
+                                    }
+                                    if matches!(model.node_state.sync_state, SyncState::Idle) && (replotting || idle) {
+                                        statuses.push(if statuses.is_empty() {
+                                            "Farming"
+                                        } else {
+                                            "farming"
+                                        });
+                                    }
+                                    if replotting {
+                                        statuses.push(if statuses.is_empty() {
+                                            "Replotting"
+                                        } else {
+                                            "replotting"
+                                        });
+                                    }
 
-                                statuses.join(", ")
-                            } else {
-                                "Waiting for node to sync first".to_string()
-                            }
+                                    statuses.join(", ")
+                                } else {
+                                    "Waiting for node to sync first".to_string()
+                                }
+                            },
                         },
-                        // TODO: Show summarized state of all farms: Plotting, Replotting, Farming
+
+                        gtk::Box {
+                            set_halign: gtk::Align::End,
+                            set_hexpand: true,
+
+                            gtk::Label {
+                                set_tooltip: "Total account balance and coins farmed since application started",
+                                #[watch]
+                                set_label: &format!(
+                                    "{:.2}<span color=\"#3bbf2c\"><sup>+{:.2}</sup></span> tSSC",
+                                    (model.farmer_state.reward_address_balance / (SSC / 100)) as f32 / 100.0,
+                                    ((model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance) / (SSC / 100)) as f32 / 100.0
+                                ),
+                                set_use_markup: true,
+                            }
+                        }
                     }
                 },
 
@@ -264,6 +285,7 @@ impl RunningView {
         match input {
             RunningInput::Initialize {
                 best_block_number,
+                reward_address_balance,
                 initial_plotting_states,
                 raw_config,
             } => {
@@ -287,6 +309,8 @@ impl RunningView {
                     sync_state: SyncState::default(),
                 };
                 self.farmer_state = FarmerState {
+                    initial_reward_address_balance: reward_address_balance,
+                    reward_address_balance,
                     plotting_state: initial_plotting_states,
                     piece_cache_sync_progress: 0.0,
                 };
@@ -323,8 +347,18 @@ impl RunningView {
                     }
                     self.node_state.sync_state = sync_state;
                 }
-                NodeNotification::BlockImported { number } => {
-                    self.node_state.best_block_number = number;
+                NodeNotification::BlockImported(imported_block) => {
+                    self.node_state.best_block_number = imported_block.number;
+                    if !matches!(self.node_state.sync_state, SyncState::Idle) {
+                        // Do not count balance increase during sync as increase related to farming,
+                        // but preserve accumulated diff
+                        let previous_diff = self.farmer_state.reward_address_balance
+                            - self.farmer_state.initial_reward_address_balance;
+                        self.farmer_state.initial_reward_address_balance =
+                            imported_block.reward_address_balance + previous_diff;
+                    }
+                    self.farmer_state.reward_address_balance =
+                        imported_block.reward_address_balance;
 
                     // Ensure target is never below current block
                     if let SyncState::Syncing { target, .. } = &mut self.node_state.sync_state {
