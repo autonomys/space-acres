@@ -53,6 +53,7 @@ jobs:
 
       - name: Configure GTK4 cache (Windows)
         uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # @v3.3.2
+        id: cache
         with:
           path: C:\gtk-build
           key: ${{ runner.os }}-gtk4
@@ -67,7 +68,7 @@ jobs:
         run: |
           Move-Item "C:\Program Files\Git\usr\bin" "C:\Program Files\Git\usr\notbin"
           Move-Item "C:\Program Files\Git\bin" "C:\Program Files\Git\notbin"
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       - name: Install GTK4 (Windows)
         run: |
@@ -86,14 +87,14 @@ jobs:
             Get-Content actual-dlls.log
             Throw "Actual DLLs do not match expected"
           }
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
       - name: Restore git binary (Windows)
         run: |
           Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
           Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
       # TODO: on macOS, the consensus/domain runtime build is not compatible with LLVM 15.0.7 and
