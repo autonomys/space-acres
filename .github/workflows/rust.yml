@@ -46,6 +46,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+            ${{ runner.os }}-cargo-
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -144,12 +147,15 @@ jobs:
         continue-on-error: true
 
       - name: Configure cache
-        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # @v3.3.2
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # @v3.3.2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+            ${{ runner.os }}-cargo-
 
       - name: cargo clippy
         run: cargo clippy --locked --all-targets -- -D warnings
@@ -247,18 +253,21 @@ jobs:
         # Doesn't exist on self-hosted runners
         continue-on-error: true
 
-      - name: Install cargo-nextest
-        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
-        with:
-          tool: cargo-nextest
-
       - name: Configure cache
-        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # @v3.3.2
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # @v3.3.2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-nextest
+        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+        with:
+          tool: cargo-nextest
 
       - name: cargo nextest run --locked
         run: cargo nextest run --locked
