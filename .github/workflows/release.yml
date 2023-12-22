@@ -74,6 +74,17 @@ jobs:
         run: |
           pipx install gvsbuild
           gvsbuild build gtk4
+        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
+
+      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
+      - name: Restore git binary (Windows)
+        run: |
+          Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
+          Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
+        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
+
+      - name: Configure GTK4 (Windows)
+        run: |
           Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
           Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
@@ -87,14 +98,7 @@ jobs:
             Get-Content actual-dlls.log
             Throw "Actual DLLs do not match expected"
           }
-        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-
-      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
-      - name: Restore git binary (Windows)
-        run: |
-          Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
-          Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
-        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
+        if: runner.os == 'Windows'
 
       # On macOS, we need a proper Clang version, not Apple's custom version without wasm32 support
       # TODO: on macOS, the consensus/domain runtime build is not compatible with LLVM 15.0.7 and
@@ -138,7 +142,6 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
             ${{ runner.os }}-cargo-
 
       - name: Build app
