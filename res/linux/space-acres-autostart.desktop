@@ -2,5 +2,5 @@
 Type=Application
 Name=Space Acres
 Comment=Space Acres is an opinionated unofficial GUI application for farming on Subspace Network
-Icon=/usr/share/icons/hicolor/apps/space-acres.png
+Icon=space-acres
 Exec=space-acres --startup
