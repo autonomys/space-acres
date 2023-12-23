@@ -59,6 +59,12 @@ for your architecture (most likely X64).
 
 ## Linux
 
+Currently, there are two ways to get Space Acres on Linux:
+* by installing `.deb` package on Ubuntu
+* by running `.AppImage` bundle directly on any modern Linux distribution (including Ubuntu if you want to)
+
+### Ubuntu
+
 For **Ubuntu 22.04 or newer** (older versions not supported) go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
 file with `.deb` extension for your architecture (most likely `amd64`).
 
@@ -72,9 +78,25 @@ Replace `Downloads` with correct name of downloads directory if you have non-Eng
 downloaded file into a custom location. In case you have multiple versions of Space Acres downloaded, you might want to
 replace `space-acres*.deb` with a full name of the file you've downloaded.
 
-There are no official packages for other Linux distributions yet and if you build from source you hopefully know what
+### Other Linux
+
+For other distributions AppImage is available too, go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
+file with `.AppImage` extension for your architecture (most likely `x86_64`).
+
+Then open terminal and run following commands to switch to downloads directory and make it executable:
+```bash
+cd Downloads
+chmod +x space-acres-*.AppImage
+```
+
+After this either use `./space-acres-*.AppImage` in the terminal or double-click on the file in the file manager to open
+the app. You may need to install FUSE library if you don't have it installed yet. In case you have multiple versions of
+Space Acres downloaded, you might want to replace `space-acres-*.AppImage` with a full name of the file you've
+downloaded.
+
+There are no other Linux packages at the moment and if you build from source you hopefully know what
 you are doing.
-Consider [contributing to Linux packaging](https://github.com/nazar-pc/space-acres/issues/6) though!
+Consider contributing to Linux packaging though!
 
 ## macOS
 

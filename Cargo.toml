@@ -17,7 +17,7 @@ assets = [
     ["res/linux/space-acres-autostart.desktop", "/etc/xdg/autostart/space-acres.desktop", "644"],
     ["target/release/space-acres", "/usr/bin/space-acres", "755"],
     ["res/linux/space-acres.desktop", "/usr/share/applications/space-acres.desktop", "644"],
-    ["res/linux/space-acres.png", "/usr/share/icons/hicolor/apps/space-acres.png", "644"],
+    ["res/linux/space-acres.png", "/usr/share/pixmaps/space-acres.png", "644"],
 ]
 
 # TODO: Menu shortcut will not be generated automatically in case of re-init: https://github.com/volks73/cargo-wix/issues/141

@@ -47,8 +47,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
 
-      - name: Install GTK4 (Ubuntu)
-        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev
+      - name: Install GTK4 and libfuse2 (Linux)
+        # libfuse2 is needed for AppImage to run
+        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev libfuse2
         if: runner.os == 'Linux'
 
       - name: Configure GTK4 cache (Windows)
@@ -200,7 +201,24 @@ jobs:
 
       - name: Package (Linux)
         run: |
+          # Build Debian package
           cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip
+          
+          # And build AppImage as well
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
+          NO_STRIP=1 ./linuxdeploy-x86_64.AppImage \
+              --appdir AppDir \
+              --plugin gtk \
+              --executable target/${{ matrix.build.target }}/production/space-acres \
+              --desktop-file res/linux/space-acres.desktop \
+              --icon-file res/linux/space-acres.png \
+              --output appimage
+          
+          # Rename AppImage to be consistent with other files
+          version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          mv Space_Acres-x86_64.AppImage space-acres-$version-x86_64.AppImage
         if: runner.os == 'Linux'
 
       - name: Upload installer to artifacts (Linux)
@@ -208,6 +226,7 @@ jobs:
         with:
           name: installer-${{ matrix.build.suffix }}
           path: |
+            space-acres-*.AppImage
             target/${{ matrix.build.target }}/debian/*.deb
           if-no-files-found: error
         if: runner.os == 'Linux'
@@ -217,5 +236,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          asset_paths: '["target/${{ matrix.build.target }}/debian/*.deb"]'
+          asset_paths: '["space-acres-*.AppImage", "target/${{ matrix.build.target }}/debian/*.deb"]'
         if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_type == 'tag'
