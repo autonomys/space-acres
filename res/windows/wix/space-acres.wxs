@@ -181,8 +181,6 @@
                             <Directory Id='schemas' Name='schemas'>
                                 <Component Id='glib_2.0_schemas' Guid='89a44ead-b959-44d6-970e-367184effca4'>
                                     <File Id='gschemas.compiled' Name='gschemas.compiled' DiskId='1' Source='target\wix\gtk4\share\glib-2.0\schemas\gschemas.compiled' />
-                                    <File Id='org.gtk.gtk4.Settings.Debug.gschema.xml' Name='org.gtk.gtk4.Settings.Debug.gschema.xml' DiskId='1' Source='target\wix\gtk4\share\glib-2.0\schemas\org.gtk.gtk4.Settings.Debug.gschema.xml' />
-                                    <File Id='org.gtk.gtk4.Settings.FileChooser.gschema.xml' Name='org.gtk.gtk4.Settings.FileChooser.gschema.xml' DiskId='1' Source='target\wix\gtk4\share\glib-2.0\schemas\org.gtk.gtk4.Settings.FileChooser.gschema.xml' />
                                 </Component>
                             </Directory>
                         </Directory>
