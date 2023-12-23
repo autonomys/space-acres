@@ -392,6 +392,15 @@ impl RunningView {
                         self.farmer_state.initial_reward_address_balance =
                             imported_block.reward_address_balance - previous_diff;
                     }
+                    // In case balance decreased, subtract it from initial balance to ignore, this
+                    // typically happens due to chain reorg when reward is "disappears"
+                    if let Some(decreased_by) = self
+                        .farmer_state
+                        .reward_address_balance
+                        .checked_sub(imported_block.reward_address_balance)
+                    {
+                        self.farmer_state.initial_reward_address_balance -= decreased_by;
+                    }
                     self.farmer_state.reward_address_balance =
                         imported_block.reward_address_balance;
 
