@@ -271,7 +271,13 @@ impl Component for RunningView {
                     }
                 },
 
-                model.farms.widget(),
+                #[local_ref]
+                farms_box -> gtk::Box {
+                    set_margin_start: 10,
+                    set_margin_end: 10,
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_spacing: 10,
+                },
             },
         }
     }
@@ -282,14 +288,7 @@ impl Component for RunningView {
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let farms = FactoryHashMap::builder()
-            .launch(
-                gtk::Box::builder()
-                    .margin_start(10)
-                    .margin_end(10)
-                    .orientation(gtk::Orientation::Vertical)
-                    .spacing(10)
-                    .build(),
-            )
+            .launch(gtk::Box::default())
             .detach();
 
         let model = Self {
@@ -299,6 +298,7 @@ impl Component for RunningView {
             chain_info: ChainInfo::default(),
         };
 
+        let farms_box = model.farms.widget();
         let widgets = view_output!();
 
         ComponentParts { model, widgets }
