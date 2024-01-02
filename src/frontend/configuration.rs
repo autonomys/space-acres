@@ -134,52 +134,6 @@ impl Component for ConfigurationView {
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "Rewards address",
-                                },
-
-                                gtk::Entry {
-                                    connect_activate[sender] => move |entry| {
-                                        sender.input(ConfigurationInput::RewardAddressChanged(
-                                            entry.text().into()
-                                        ));
-                                    },
-                                    connect_changed[sender] => move |entry| {
-                                        sender.input(ConfigurationInput::RewardAddressChanged(
-                                            entry.text().into()
-                                        ));
-                                    },
-                                    set_placeholder_text: Some(
-                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
-                                    ),
-                                    set_primary_icon_name: Some(icon_name::WALLET2),
-                                    set_primary_icon_activatable: false,
-                                    set_primary_icon_sensitive: false,
-                                    #[watch]
-                                    set_secondary_icon_name: model.reward_address.icon(),
-                                    set_secondary_icon_activatable: false,
-                                    set_secondary_icon_sensitive: false,
-                                    #[track = "model.reward_address.unknown()"]
-                                    set_text: &model.reward_address,
-                                    set_tooltip_markup: Some(
-                                        "Use Subwallet or polkadot{.js} extension or any other \
-                                        Substrate wallet to create it first (address for any Substrate \
-                                        chain in SS58 format works)"
-                                    ),
-                                },
-                            },
-                        },
-                        gtk::ListBoxRow {
-                            set_activatable: false,
-                            set_margin_bottom: 10,
-                            set_selectable: false,
-
-                            gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 10,
-
-                                gtk::Label {
-                                    add_css_class: "heading",
-                                    set_halign: gtk::Align::Start,
                                     set_label: "Node path",
                                 },
 
@@ -219,6 +173,52 @@ impl Component for ConfigurationView {
                                         ),
                                         set_label: "Select",
                                     },
+                                },
+                            },
+                        },
+                        gtk::ListBoxRow {
+                            set_activatable: false,
+                            set_margin_bottom: 10,
+                            set_selectable: false,
+
+                            gtk::Box {
+                                set_orientation: gtk::Orientation::Vertical,
+                                set_spacing: 10,
+
+                                gtk::Label {
+                                    add_css_class: "heading",
+                                    set_halign: gtk::Align::Start,
+                                    set_label: "Rewards address",
+                                },
+
+                                gtk::Entry {
+                                    connect_activate[sender] => move |entry| {
+                                        sender.input(ConfigurationInput::RewardAddressChanged(
+                                            entry.text().into()
+                                        ));
+                                    },
+                                    connect_changed[sender] => move |entry| {
+                                        sender.input(ConfigurationInput::RewardAddressChanged(
+                                            entry.text().into()
+                                        ));
+                                    },
+                                    set_placeholder_text: Some(
+                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                    ),
+                                    set_primary_icon_name: Some(icon_name::WALLET2),
+                                    set_primary_icon_activatable: false,
+                                    set_primary_icon_sensitive: false,
+                                    #[watch]
+                                    set_secondary_icon_name: model.reward_address.icon(),
+                                    set_secondary_icon_activatable: false,
+                                    set_secondary_icon_sensitive: false,
+                                    #[track = "model.reward_address.unknown()"]
+                                    set_text: &model.reward_address,
+                                    set_tooltip_markup: Some(
+                                        "Use Subwallet or polkadot{.js} extension or any other \
+                                        Substrate wallet to create it first (address for any Substrate \
+                                        chain in SS58 format works)"
+                                    ),
                                 },
                             },
                         },
@@ -412,14 +412,6 @@ impl Component for ConfigurationView {
 impl ConfigurationView {
     fn process_input(&mut self, input: ConfigurationInput, sender: ComponentSender<Self>) {
         match input {
-            ConfigurationInput::RewardAddressChanged(new_reward_address) => {
-                let new_reward_address = new_reward_address.trim();
-                self.reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
-                    MaybeValid::Valid(new_reward_address.to_string())
-                } else {
-                    MaybeValid::Invalid(new_reward_address.to_string())
-                };
-            }
             ConfigurationInput::OpenDirectory(directory_kind) => {
                 self.pending_directory_selection.replace(directory_kind);
                 self.open_dialog.emit(OpenDialogMsg::Open);
@@ -446,6 +438,14 @@ impl ConfigurationView {
                         );
                     }
                 }
+            }
+            ConfigurationInput::RewardAddressChanged(new_reward_address) => {
+                let new_reward_address = new_reward_address.trim();
+                self.reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
+                    MaybeValid::Valid(new_reward_address.to_string())
+                } else {
+                    MaybeValid::Invalid(new_reward_address.to_string())
+                };
             }
             ConfigurationInput::FarmSizeChanged { farm_index, size } => {
                 let size = if ByteSize::from_str(&size)
