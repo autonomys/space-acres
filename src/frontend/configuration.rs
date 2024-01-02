@@ -1,6 +1,11 @@
-use crate::backend::config::{Farm, RawConfig};
-use bytesize::ByteSize;
+mod farm;
+
+use crate::backend::config::RawConfig;
+use crate::frontend::configuration::farm::{
+    FarmWidget, FarmWidgetInit, FarmWidgetInput, FarmWidgetOutput,
+};
 use gtk::prelude::*;
+use relm4::factory::FactoryVecDeque;
 use relm4::prelude::*;
 use relm4_components::open_dialog::{
     OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
@@ -8,25 +13,22 @@ use relm4_components::open_dialog::{
 use relm4_icons::icon_name;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::str::FromStr;
 use subspace_farmer::utils::ss58::parse_ss58_reward_address;
 use tracing::{debug, warn};
 
-// 2 GB
-const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DirectoryKind {
     NodePath,
-    FarmPath(usize),
+    FarmPath(DynamicIndex),
 }
 
 #[derive(Debug)]
 pub enum ConfigurationInput {
+    AddFarm,
     RewardAddressChanged(String),
     OpenDirectory(DirectoryKind),
     DirectorySelected(PathBuf),
-    FarmSizeChanged { farm_index: usize, size: String },
+    Delete(DynamicIndex),
     Reconfigure(RawConfig),
     Start,
     Cancel,
@@ -86,17 +88,11 @@ impl<T> MaybeValid<T> {
     }
 }
 
-#[derive(Debug, Default)]
-struct DiskFarm {
-    path: MaybeValid<PathBuf>,
-    size: MaybeValid<String>,
-}
-
 #[derive(Debug)]
 pub struct ConfigurationView {
     reward_address: MaybeValid<String>,
     node_path: MaybeValid<PathBuf>,
-    farms: Vec<DiskFarm>,
+    farms: FactoryVecDeque<FarmWidget>,
     pending_directory_selection: Option<DirectoryKind>,
     open_dialog: Controller<OpenDialog>,
     reconfiguration: bool,
@@ -122,52 +118,6 @@ impl Component for ConfigurationView {
                     set_spacing: 20,
 
                     gtk::ListBox {
-                        gtk::ListBoxRow {
-                            set_activatable: false,
-                            set_margin_bottom: 10,
-                            set_selectable: false,
-
-                            gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 10,
-
-                                gtk::Label {
-                                    add_css_class: "heading",
-                                    set_halign: gtk::Align::Start,
-                                    set_label: "Rewards address",
-                                },
-
-                                gtk::Entry {
-                                    connect_activate[sender] => move |entry| {
-                                        sender.input(ConfigurationInput::RewardAddressChanged(
-                                            entry.text().into()
-                                        ));
-                                    },
-                                    connect_changed[sender] => move |entry| {
-                                        sender.input(ConfigurationInput::RewardAddressChanged(
-                                            entry.text().into()
-                                        ));
-                                    },
-                                    set_placeholder_text: Some(
-                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
-                                    ),
-                                    set_primary_icon_name: Some(icon_name::WALLET2),
-                                    set_primary_icon_activatable: false,
-                                    set_primary_icon_sensitive: false,
-                                    #[watch]
-                                    set_secondary_icon_name: model.reward_address.icon(),
-                                    set_secondary_icon_activatable: false,
-                                    set_secondary_icon_sensitive: false,
-                                    #[track = "model.reward_address.unknown()"]
-                                    set_text: &model.reward_address,
-                                    set_tooltip_markup: Some(
-                                        "Use Subwallet or polkadot{.js} extension or any other \
-                                        Substrate wallet to create it first (address for any Substrate \
-                                        chain in SS58 format works)"
-                                    ),
-                                },
-                            },
-                        },
                         gtk::ListBoxRow {
                             set_activatable: false,
                             set_margin_bottom: 10,
@@ -222,10 +172,8 @@ impl Component for ConfigurationView {
                                 },
                             },
                         },
-                        // TODO: Support more than one farm
                         gtk::ListBoxRow {
                             set_activatable: false,
-                            set_margin_bottom: 10,
                             set_selectable: false,
 
                             gtk::Box {
@@ -235,138 +183,114 @@ impl Component for ConfigurationView {
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "Path to farm and its size",
+                                    set_label: "Rewards address",
                                 },
 
-                                gtk::Box {
-                                    set_spacing: 10,
-
-                                    gtk::Box {
-                                        add_css_class: "linked",
-
-                                        gtk::Entry {
-                                            set_can_focus: false,
-                                            set_editable: false,
-                                            set_hexpand: true,
-                                            set_placeholder_text: Some(
-                                                if cfg!(windows) {
-                                                    "D:\\subspace-farm"
-                                                } else {
-                                                    "/media/subspace-farm"
-                                                },
-                                            ),
-                                            set_primary_icon_name: Some(icon_name::SSD),
-                                            set_primary_icon_activatable: false,
-                                            set_primary_icon_sensitive: false,
-                                            #[watch]
-                                            set_secondary_icon_name: model.farms.get(0).map(|farm| farm.path.icon()).unwrap_or_default(),
-                                            set_secondary_icon_activatable: false,
-                                            set_secondary_icon_sensitive: false,
-                                            #[watch]
-                                            set_text: model.farms.get(0).map(|farm| farm.path.display().to_string()).unwrap_or_default().as_str(),
-                                            set_tooltip_markup: Some(
-                                                "Absolute path where farm files will be stored, any \
-                                                SSD works, high endurance not necessary"
-                                            ),
-                                        },
-
-                                        gtk::Button {
-                                            connect_clicked => ConfigurationInput::OpenDirectory(
-                                                DirectoryKind::FarmPath(0)
-                                            ),
-                                            set_label: "Select",
-                                        },
+                                gtk::Entry {
+                                    connect_activate[sender] => move |entry| {
+                                        sender.input(ConfigurationInput::RewardAddressChanged(
+                                            entry.text().into()
+                                        ));
                                     },
-
-                                    gtk::Entry {
-                                        connect_activate[sender] => move |entry| {
-                                            sender.input(ConfigurationInput::FarmSizeChanged {
-                                                farm_index: 0,
-                                                size: entry.text().into()
-                                            });
-                                        },
-                                        connect_changed[sender] => move |entry| {
-                                            sender.input(ConfigurationInput::FarmSizeChanged {
-                                                farm_index: 0,
-                                                size: entry.text().into()
-                                            });
-                                        },
-                                        set_placeholder_text: Some(
-                                            "4T, 2.5TB, 500GiB, etc.",
-                                        ),
-                                        set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
-                                        set_primary_icon_activatable: false,
-                                        set_primary_icon_sensitive: false,
-                                        #[watch]
-                                        set_secondary_icon_name: model.farms.get(0).map(|farm| farm.size.icon()).unwrap_or_default(),
-                                        set_secondary_icon_activatable: false,
-                                        set_secondary_icon_sensitive: false,
-                                        #[track = "model.farms.get(0).map(|farm| farm.size.unknown()).unwrap_or_default()"]
-                                        set_text: model.farms.get(0).map(|farm| farm.size.as_str()).unwrap_or_default(),
-                                        set_tooltip_markup: Some(
-                                            "Size of the farm in whichever units you prefer, any \
-                                            amount of space above 2 GB works"
-                                        ),
+                                    connect_changed[sender] => move |entry| {
+                                        sender.input(ConfigurationInput::RewardAddressChanged(
+                                            entry.text().into()
+                                        ));
                                     },
+                                    set_placeholder_text: Some(
+                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                    ),
+                                    set_primary_icon_name: Some(icon_name::WALLET2),
+                                    set_primary_icon_activatable: false,
+                                    set_primary_icon_sensitive: false,
+                                    #[watch]
+                                    set_secondary_icon_name: model.reward_address.icon(),
+                                    set_secondary_icon_activatable: false,
+                                    set_secondary_icon_sensitive: false,
+                                    #[track = "model.reward_address.unknown()"]
+                                    set_text: &model.reward_address,
+                                    set_tooltip_markup: Some(
+                                        "Use Subwallet or polkadot{.js} extension or any other \
+                                        Substrate wallet to create it first (address for any Substrate \
+                                        chain in SS58 format works)"
+                                    ),
                                 },
                             },
                         },
                     },
 
-                    if model.reconfiguration {
+                    // TODO: This should be the same list box as above, but then farms will unfortunately render before
+                    //  other fields
+                    #[local_ref]
+                    configuration_list_box -> gtk::ListBox {
+                    },
+
+                    gtk::Box {
                         gtk::Box {
-                            set_halign: gtk::Align::End,
+                            set_halign: gtk::Align::Start,
+                            set_hexpand: true,
                             set_spacing: 10,
 
                             gtk::Button {
-                                connect_clicked => ConfigurationInput::Cancel,
+                                connect_clicked => ConfigurationInput::AddFarm,
 
                                 gtk::Label {
-                                    set_label: "Cancel",
+                                    set_label: "Add farm",
                                     set_margin_all: 10,
                                 },
                             },
+                        },
 
-                            gtk::Button {
-                                add_css_class: "suggested-action",
-                                connect_clicked => ConfigurationInput::Save,
-                                #[watch]
-                                set_sensitive:
-                                    model.reward_address.valid()
+                        if model.reconfiguration {
+                            gtk::Box {
+                                set_halign: gtk::Align::End,
+                                set_spacing: 10,
+
+                                gtk::Button {
+                                    connect_clicked => ConfigurationInput::Cancel,
+
+                                    gtk::Label {
+                                        set_label: "Cancel",
+                                        set_margin_all: 10,
+                                    },
+                                },
+
+                                gtk::Button {
+                                    add_css_class: "suggested-action",
+                                    connect_clicked => ConfigurationInput::Save,
+                                    #[watch]
+                                    set_sensitive: model.reward_address.valid()
                                         && model.node_path.valid()
                                         && !model.farms.is_empty()
-                                        && model.farms.iter().all(|farm| {
-                                            farm.path.valid() && farm.size.valid()
-                                        }),
+                                        && model.farms.iter().all(FarmWidget::valid),
 
-                                gtk::Label {
-                                    set_label: "Save",
-                                    set_margin_all: 10,
+                                    gtk::Label {
+                                        set_label: "Save",
+                                        set_margin_all: 10,
+                                    },
                                 },
-                            },
-                        }
-                    } else {
-                        gtk::Box {
-                            set_halign: gtk::Align::End,
+                            }
+                        } else {
+                            gtk::Box {
+                                set_halign: gtk::Align::End,
 
-                            gtk::Button {
-                                add_css_class: "suggested-action",
-                                connect_clicked => ConfigurationInput::Start,
-                                #[watch]
-                                set_sensitive:
-                                    model.reward_address.valid()
-                                        && model.node_path.valid()
-                                        && !model.farms.is_empty()
-                                        && model.farms.iter().all(|farm| {
-                                            farm.path.valid() && farm.size.valid()
-                                        }),
+                                gtk::Button {
+                                    add_css_class: "suggested-action",
+                                    connect_clicked => ConfigurationInput::Start,
+                                    #[watch]
+                                    set_sensitive:
+                                        model.reward_address.valid()
+                                            && model.node_path.valid()
+                                            && !model.farms.is_empty()
+                                            && model.farms.iter().all(FarmWidget::valid),
 
-                                gtk::Label {
-                                    set_label: "Start",
-                                    set_margin_all: 10,
+                                    gtk::Label {
+                                        set_label: "Start",
+                                        set_margin_all: 10,
+                                    },
                                 },
-                            },
-                        }
+                            }
+                        },
                     },
                 },
             },
@@ -390,15 +314,28 @@ impl Component for ConfigurationView {
                 OpenDialogResponse::Cancel => ConfigurationInput::Ignore,
             });
 
+        let mut farms = FactoryVecDeque::builder()
+            .launch(gtk::ListBox::new())
+            .forward(sender.input_sender(), |output| match output {
+                FarmWidgetOutput::OpenDirectory(index) => {
+                    ConfigurationInput::OpenDirectory(DirectoryKind::FarmPath(index))
+                }
+                FarmWidgetOutput::ValidityUpdate => ConfigurationInput::Ignore,
+                FarmWidgetOutput::Delete(index) => ConfigurationInput::Delete(index),
+            });
+
+        farms.guard().push_back(FarmWidgetInit::default());
+
         let model = Self {
             reward_address: Default::default(),
             node_path: Default::default(),
-            farms: Default::default(),
+            farms,
             pending_directory_selection: Default::default(),
             open_dialog,
             reconfiguration: false,
         };
 
+        let configuration_list_box = model.farms.widget();
         let widgets = view_output!();
 
         ComponentParts { model, widgets }
@@ -412,13 +349,8 @@ impl Component for ConfigurationView {
 impl ConfigurationView {
     fn process_input(&mut self, input: ConfigurationInput, sender: ComponentSender<Self>) {
         match input {
-            ConfigurationInput::RewardAddressChanged(new_reward_address) => {
-                let new_reward_address = new_reward_address.trim();
-                self.reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
-                    MaybeValid::Valid(new_reward_address.to_string())
-                } else {
-                    MaybeValid::Invalid(new_reward_address.to_string())
-                };
+            ConfigurationInput::AddFarm => {
+                self.farms.guard().push_back(FarmWidgetInit::default());
             }
             ConfigurationInput::OpenDirectory(directory_kind) => {
                 self.pending_directory_selection.replace(directory_kind);
@@ -429,15 +361,11 @@ impl ConfigurationView {
                     Some(DirectoryKind::NodePath) => {
                         self.node_path = MaybeValid::Valid(path);
                     }
-                    Some(DirectoryKind::FarmPath(farm_index)) => {
-                        if let Some(farm) = self.farms.get_mut(farm_index) {
-                            farm.path = MaybeValid::Valid(path);
-                        } else {
-                            self.farms.push(DiskFarm {
-                                path: MaybeValid::Valid(path),
-                                size: Default::default(),
-                            })
-                        }
+                    Some(DirectoryKind::FarmPath(index)) => {
+                        self.farms.send(
+                            index.current_index(),
+                            FarmWidgetInput::DirectorySelected(path),
+                        );
                     }
                     None => {
                         warn!(
@@ -447,37 +375,37 @@ impl ConfigurationView {
                     }
                 }
             }
-            ConfigurationInput::FarmSizeChanged { farm_index, size } => {
-                let size = if ByteSize::from_str(&size)
-                    .map(|size| size.as_u64() >= MIN_FARM_SIZE)
-                    .unwrap_or_default()
-                {
-                    MaybeValid::Valid(size)
+            ConfigurationInput::Delete(index) => {
+                let mut farms = self.farms.guard();
+                farms.remove(index.current_index());
+                // Force re-rendering of all farms
+                farms.iter_mut().for_each(|_| {
+                    // Nothing
+                });
+            }
+            ConfigurationInput::RewardAddressChanged(new_reward_address) => {
+                let new_reward_address = new_reward_address.trim();
+                self.reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
+                    MaybeValid::Valid(new_reward_address.to_string())
                 } else {
-                    MaybeValid::Invalid(size)
+                    MaybeValid::Invalid(new_reward_address.to_string())
                 };
-                if let Some(farm) = self.farms.get_mut(farm_index) {
-                    farm.size = size;
-                } else {
-                    self.farms.push(DiskFarm {
-                        path: MaybeValid::default(),
-                        size,
-                    })
-                }
             }
             ConfigurationInput::Reconfigure(raw_config) => {
                 // `Unknown` is a hack to make it actually render the first time
                 self.reward_address = MaybeValid::Unknown(raw_config.reward_address().to_string());
                 self.node_path = MaybeValid::Valid(raw_config.node_path().clone());
-                self.farms = raw_config
-                    .farms()
-                    .iter()
-                    .map(|farm| DiskFarm {
-                        path: MaybeValid::Valid(farm.path.clone()),
-                        // `Unknown` is a hack to make it actually render the first time
-                        size: MaybeValid::Unknown(farm.size.clone()),
-                    })
-                    .collect();
+                {
+                    let mut farms = self.farms.guard();
+                    farms.clear();
+                    for farm in raw_config.farms() {
+                        farms.push_back(FarmWidgetInit {
+                            path: MaybeValid::Valid(farm.path.clone()),
+                            // `Unknown` is a hack to make it actually render the first time
+                            size: MaybeValid::Unknown(farm.size.clone()),
+                        });
+                    }
+                }
                 self.reconfiguration = true;
             }
             ConfigurationInput::Start => {
@@ -514,14 +442,7 @@ impl ConfigurationView {
         RawConfig::V0 {
             reward_address: String::clone(&self.reward_address),
             node_path: PathBuf::clone(&self.node_path),
-            farms: self
-                .farms
-                .iter()
-                .map(|farm| Farm {
-                    path: PathBuf::clone(&farm.path),
-                    size: String::clone(&farm.size),
-                })
-                .collect(),
+            farms: self.farms.iter().map(FarmWidget::farm).collect(),
         }
     }
 }
