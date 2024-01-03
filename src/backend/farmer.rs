@@ -27,7 +27,10 @@ use subspace_farmer::single_disk_farm::{
 use subspace_farmer::utils::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
-use subspace_farmer::utils::run_future_in_dedicated_thread;
+use subspace_farmer::utils::{
+    all_cpu_cores, create_tokio_thread_pool_manager_for_pinned_nodes,
+    run_future_in_dedicated_thread, thread_pool_core_indices,
+};
 use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_networking::utils::piece_provider::PieceProvider;
@@ -137,23 +140,12 @@ impl fmt::Debug for Farmer {
     }
 }
 
-fn available_parallelism() -> usize {
-    match std::thread::available_parallelism() {
-        Ok(parallelism) => parallelism.get(),
-        Err(error) => {
-            warn!(
-                %error,
-                "Unable to identify available parallelism, you might want to configure thread pool sizes with CLI \
-                options manually"
-            );
-
-            0
-        }
-    }
-}
-
 fn should_farm_during_initial_plotting() -> bool {
-    available_parallelism() > 8
+    let total_cpu_cores = all_cpu_cores()
+        .iter()
+        .flat_map(|set| set.cpu_cores())
+        .count();
+    total_cpu_cores > 8
 }
 
 #[derive(Debug, Clone)]
@@ -204,14 +196,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         }
     }
 
-    let sector_downloading_concurrency = NonZeroUsize::new(2).expect("Not zero; qed");
-    let sector_encoding_concurrency = NonZeroUsize::new(1).expect("Not zero; qed");
-    let farm_during_initial_plotting = should_farm_during_initial_plotting();
-    let available_parallelism = available_parallelism();
-    let farming_thread_pool_size = available_parallelism;
-    let plotting_thread_pool_size = available_parallelism;
-    let replotting_thread_pool_size = available_parallelism / 2;
-
     let farmer_app_info = node_client
         .farmer_app_info()
         .await
@@ -252,8 +236,48 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let mut single_disk_farms = Vec::with_capacity(disk_farms.len());
 
-    let downloading_semaphore = Arc::new(Semaphore::new(sector_downloading_concurrency.get()));
-    let encoding_semaphore = Arc::new(Semaphore::new(sector_encoding_concurrency.get()));
+    let farm_during_initial_plotting = should_farm_during_initial_plotting();
+    let plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
+    let replotting_thread_pool_core_indices = {
+        let mut replotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
+        // The default behavior is to use all CPU cores, but for replotting we just want half
+        replotting_thread_pool_core_indices
+            .iter_mut()
+            .for_each(|set| set.truncate(set.cpu_cores().len() / 2));
+        replotting_thread_pool_core_indices
+    };
+
+    let downloading_semaphore =
+        Arc::new(Semaphore::new(plotting_thread_pool_core_indices.len() + 1));
+
+    let all_cpu_cores = all_cpu_cores();
+    let plotting_thread_pool_manager = create_tokio_thread_pool_manager_for_pinned_nodes(
+        "plotting",
+        plotting_thread_pool_core_indices,
+    )?;
+    let replotting_thread_pool_manager = create_tokio_thread_pool_manager_for_pinned_nodes(
+        "replotting",
+        replotting_thread_pool_core_indices,
+    )?;
+    let farming_thread_pool_size = all_cpu_cores
+        .first()
+        .expect("Not empty according to function description; qed")
+        .cpu_cores()
+        .len();
+
+    // TODO: Expose this in UI somehow, maybe warning if not enough farms are configured too
+    if all_cpu_cores.len() > 1 {
+        info!(numa_nodes = %all_cpu_cores.len(), "NUMA system detected");
+
+        if all_cpu_cores.len() < disk_farms.len() {
+            warn!(
+                numa_nodes = %all_cpu_cores.len(),
+                farms_count = %disk_farms.len(),
+                "Too few disk farms, CPU will not be utilized fully during plotting, same number \
+                of farms as NUMA nodes or more is recommended"
+            );
+        }
+    }
 
     let mut plotting_delay_senders = Vec::with_capacity(disk_farms.len());
 
@@ -274,11 +298,10 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 piece_getter: piece_getter.clone(),
                 cache_percentage: CACHE_PERCENTAGE,
                 downloading_semaphore: Arc::clone(&downloading_semaphore),
-                encoding_semaphore: Arc::clone(&encoding_semaphore),
                 farm_during_initial_plotting,
                 farming_thread_pool_size,
-                plotting_thread_pool_size,
-                replotting_thread_pool_size,
+                plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
+                replotting_thread_pool_manager: replotting_thread_pool_manager.clone(),
                 plotting_delay: Some(plotting_delay_receiver),
             },
             disk_farm_index,
