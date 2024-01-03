@@ -124,6 +124,11 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Needed for hwloc
+      - name: Install automake (macOS)
+        run: brew install automake
+        if: runner.os == 'macOS'
+
       # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
       - name: Remove msys64
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
@@ -145,10 +150,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build app
+      - name: Build app (Linux and Windows)
         run: cargo build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+        if: runner.os != 'macOS'
 
-      # TODO: Package Linux and macOS
+      - name: Build app (macOS)
+        run: cargo build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --no-default-features
+        if: runner.os == 'macOS'
+
+      # TODO: Package macOS
 
       - name: Install cargo-wix (Windows)
         uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2

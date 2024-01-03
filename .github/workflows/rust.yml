@@ -142,6 +142,11 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Needed for hwloc
+      - name: Install automake (macOS)
+        run: brew install automake
+        if: runner.os == 'macOS'
+
       # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
       - name: Remove msys64
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
@@ -251,6 +256,11 @@ jobs:
         uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Needed for hwloc
+      - name: Install automake (macOS)
+        run: brew install automake
+        if: runner.os == 'macOS'
 
       # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
       - name: Remove msys64
