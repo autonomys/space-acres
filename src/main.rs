@@ -8,6 +8,7 @@ use crate::backend::config::RawConfig;
 use crate::backend::{BackendAction, BackendNotification};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
+use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInput, RunningView};
 use atomic::Atomic;
 use clap::Parser;
@@ -164,6 +165,7 @@ struct App {
     current_raw_config: Option<RawConfig>,
     status_bar_notification: StatusBarNotification,
     backend_action_sender: mpsc::Sender<BackendAction>,
+    new_version: Controller<NewVersion>,
     loading_view: Controller<LoadingView>,
     configuration_view: Controller<ConfigurationView>,
     running_view: Controller<RunningView>,
@@ -193,28 +195,34 @@ impl AsyncComponent for App {
                 set_orientation: gtk::Orientation::Vertical,
 
                 gtk::HeaderBar {
-                    pack_end = &gtk::MenuButton {
-                        set_direction: gtk::ArrowType::None,
-                        set_icon_name: icon_name::MENU_LARGE,
-                        #[wrap(Some)]
-                        set_popover: menu_popover = &gtk::Popover {
-                            set_halign: gtk::Align::End,
-                            set_position: gtk::PositionType::Bottom,
+                    pack_end = &gtk::Box {
+                        set_spacing: 10,
 
-                            gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 5,
+                        model.new_version.widget().clone(),
 
-                                gtk::Button {
-                                    connect_clicked => AppInput::OpenReconfiguration,
-                                    set_label: "Update configuration",
-                                    #[watch]
-                                    set_visible: model.current_raw_config.is_some(),
-                                },
+                        gtk::MenuButton {
+                            set_direction: gtk::ArrowType::None,
+                            set_icon_name: icon_name::MENU_LARGE,
+                            #[wrap(Some)]
+                            set_popover: menu_popover = &gtk::Popover {
+                                set_halign: gtk::Align::End,
+                                set_position: gtk::PositionType::Bottom,
 
-                                gtk::Button {
-                                    connect_clicked => AppInput::ShowAboutDialog,
-                                    set_label: "About",
+                                gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
+                                    set_spacing: 5,
+
+                                    gtk::Button {
+                                        connect_clicked => AppInput::OpenReconfiguration,
+                                        set_label: "Update configuration",
+                                        #[watch]
+                                        set_visible: model.current_raw_config.is_some(),
+                                    },
+
+                                    gtk::Button {
+                                        connect_clicked => AppInput::ShowAboutDialog,
+                                        set_label: "About",
+                                    },
                                 },
                             },
                         },
@@ -316,6 +324,8 @@ impl AsyncComponent for App {
             true,
         );
 
+        let new_version = NewVersion::builder().launch(()).detach();
+
         let loading_view = LoadingView::builder().launch(()).detach();
 
         let configuration_view = ConfigurationView::builder()
@@ -373,6 +383,7 @@ impl AsyncComponent for App {
             current_raw_config: None,
             status_bar_notification: StatusBarNotification::None,
             backend_action_sender,
+            new_version,
             loading_view,
             configuration_view,
             running_view,
