@@ -28,8 +28,8 @@ use subspace_farmer::utils::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
 use subspace_farmer::utils::{
-    all_cpu_cores, create_tokio_thread_pool_manager_for_pinned_nodes,
-    run_future_in_dedicated_thread, thread_pool_core_indices,
+    all_cpu_cores, create_plotting_thread_pool_manager, run_future_in_dedicated_thread,
+    thread_pool_core_indices,
 };
 use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_farmer_components::plotting::PlottedSector;
@@ -251,13 +251,10 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         Arc::new(Semaphore::new(plotting_thread_pool_core_indices.len() + 1));
 
     let all_cpu_cores = all_cpu_cores();
-    let plotting_thread_pool_manager = create_tokio_thread_pool_manager_for_pinned_nodes(
-        "plotting",
-        plotting_thread_pool_core_indices,
-    )?;
-    let replotting_thread_pool_manager = create_tokio_thread_pool_manager_for_pinned_nodes(
-        "replotting",
-        replotting_thread_pool_core_indices,
+    let plotting_thread_pool_manager = create_plotting_thread_pool_manager(
+        plotting_thread_pool_core_indices
+            .into_iter()
+            .zip(replotting_thread_pool_core_indices),
     )?;
     let farming_thread_pool_size = all_cpu_cores
         .first()
@@ -301,7 +298,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 farm_during_initial_plotting,
                 farming_thread_pool_size,
                 plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
-                replotting_thread_pool_manager: replotting_thread_pool_manager.clone(),
                 plotting_delay: Some(plotting_delay_receiver),
             },
             disk_farm_index,
