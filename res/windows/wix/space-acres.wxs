@@ -160,6 +160,7 @@
                             <File Id='jpeg62.dll' Name='jpeg62.dll' DiskId='1' Source='target\wix\gtk4\bin\jpeg62.dll' />
                             <File Id='libexpat.dll' Name='libexpat.dll' DiskId='1' Source='target\wix\gtk4\bin\libexpat.dll' />
                             <File Id='libpng16.dll' Name='libpng16.dll' DiskId='1' Source='target\wix\gtk4\bin\libpng16.dll' />
+                            <File Id='libxml2.dll' Name='libxml2.dll' DiskId='1' Source='target\wix\gtk4\bin\libxml2.dll' />
                             <File Id='pango_1.0_0.dll' Name='pango-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pango-1.0-0.dll' />
                             <File Id='pangocairo_1.0_0.dll' Name='pangocairo-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangocairo-1.0-0.dll' />
                             <File Id='pangowin32_1.0_0.dll' Name='pangowin32-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangowin32-1.0-0.dll' />
@@ -169,6 +170,7 @@
                             <File Id='pcre2_posix.dll' Name='pcre2-posix.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-posix.dll' />
                             <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pixman-1-0.dll' />
                             <File Id='pkgconf_4.dll' Name='pkgconf-4.dll' DiskId='1' Source='target\wix\gtk4\bin\pkgconf-4.dll' />
+                            <File Id='rsvg_2.0_vs17.dll' Name='rsvg-2.0-vs17.dll' DiskId='1' Source='target\wix\gtk4\bin\rsvg-2.0-vs17.dll' />
                             <File Id='textstyle.dll' Name='textstyle.dll' DiskId='1' Source='target\wix\gtk4\bin\textstyle.dll' />
                             <File Id='tiff.dll' Name='tiff.dll' DiskId='1' Source='target\wix\gtk4\bin\tiff.dll' />
                             <File Id='turbojpeg.dll' Name='turbojpeg.dll' DiskId='1' Source='target\wix\gtk4\bin\turbojpeg.dll' />
