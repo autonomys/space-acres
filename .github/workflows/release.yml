@@ -176,6 +176,8 @@ jobs:
 
           Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\*.dll -Destination target\wix\gtk4\bin
           Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gdbus.exe -Destination target\wix\gtk4\bin
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gspawn-win64-helper.exe -Destination target\wix\gtk4\bin
+          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gspawn-win64-helper-console.exe -Destination target\wix\gtk4\bin
 
           Copy-Item -Path C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders\*.dll -Destination target\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0\loaders
           Copy-Item -Path C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders.cache -Destination target\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0
