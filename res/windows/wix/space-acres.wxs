@@ -130,6 +130,8 @@
                         </Component>
                         <Component Id='gtk4' Guid='f34c20a7-fec1-4afa-b06c-0945bbbc420f'>
                             <File Id='gdbus.exe' Name='gdbus.exe' DiskId='1' Source='target\wix\gtk4\bin\gdbus.exe' />
+                            <File Id='gspawn_win64_helper.exe' Name='gspawn-win64-helper.exe' DiskId='1' Source='target\wix\gtk4\bin\gspawn-win64-helper.exe' />
+                            <File Id='gspawn_win64_helper_console.exe' Name='gspawn-win64-helper-console.exe' DiskId='1' Source='target\wix\gtk4\bin\gspawn-win64-helper-console.exe' />
 
                             <File Id='asprintf.dll' Name='asprintf.dll' DiskId='1' Source='target\wix\gtk4\bin\asprintf.dll' />
                             <File Id='cairo_2.dll' Name='cairo-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-2.dll' />
