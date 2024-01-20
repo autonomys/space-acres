@@ -299,7 +299,7 @@ impl Component for ConfigurationView {
 
     fn init(
         parent_root: Self::Init,
-        root: &Self::Root,
+        root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let open_dialog = OpenDialog::builder()

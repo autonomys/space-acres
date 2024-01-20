@@ -8043,7 +8043,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 [[package]]
 name = "relm4"
 version = "0.7.0-beta.2"
-source = "git+https://github.com/Relm4/Relm4?rev=f216c7f5ba1324413cb16e45c37e0b9297473ec2#f216c7f5ba1324413cb16e45c37e0b9297473ec2"
+source = "git+https://github.com/Relm4/Relm4?rev=e189eee06b887470e0fd65cbaf6d7c0161bed5ea#e189eee06b887470e0fd65cbaf6d7c0161bed5ea"
 dependencies = [
  "async-trait",
  "flume",
@@ -8059,7 +8059,7 @@ dependencies = [
 [[package]]
 name = "relm4-components"
 version = "0.7.0-beta.2"
-source = "git+https://github.com/Relm4/Relm4?rev=f216c7f5ba1324413cb16e45c37e0b9297473ec2#f216c7f5ba1324413cb16e45c37e0b9297473ec2"
+source = "git+https://github.com/Relm4/Relm4?rev=e189eee06b887470e0fd65cbaf6d7c0161bed5ea#e189eee06b887470e0fd65cbaf6d7c0161bed5ea"
 dependencies = [
  "once_cell",
  "relm4",
@@ -8079,7 +8079,7 @@ dependencies = [
 [[package]]
 name = "relm4-macros"
 version = "0.7.0-beta.2"
-source = "git+https://github.com/Relm4/Relm4?rev=f216c7f5ba1324413cb16e45c37e0b9297473ec2#f216c7f5ba1324413cb16e45c37e0b9297473ec2"
+source = "git+https://github.com/Relm4/Relm4?rev=e189eee06b887470e0fd65cbaf6d7c0161bed5ea#e189eee06b887470e0fd65cbaf6d7c0161bed5ea"
 dependencies = [
  "proc-macro2",
  "quote",
