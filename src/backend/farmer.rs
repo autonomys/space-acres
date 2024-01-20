@@ -22,7 +22,8 @@ use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
 use subspace_farmer::single_disk_farm::{
-    SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
+    SectorExpirationDetails, SectorPlottingDetails, SectorUpdate, SingleDiskFarm,
+    SingleDiskFarmError, SingleDiskFarmOptions,
 };
 use subspace_farmer::utils::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
@@ -439,42 +440,72 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             let readers_and_pieces = Arc::clone(&readers_and_pieces);
             let span = info_span!("farm", %disk_farm_index);
             let handlers = Arc::clone(&handlers);
-            let last_sector_plotted = Arc::new(Atomic::new(None));
+            let last_sector_plotted = Atomic::new(None);
 
             single_disk_farm
-                .on_sector_plotting(Arc::new({
-                    let handlers = Arc::clone(&handlers);
-                    let last_sector_plotted = Arc::clone(&last_sector_plotted);
+                .on_sector_update(Arc::new(
+                    move |(sector_index, sector_update)| match sector_update {
+                        SectorUpdate::Plotting(plotting_update) => match plotting_update {
+                            SectorPlottingDetails::Starting {
+                                progress,
+                                replotting,
+                                last_queued,
+                            } => {
+                                let state = PlottingState::Plotting {
+                                    kind: if *replotting {
+                                        PlottingKind::Replotting
+                                    } else {
+                                        PlottingKind::Initial
+                                    },
+                                    progress: *progress,
+                                    speed: None,
+                                };
 
-                    move |plotting_details| {
-                        let state = PlottingState::Plotting {
-                            kind: if plotting_details.replotting {
-                                PlottingKind::Replotting
-                            } else {
-                                PlottingKind::Initial
-                            },
-                            progress: plotting_details.progress,
-                            speed: None,
-                        };
+                                handlers
+                                    .plotting_state_change
+                                    .call_simple(&(disk_farm_index as usize), &state);
 
-                        handlers
-                            .plotting_state_change
-                            .call_simple(&(disk_farm_index as usize), &state);
-
-                        if plotting_details.last_queued {
-                            last_sector_plotted
-                                .store(Some(plotting_details.sector_index), Ordering::Release);
-                        }
-                    }
-                }))
+                                if *last_queued {
+                                    last_sector_plotted
+                                        .store(Some(*sector_index), Ordering::Release);
+                                }
+                            }
+                            SectorPlottingDetails::Downloading => {}
+                            SectorPlottingDetails::Downloaded(_) => {}
+                            SectorPlottingDetails::Encoding => {}
+                            SectorPlottingDetails::Encoded(_) => {}
+                            SectorPlottingDetails::Writing => {}
+                            SectorPlottingDetails::Wrote(_) => {}
+                            SectorPlottingDetails::Finished { .. } => {
+                                if last_sector_plotted
+                                    .compare_exchange(
+                                        Some(*sector_index),
+                                        None,
+                                        Ordering::AcqRel,
+                                        Ordering::Relaxed,
+                                    )
+                                    .is_ok()
+                                {
+                                    handlers.plotting_state_change.call_simple(
+                                        &(disk_farm_index as usize),
+                                        &PlottingState::Idle,
+                                    );
+                                }
+                            }
+                        },
+                        SectorUpdate::Expiration(expiration_update) => match expiration_update {
+                            SectorExpirationDetails::Determined { .. } => {}
+                            SectorExpirationDetails::AboutToExpire => {}
+                            SectorExpirationDetails::Expired => {}
+                        },
+                    },
+                ))
                 .detach();
 
             // Collect newly plotted pieces
             let on_plotted_sector_callback =
-                move |(plotted_sector, maybe_old_plotted_sector): &(
-                    PlottedSector,
-                    Option<PlottedSector>,
-                )| {
+                move |plotted_sector: &PlottedSector,
+                      maybe_old_plotted_sector: &Option<PlottedSector>| {
                     let _span_guard = span.enter();
 
                     {
@@ -483,28 +514,23 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             .as_mut()
                             .expect("Initial value was populated above; qed");
 
-                        if let Some(old_plotted_sector) = maybe_old_plotted_sector {
+                        if let Some(old_plotted_sector) = &maybe_old_plotted_sector {
                             readers_and_pieces.delete_sector(disk_farm_index, old_plotted_sector);
                         }
                         readers_and_pieces.add_sector(disk_farm_index, plotted_sector);
-
-                        if last_sector_plotted
-                            .compare_exchange(
-                                Some(plotted_sector.sector_index),
-                                None,
-                                Ordering::AcqRel,
-                                Ordering::Relaxed,
-                            )
-                            .is_ok()
-                        {
-                            handlers
-                                .plotting_state_change
-                                .call_simple(&(disk_farm_index as usize), &PlottingState::Idle);
-                        }
                     }
                 };
             single_disk_farm
-                .on_sector_plotted(Arc::new(on_plotted_sector_callback))
+                .on_sector_update(Arc::new(move |(_sector_index, sector_state)| {
+                    if let SectorUpdate::Plotting(SectorPlottingDetails::Finished {
+                        plotted_sector,
+                        old_plotted_sector,
+                        ..
+                    }) = sector_state
+                    {
+                        on_plotted_sector_callback(plotted_sector, old_plotted_sector);
+                    }
+                }))
                 .detach();
 
             single_disk_farm.run()
