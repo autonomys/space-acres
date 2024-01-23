@@ -1,31 +1,89 @@
 use crate::backend::config::Farm;
-use crate::backend::farmer::{PlottingKind, PlottingState};
 use gtk::prelude::*;
 use relm4::prelude::*;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use subspace_core_primitives::SectorIndex;
+use subspace_farmer::single_disk_farm::{
+    SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
+};
+
+/// Experimentally found number that is good for default window size to not have horizontal scroll
+/// and allows for sectors to not occupy too much vertical space
+const MIN_SECTORS_PER_ROW: u32 = 108;
+/// Effectively no limit
+const MAX_SECTORS_PER_ROW: u32 = 10_000;
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum PlottingKind {
+    Initial,
+    Replotting,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum PlottingState {
+    Plotting {
+        kind: PlottingKind,
+        /// Progress so far in % (not including this sector)
+        progress: f32,
+        /// Plotting/replotting speed in sectors/s
+        speed: Option<f32>,
+    },
+    Idle,
+}
+
+#[derive(Debug)]
+enum SectorState {
+    Plotted,
+    AboutToExpire,
+    Expired,
+    Downloading,
+    Encoding,
+    Writing,
+}
+
+impl SectorState {
+    fn css_class(&self) -> &'static str {
+        match self {
+            Self::Plotted => "plotted",
+            Self::AboutToExpire => "about-to-expire",
+            Self::Expired => "expired",
+            Self::Downloading => "downloading",
+            Self::Encoding => "encoding",
+            Self::Writing => "writing",
+        }
+    }
+}
 
 #[derive(Debug)]
 pub(super) struct FarmWidgetInit {
-    pub(super) initial_plotting_state: PlottingState,
     pub(super) farm: Farm,
+    pub(super) total_sectors: SectorIndex,
+    pub(super) plotted_total_sectors: SectorIndex,
     pub(super) farm_during_initial_plotting: bool,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub(super) enum FarmWidgetInput {
-    PlottingStateUpdate(PlottingState),
+    SectorUpdate {
+        sector_index: SectorIndex,
+        update: SectorUpdate,
+    },
     PieceCacheSynced(bool),
     NodeSynced(bool),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct FarmWidget {
     path: PathBuf,
     size: String,
+    last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_piece_cache_synced: bool,
     is_node_synced: bool,
     farm_during_initial_plotting: bool,
+    sectors_grid: gtk::GridView,
+    sectors: HashMap<SectorIndex, gtk::Box>,
 }
 
 #[relm4::factory(pub(super))]
@@ -35,7 +93,7 @@ impl FactoryComponent for FarmWidget {
     type Output = ();
     type CommandOutput = ();
     type ParentWidget = gtk::Box;
-    type Index = usize;
+    type Index = u8;
 
     view! {
         #[root]
@@ -105,28 +163,71 @@ impl FactoryComponent for FarmWidget {
                 },
                 (PlottingState::Idle, _, true) => gtk::Box {
                     gtk::Label {
-                        #[watch]
                         set_label: "Farming",
                     }
                 },
                 _ => gtk::Box {
                     gtk::Label {
-                        #[watch]
                         set_label: "Waiting for node to sync first",
                     }
                 },
+            },
+
+            self.sectors_grid.clone() -> gtk::GridView {
+                remove_css_class: "view",
+                set_max_columns: MAX_SECTORS_PER_ROW,
+                set_min_columns: MIN_SECTORS_PER_ROW,
+                set_sensitive: false,
             },
         },
     }
 
     fn init_model(init: Self::Init, _index: &Self::Index, _sender: FactorySender<Self>) -> Self {
+        let mut sectors = Vec::with_capacity(usize::from(init.total_sectors));
+        for sector_index in 0..init.total_sectors {
+            let sector = gtk::Box::builder()
+                .css_name("farm-sector")
+                .tooltip_text(format!("Sector {sector_index}"))
+                .build();
+            if sector_index < init.plotted_total_sectors {
+                sector.add_css_class("plotted")
+            }
+            sectors.push(sector);
+        }
+
+        let factory = gtk::SignalListItemFactory::new();
+        factory.connect_bind(|_, list_item| {
+            if let Some(item) = list_item.item() {
+                list_item.set_child(Some(
+                    &item
+                        .downcast::<gtk::Box>()
+                        .expect("Box was created above; qed"),
+                ));
+            }
+        });
+
+        let selection = gtk::NoSelection::new(Some({
+            let store = gtk::gio::ListStore::new::<gtk::Box>();
+            store.extend_from_slice(&sectors);
+            store
+        }));
+        let sectors_grid = gtk::GridView::builder()
+            .single_click_activate(true)
+            .model(&selection)
+            .factory(&factory)
+            .css_name("farm-sectors")
+            .build();
+
         Self {
             path: init.farm.path,
             size: init.farm.size,
-            plotting_state: init.initial_plotting_state,
+            last_sector_plotted: None,
+            plotting_state: PlottingState::Idle,
             is_piece_cache_synced: false,
             is_node_synced: false,
             farm_during_initial_plotting: init.farm_during_initial_plotting,
+            sectors_grid,
+            sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
         }
     }
 
@@ -138,15 +239,96 @@ impl FactoryComponent for FarmWidget {
 impl FarmWidget {
     fn process_input(&mut self, input: FarmWidgetInput) {
         match input {
-            FarmWidgetInput::PlottingStateUpdate(state) => {
-                self.plotting_state = state;
-            }
+            FarmWidgetInput::SectorUpdate {
+                sector_index,
+                update,
+            } => match update {
+                SectorUpdate::Plotting(plotting_update) => match plotting_update {
+                    SectorPlottingDetails::Starting {
+                        progress,
+                        replotting,
+                        last_queued,
+                    } => {
+                        self.plotting_state = PlottingState::Plotting {
+                            kind: if replotting {
+                                PlottingKind::Replotting
+                            } else {
+                                PlottingKind::Initial
+                            },
+                            progress,
+                            speed: None,
+                        };
+
+                        if last_queued {
+                            self.last_sector_plotted.replace(sector_index);
+                        }
+                    }
+                    SectorPlottingDetails::Downloading => {
+                        self.update_sector_state(sector_index, SectorState::Downloading);
+                    }
+                    SectorPlottingDetails::Downloaded(_) => {
+                        self.remove_sector_state(sector_index, SectorState::Downloading);
+                    }
+                    SectorPlottingDetails::Encoding => {
+                        self.update_sector_state(sector_index, SectorState::Encoding);
+                    }
+                    SectorPlottingDetails::Encoded(_) => {
+                        self.remove_sector_state(sector_index, SectorState::Encoding);
+                    }
+                    SectorPlottingDetails::Writing => {
+                        self.update_sector_state(sector_index, SectorState::Writing);
+                    }
+                    SectorPlottingDetails::Wrote(_) => {
+                        self.remove_sector_state(sector_index, SectorState::Writing);
+                    }
+                    SectorPlottingDetails::Finished { .. } => {
+                        if self.last_sector_plotted == Some(sector_index) {
+                            self.last_sector_plotted.take();
+
+                            self.plotting_state = PlottingState::Idle;
+                        }
+
+                        self.update_sector_state(sector_index, SectorState::Plotted);
+                    }
+                },
+                SectorUpdate::Expiration(expiration_update) => match expiration_update {
+                    SectorExpirationDetails::Determined { .. } => {
+                        // TODO: Track segments to mark sector as about to expire/expired even if
+                        //  farmer is still busy plotting previously expired sectors
+                    }
+                    SectorExpirationDetails::AboutToExpire => {
+                        self.update_sector_state(sector_index, SectorState::AboutToExpire);
+                    }
+                    SectorExpirationDetails::Expired => {
+                        self.update_sector_state(sector_index, SectorState::Expired);
+                    }
+                },
+            },
             FarmWidgetInput::PieceCacheSynced(synced) => {
                 self.is_piece_cache_synced = synced;
             }
             FarmWidgetInput::NodeSynced(synced) => {
                 self.is_node_synced = synced;
             }
+        }
+    }
+
+    fn update_sector_state(&self, sector_index: SectorIndex, sector_state: SectorState) {
+        if let Some(sector) = self.sectors.get(&sector_index) {
+            match sector_state {
+                SectorState::Plotted | SectorState::AboutToExpire | SectorState::Expired => {
+                    sector.set_css_classes(&[sector_state.css_class()]);
+                }
+                SectorState::Downloading | SectorState::Encoding | SectorState::Writing => {
+                    sector.add_css_class(sector_state.css_class());
+                }
+            }
+        }
+    }
+
+    fn remove_sector_state(&self, sector_index: SectorIndex, sector_state: SectorState) {
+        if let Some(sector) = self.sectors.get(&sector_index) {
+            sector.remove_css_class(sector_state.css_class());
         }
     }
 }

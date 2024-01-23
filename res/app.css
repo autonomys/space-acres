@@ -18,3 +18,64 @@ progressbar progress {
 .error-label {
     color: #ff3800;
 }
+
+farm-sectors > child {
+    padding: 0;
+}
+
+farm-sector {
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    background-color: #727272;
+    min-width: 5px;
+    min-height: 5px;
+    margin: 1px;
+}
+
+farm-sector.plotted {
+    background-color: #9fc4ff;
+}
+
+farm-sector.about-to-expire {
+    background-color: #ffd678;
+}
+
+farm-sector.expired {
+    background-color: #ff877c;
+}
+
+@keyframes animate-downloading {
+    to {
+        background-color: #499249;
+    }
+}
+
+farm-sector.downloading {
+    animation-duration: 1s;
+    animation-name: animate-downloading;
+}
+
+@keyframes animate-encoding {
+    to {
+        background-color: #ff5365;
+    }
+}
+
+farm-sector.encoding {
+    animation-duration: 0.2s;
+    animation-name: animate-encoding;
+}
+
+@keyframes animate-writing {
+    from {
+        background-color: #727272;
+    }
+    to {
+        background-color: #9fc4ff;
+    }
+}
+
+farm-sector.writing {
+    animation-duration: 1s;
+    animation-name: animate-writing;
+}
