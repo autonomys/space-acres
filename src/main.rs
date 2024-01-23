@@ -488,7 +488,7 @@ impl App {
                 raw_config,
                 best_block_number,
                 reward_address_balance,
-                initial_plotting_states,
+                initial_farm_states,
                 farm_during_initial_plotting,
                 chain_info,
             } => {
@@ -497,7 +497,7 @@ impl App {
                 self.running_view.emit(RunningInput::Initialize {
                     best_block_number,
                     reward_address_balance,
-                    initial_plotting_states,
+                    initial_farm_states,
                     farm_during_initial_plotting,
                     raw_config,
                     chain_info,

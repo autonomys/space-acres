@@ -7,7 +7,9 @@ mod utils;
 
 use crate::backend::config::{Config, ConfigError, RawConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
-use crate::backend::farmer::{DiskFarm, Farmer, FarmerOptions, PlottingState};
+use crate::backend::farmer::{
+    DiskFarm, Farmer, FarmerNotification, FarmerOptions, InitialFarmState,
+};
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
     dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode, SyncState,
@@ -69,18 +71,6 @@ pub enum NodeNotification {
     BlockImported(BlockImported),
 }
 
-#[derive(Debug, Clone)]
-pub enum FarmerNotification {
-    PlottingStateUpdate {
-        farm_index: usize,
-        state: PlottingState,
-    },
-    PieceCacheSyncProgress {
-        /// Progress so far in %
-        progress: f32,
-    },
-}
-
 /// Notification messages send from backend about its operation
 #[derive(Debug)]
 pub enum BackendNotification {
@@ -104,7 +94,7 @@ pub enum BackendNotification {
         raw_config: RawConfig,
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
-        initial_plotting_states: Vec<PlottingState>,
+        initial_farm_states: Vec<InitialFarmState>,
         farm_during_initial_plotting: bool,
         chain_info: ChainInfo,
     },
@@ -315,7 +305,7 @@ async fn run(
             raw_config,
             best_block_number: consensus_node.best_block_number(),
             reward_address_balance: consensus_node.account_balance(&config.reward_address),
-            initial_plotting_states: farmer.initial_plotting_states().to_vec(),
+            initial_farm_states: farmer.initial_farm_states().to_vec(),
             farm_during_initial_plotting: farmer.farm_during_initial_plotting(),
             chain_info: consensus_node.chain_info().clone(),
         })
@@ -362,46 +352,21 @@ async fn run(
             }
         })
     });
-    let _on_plotting_state_change_handler_id = farmer.on_plotting_state_change({
+    let _on_farmer_notification_handler_id = farmer.on_notification({
         let notifications_sender = notifications_sender.clone();
 
-        Arc::new(move |&farm_index, &plotting_state| {
-            let notification = FarmerNotification::PlottingStateUpdate {
-                farm_index,
-                state: plotting_state,
-            };
-
+        Arc::new(move |notification| {
             let mut notifications_sender = notifications_sender.clone();
 
             if let Err(error) = notifications_sender
-                .try_send(BackendNotification::Farmer(notification))
+                .try_send(BackendNotification::Farmer(notification.clone()))
                 .or_else(|error| {
                     tokio::task::block_in_place(|| {
                         Handle::current().block_on(notifications_sender.send(error.into_inner()))
                     })
                 })
             {
-                warn!(%error, "Failed to send plotting state backend notification");
-            }
-        })
-    });
-    let _on_piece_cache_sync_progress_handler_id = farmer.on_piece_cache_sync_progress({
-        let notifications_sender = notifications_sender.clone();
-
-        Arc::new(move |&progress| {
-            let notification = FarmerNotification::PieceCacheSyncProgress { progress };
-
-            let mut notifications_sender = notifications_sender.clone();
-
-            if let Err(error) = notifications_sender
-                .try_send(BackendNotification::Farmer(notification))
-                .or_else(|error| {
-                    tokio::task::block_in_place(|| {
-                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
-                    })
-                })
-            {
-                warn!(%error, "Failed to send piece cache sync progress backend notification");
+                warn!(%error, "Failed to send farmer backend notification");
             }
         })
     });

@@ -1,16 +1,15 @@
 mod farm;
 
 use crate::backend::config::RawConfig;
-use crate::backend::farmer::{PlottingKind, PlottingState};
+use crate::backend::farmer::{FarmerNotification, InitialFarmState};
 use crate::backend::node::{ChainInfo, SyncKind, SyncState};
-use crate::backend::{FarmerNotification, NodeNotification};
+use crate::backend::NodeNotification;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
-use tracing::warn;
 
 /// Maximum blocks to store in the import queue.
 // HACK: This constant comes from Substrate's sync, but it is not public in there
@@ -21,7 +20,7 @@ pub enum RunningInput {
     Initialize {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
-        initial_plotting_states: Vec<PlottingState>,
+        initial_farm_states: Vec<InitialFarmState>,
         farm_during_initial_plotting: bool,
         raw_config: RawConfig,
         chain_info: ChainInfo,
@@ -40,9 +39,6 @@ struct NodeState {
 struct FarmerState {
     initial_reward_address_balance: Balance,
     reward_address_balance: Balance,
-    /// One entry per farm
-    plotting_state: Vec<PlottingState>,
-    farm_during_initial_plotting: bool,
     piece_cache_sync_progress: f32,
     reward_address: String,
 }
@@ -51,7 +47,7 @@ struct FarmerState {
 pub struct RunningView {
     node_state: NodeState,
     farmer_state: FarmerState,
-    farms: FactoryHashMap<usize, FarmWidget>,
+    farms: FactoryHashMap<u8, FarmWidget>,
     chain_info: ChainInfo,
 }
 
@@ -148,135 +144,95 @@ impl Component for RunningView {
             gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
                 set_spacing: 10,
-                set_valign: gtk::Align::Start,
 
-                gtk::Label {
-                    add_css_class: "heading",
-                    set_halign: gtk::Align::Start,
-                    set_label: "Farmer",
+                gtk::Box {
+                    gtk::Label {
+                        add_css_class: "heading",
+                        set_halign: gtk::Align::Start,
+                        set_label: "Farmer",
+                    },
+                    gtk::Box {
+                        set_halign: gtk::Align::End,
+                        set_hexpand: true,
+
+                        gtk::LinkButton {
+                            remove_css_class: "link",
+                            set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
+                            #[watch]
+                            // TODO: Would be great to have `gemini-3g` in chain spec, but it is
+                            //  not available in there in clean form
+                            set_uri: &format!(
+                                "https://explorer.subspace.network/#/{}/consensus/accounts/{}",
+                                model.chain_info.protocol_id.strip_prefix("subspace-").unwrap_or(&model.chain_info.protocol_id),
+                                model.farmer_state.reward_address
+                            ),
+                            set_use_underline: false,
+
+                            gtk::Label {
+                                #[watch]
+                                set_label: &{
+                                    let current_balance = model.farmer_state.reward_address_balance;
+                                    let balance_increase = model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance;
+                                    let current_balance = (current_balance / (SSC / 100)) as f32 / 100.0;
+                                    let balance_increase = (balance_increase / (SSC / 100)) as f32 / 100.0;
+                                    let token_symbol = &model.chain_info.token_symbol;
+
+                                    format!(
+                                        "{current_balance:.2}<span color=\"#3bbf2c\"><sup>+{balance_increase:.2}</sup></span> {token_symbol}"
+                                    )
+                                },
+                                set_use_markup: true,
+                            },
+                        }
+                    },
                 },
 
-                // TODO: Render all farms, not just the first one
-                // TODO: Match only because `if let Some(x) = y` is not yet supported here: https://github.com/Relm4/Relm4/issues/582
-                #[transition = "SlideUpDown"]
-                if model.farmer_state.piece_cache_sync_progress < 100.0 {
+                gtk::ScrolledWindow {
+                    set_margin_start: 10,
+                    set_margin_end: 10,
+                    set_vexpand: true,
+
                     gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 10,
 
                         gtk::Box {
-                            set_spacing: 5,
-                            set_tooltip: "Plotting starts after piece cache sync is complete",
-
-                            gtk::Label {
-                                set_halign: gtk::Align::Start,
-
-                                #[watch]
-                                set_label: &format!(
-                                    "Piece cache sync {:.2}%",
-                                    model.farmer_state.piece_cache_sync_progress
-                                ),
-                            },
-
-                            gtk::Spinner {
-                                start: (),
-                            },
-                        },
-
-                        gtk::ProgressBar {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 10,
                             #[watch]
-                            set_fraction: model.farmer_state.piece_cache_sync_progress as f64 / 100.0,
-                        },
-                    }
-                } else {
-                    gtk::Box {
-                        gtk::Label {
-                            set_halign: gtk::Align::Start,
-                            #[watch]
-                            set_label: &{
-                                if matches!(model.node_state.sync_state, SyncState::Idle) {
-                                    let mut statuses = Vec::new();
-                                    let plotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
-                                        matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Initial, .. })
-                                    });
-                                    let replotting = model.farmer_state.plotting_state.iter().any(|plotting_state| {
-                                        matches!(plotting_state, PlottingState::Plotting { kind: PlottingKind::Replotting, .. })
-                                    });
-                                    let idle = model.farmer_state.plotting_state.iter().any(|plotting_state| {
-                                        matches!(plotting_state, PlottingState::Idle)
-                                    });
-                                    if plotting {
-                                        statuses.push(if statuses.is_empty() {
-                                            "Plotting"
-                                        } else {
-                                            "plotting"
-                                        });
-                                    }
-                                    if matches!(model.node_state.sync_state, SyncState::Idle) && (model.farmer_state.farm_during_initial_plotting || replotting || idle) {
-                                        statuses.push(if statuses.is_empty() {
-                                            "Farming"
-                                        } else {
-                                            "farming"
-                                        });
-                                    }
-                                    if replotting {
-                                        statuses.push(if statuses.is_empty() {
-                                            "Replotting"
-                                        } else {
-                                            "replotting"
-                                        });
-                                    }
+                            set_visible: model.farmer_state.piece_cache_sync_progress < 100.0,
 
-                                    statuses.join(", ")
-                                } else {
-                                    "Waiting for node to sync first".to_string()
-                                }
-                            },
-                        },
-
-                        gtk::Box {
-                            set_halign: gtk::Align::End,
-                            set_hexpand: true,
-
-                            gtk::LinkButton {
-                                remove_css_class: "link",
-                                set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
-                                #[watch]
-                                // TODO: Would be great to have `gemini-3g` in chain spec, but it is
-                                //  not available in there in clean form
-                                set_uri: &format!(
-                                    "https://explorer.subspace.network/#/{}/consensus/accounts/{}",
-                                    model.chain_info.protocol_id.strip_prefix("subspace-").unwrap_or(&model.chain_info.protocol_id),
-                                    model.farmer_state.reward_address
-                                ),
-                                set_use_underline: false,
+                            gtk::Box {
+                                set_spacing: 5,
+                                set_tooltip: "Plotting starts after piece cache sync is complete",
 
                                 gtk::Label {
+                                    set_halign: gtk::Align::Start,
+
                                     #[watch]
-                                    set_label: &{
-                                        let current_balance = model.farmer_state.reward_address_balance;
-                                        let balance_increase = model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance;
-                                        let current_balance = (current_balance / (SSC / 100)) as f32 / 100.0;
-                                        let balance_increase = (balance_increase / (SSC / 100)) as f32 / 100.0;
-                                        let token_symbol = &model.chain_info.token_symbol;
-
-                                        format!(
-                                            "{current_balance:.2}<span color=\"#3bbf2c\"><sup>+{balance_increase:.2}</sup></span> {token_symbol}"
-                                        )
-                                    },
-                                    set_use_markup: true,
+                                    set_label: &format!(
+                                        "Piece cache sync {:.2}%",
+                                        model.farmer_state.piece_cache_sync_progress
+                                    ),
                                 },
-                            }
-                        },
-                    }
-                },
 
-                #[local_ref]
-                farms_box -> gtk::Box {
-                    set_margin_start: 10,
-                    set_margin_end: 10,
-                    set_orientation: gtk::Orientation::Vertical,
-                    set_spacing: 10,
+                                gtk::Spinner {
+                                    start: (),
+                                },
+                            },
+
+                            gtk::ProgressBar {
+                                #[watch]
+                                set_fraction: model.farmer_state.piece_cache_sync_progress as f64 / 100.0,
+                            },
+                        },
+
+                        #[local_ref]
+                        farms_box -> gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 10,
+                        },
+                    },
                 },
             },
         }
@@ -284,7 +240,7 @@ impl Component for RunningView {
 
     fn init(
         _init: Self::Init,
-        _root: &Self::Root,
+        _root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let farms = FactoryHashMap::builder()
@@ -315,22 +271,26 @@ impl RunningView {
             RunningInput::Initialize {
                 best_block_number,
                 reward_address_balance,
-                initial_plotting_states,
+                initial_farm_states,
                 farm_during_initial_plotting,
                 raw_config,
                 chain_info,
             } => {
-                for (farm_index, (initial_plotting_state, farm)) in initial_plotting_states
+                for (farm_index, (initial_farm_state, farm)) in initial_farm_states
                     .iter()
                     .copied()
                     .zip(raw_config.farms().iter().cloned())
                     .enumerate()
                 {
                     self.farms.insert(
-                        farm_index,
+                        u8::try_from(farm_index).expect(
+                            "More than 256 plots are not supported, this is checked on \
+                            backend; qed",
+                        ),
                         FarmWidgetInit {
-                            initial_plotting_state,
                             farm,
+                            total_sectors: initial_farm_state.total_sectors_count,
+                            plotted_total_sectors: initial_farm_state.plotted_sectors_count,
                             farm_during_initial_plotting,
                         },
                     );
@@ -344,8 +304,6 @@ impl RunningView {
                     initial_reward_address_balance: reward_address_balance,
                     reward_address_balance,
                     reward_address: raw_config.reward_address().to_string(),
-                    plotting_state: initial_plotting_states,
-                    farm_during_initial_plotting,
                     piece_cache_sync_progress: 0.0,
                 };
                 self.chain_info = chain_info;
@@ -411,17 +369,18 @@ impl RunningView {
                 }
             },
             RunningInput::FarmerNotification(farmer_notification) => match farmer_notification {
-                FarmerNotification::PlottingStateUpdate { farm_index, state } => {
-                    self.farms
-                        .send(&farm_index, FarmWidgetInput::PlottingStateUpdate(state));
-
-                    if let Some(plotting_state) =
-                        self.farmer_state.plotting_state.get_mut(farm_index)
-                    {
-                        *plotting_state = state;
-                    } else {
-                        warn!(%farm_index, "Unexpected plotting farm index");
-                    }
+                FarmerNotification::SectorUpdate {
+                    farm_index,
+                    sector_index,
+                    update,
+                } => {
+                    self.farms.send(
+                        &farm_index,
+                        FarmWidgetInput::SectorUpdate {
+                            sector_index,
+                            update,
+                        },
+                    );
                 }
                 FarmerNotification::PieceCacheSyncProgress { progress } => {
                     let old_synced = self.farmer_state.piece_cache_sync_progress == 100.0;

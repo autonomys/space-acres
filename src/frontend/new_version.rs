@@ -68,7 +68,7 @@ impl Component for NewVersion {
 
     fn init(
         _init: Self::Init,
-        _root: &Self::Root,
+        _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let model = Self { new_version: None };
