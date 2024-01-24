@@ -1,6 +1,6 @@
 mod farm;
 
-use crate::backend::config::RawConfig;
+use crate::backend::config::{NetworkConfiguration, RawConfig};
 use crate::frontend::configuration::farm::{
     FarmWidget, FarmWidgetInit, FarmWidgetInput, FarmWidgetOutput,
 };
@@ -28,6 +28,8 @@ pub enum ConfigurationInput {
     RewardAddressChanged(String),
     OpenDirectory(DirectoryKind),
     DirectorySelected(PathBuf),
+    SubstratePortChanged(u16),
+    SubspacePortChanged(u16),
     Delete(DynamicIndex),
     Reconfigure(RawConfig),
     Start,
@@ -89,10 +91,33 @@ impl<T> MaybeValid<T> {
 }
 
 #[derive(Debug)]
+struct NetworkConfigurationWrapper {
+    substrate_port: MaybeValid<u16>,
+    subspace_port: MaybeValid<u16>,
+}
+
+impl Default for NetworkConfigurationWrapper {
+    fn default() -> Self {
+        Self::from(NetworkConfiguration::default())
+    }
+}
+
+impl From<NetworkConfiguration> for NetworkConfigurationWrapper {
+    fn from(config: NetworkConfiguration) -> Self {
+        // `Unknown` is a hack to make it actually render the first time
+        Self {
+            substrate_port: MaybeValid::Unknown(config.substrate_port),
+            subspace_port: MaybeValid::Unknown(config.subspace_port),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ConfigurationView {
     reward_address: MaybeValid<String>,
     node_path: MaybeValid<PathBuf>,
     farms: FactoryVecDeque<FarmWidget>,
+    network_configuration: NetworkConfigurationWrapper,
     pending_directory_selection: Option<DirectoryKind>,
     open_dialog: Controller<OpenDialog>,
     reconfiguration: bool,
@@ -219,10 +244,96 @@ impl Component for ConfigurationView {
                         },
                     },
 
-                    // TODO: This should be the same list box as above, but then farms will unfortunately render before
-                    //  other fields
+                    // TODO: This should be the same list box as above, but then farms will
+                    //  unfortunately render before other fields
                     #[local_ref]
                     configuration_list_box -> gtk::ListBox {
+                    },
+
+                    gtk::Expander {
+                        set_label: Some("Advanced configuration"),
+
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 10,
+
+                            gtk::Box {
+                                set_orientation: gtk::Orientation::Vertical,
+                                set_margin_top: 10,
+                                set_spacing: 10,
+
+                                gtk::Label {
+                                    add_css_class: "heading",
+                                    set_halign: gtk::Align::Start,
+                                    set_label: "Network configuration",
+                                },
+
+                                gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
+                                    set_spacing: 10,
+
+                                    gtk::Box {
+                                        set_spacing: 10,
+
+                                        gtk::Label {
+                                            set_label: "Substrate (blockchain) P2P port (TCP/UDP):"
+                                        },
+                                        gtk::SpinButton {
+                                            connect_value_changed[sender] => move |entry| {
+                                                sender.input(ConfigurationInput::SubstratePortChanged(
+                                                    entry.value().round() as u16
+                                                ));
+                                            },
+                                            set_adjustment: &gtk::Adjustment::new(
+                                                0.0,
+                                                0.0,
+                                                u16::MAX as f64,
+                                                1.0,
+                                                0.0,
+                                                0.0,
+                                            ),
+                                            set_tooltip: &format!(
+                                                "Default port number is {}",
+                                                NetworkConfiguration::default().substrate_port
+                                            ),
+                                            #[track = "model.network_configuration.substrate_port.unknown()"]
+                                            set_value: *model.network_configuration.substrate_port as f64,
+                                            set_width_chars: 5,
+                                        },
+                                    },
+
+                                    gtk::Box {
+                                        set_spacing: 10,
+
+                                        gtk::Label {
+                                            set_label: "Subspace (DSN) P2P port (TCP/UDP):"
+                                        },
+                                        gtk::SpinButton {
+                                            connect_value_changed[sender] => move |entry| {
+                                                sender.input(ConfigurationInput::SubspacePortChanged(
+                                                    entry.value().round() as u16
+                                                ));
+                                            },
+                                            set_adjustment: &gtk::Adjustment::new(
+                                                0.0,
+                                                0.0,
+                                                u16::MAX as f64,
+                                                1.0,
+                                                0.0,
+                                                0.0,
+                                            ),
+                                            set_tooltip: &format!(
+                                                "Default port number is {}",
+                                                NetworkConfiguration::default().subspace_port
+                                            ),
+                                            #[track = "model.network_configuration.subspace_port.unknown()"]
+                                            set_value: *model.network_configuration.subspace_port as f64,
+                                            set_width_chars: 5,
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
 
                     gtk::Box {
@@ -330,6 +441,7 @@ impl Component for ConfigurationView {
             reward_address: Default::default(),
             node_path: Default::default(),
             farms,
+            network_configuration: Default::default(),
             pending_directory_selection: Default::default(),
             open_dialog,
             reconfiguration: false,
@@ -375,6 +487,12 @@ impl ConfigurationView {
                     }
                 }
             }
+            ConfigurationInput::SubstratePortChanged(port) => {
+                self.network_configuration.substrate_port = MaybeValid::Valid(port);
+            }
+            ConfigurationInput::SubspacePortChanged(port) => {
+                self.network_configuration.subspace_port = MaybeValid::Valid(port);
+            }
             ConfigurationInput::Delete(index) => {
                 let mut farms = self.farms.guard();
                 farms.remove(index.current_index());
@@ -406,6 +524,8 @@ impl ConfigurationView {
                         });
                     }
                 }
+                self.network_configuration =
+                    NetworkConfigurationWrapper::from(raw_config.network());
                 self.reconfiguration = true;
             }
             ConfigurationInput::Start => {
@@ -443,6 +563,10 @@ impl ConfigurationView {
             reward_address: String::clone(&self.reward_address),
             node_path: PathBuf::clone(&self.node_path),
             farms: self.farms.iter().map(FarmWidget::farm).collect(),
+            network: NetworkConfiguration {
+                substrate_port: *self.network_configuration.substrate_port,
+                subspace_port: *self.network_configuration.subspace_port,
+            },
         }
     }
 }

@@ -20,6 +20,7 @@ use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
 use parking_lot::Mutex;
 use sc_subspace_chain_specs::GEMINI_3G_CHAIN_SPEC;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::Arc;
@@ -29,6 +30,8 @@ use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
+use subspace_networking::libp2p::multiaddr::Protocol;
+use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::{Node, NodeRunner};
 use subspace_runtime_primitives::Balance;
 use tokio::fs;
@@ -238,7 +241,7 @@ async fn load(
         piece_cache,
         piece_cache_worker,
     ) = create_networking_stack(
-        &config.node_path,
+        &config,
         GENESIS_HASH.to_string(),
         &chain_spec,
         notifications_sender,
@@ -248,6 +251,7 @@ async fn load(
     let consensus_node = create_consensus_node(
         &network_keypair,
         &config.node_path,
+        config.network.substrate_port,
         chain_spec,
         node.clone(),
         notifications_sender,
@@ -554,7 +558,7 @@ async fn preparing_node_path(
 }
 
 async fn create_networking_stack(
-    node_path: &Path,
+    config: &Config,
     protocol_prefix: String,
     chain_spec: &ChainSpec,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
@@ -576,7 +580,7 @@ async fn create_networking_stack(
 
     let bootstrap_nodes = dsn_bootstrap_nodes(chain_spec)?;
 
-    let network_path = node_path.join("network");
+    let network_path = config.node_path.join("network");
     let keypair_path = network_path.join("secret_ed25519");
     let keypair_exists = fs::try_exists(&keypair_path).await.map_err(|error| {
         anyhow::anyhow!(
@@ -663,6 +667,18 @@ async fn create_networking_stack(
         // TODO: Persist keypair on disk
         keypair: network_keypair.clone(),
         bootstrap_nodes,
+        listen_on: vec![
+            Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+                .with(Protocol::Udp(config.network.subspace_port))
+                .with(Protocol::QuicV1),
+            Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
+                .with(Protocol::Udp(config.network.subspace_port))
+                .with(Protocol::QuicV1),
+            Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+                .with(Protocol::Tcp(config.network.subspace_port)),
+            Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
+                .with(Protocol::Tcp(config.network.subspace_port)),
+        ],
         ..NetworkOptions::default()
     };
     let readers_and_pieces = Arc::<Mutex<Option<ReadersAndPieces>>>::default();
@@ -705,6 +721,7 @@ async fn create_networking_stack(
 async fn create_consensus_node(
     network_keypair: &Keypair,
     node_path: &Path,
+    substrate_port: u16,
     chain_spec: ChainSpec,
     node: Node,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
@@ -717,7 +734,8 @@ async fn create_consensus_node(
         .await?;
 
     let consensus_node =
-        node::create_consensus_node(network_keypair, node_path, chain_spec, node).await?;
+        node::create_consensus_node(network_keypair, node_path, substrate_port, chain_spec, node)
+            .await?;
 
     notifications_sender
         .send(BackendNotification::Loading {

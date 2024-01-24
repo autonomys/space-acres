@@ -25,6 +25,7 @@ use sp_core::storage::StorageKey;
 use sp_core::H256;
 use sp_runtime::traits::Header;
 use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -333,6 +334,7 @@ pub(super) fn generate_node_name() -> String {
 fn create_consensus_chain_config(
     keypair: &Keypair,
     base_path: &Path,
+    substrate_port: u16,
     chain_spec: ChainSpec,
 ) -> Configuration {
     let telemetry_endpoints = chain_spec.0.telemetry_endpoints().clone();
@@ -357,6 +359,12 @@ fn create_consensus_chain_config(
             );
 
             network.boot_nodes = chain_spec.0.boot_nodes().to_vec();
+            network.listen_addresses = vec![
+                sc_network::Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+                    .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
+                sc_network::Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
+                    .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
+            ];
             // Substrate's default
             network.default_peers_set.out_peers = 8;
             // Substrate's default
@@ -427,6 +435,7 @@ fn create_consensus_chain_config(
 pub(super) async fn create_consensus_node(
     keypair: &Keypair,
     base_path: &Path,
+    substrate_port: u16,
     chain_spec: ChainSpec,
     node: Node,
 ) -> Result<ConsensusNode, sc_service::Error> {
@@ -447,7 +456,8 @@ pub(super) async fn create_consensus_node(
             .to_string(),
     };
 
-    let consensus_chain_config = create_consensus_chain_config(keypair, base_path, chain_spec);
+    let consensus_chain_config =
+        create_consensus_chain_config(keypair, base_path, substrate_port, chain_spec);
     let sync_mode = Arc::clone(&consensus_chain_config.network.sync_mode);
 
     let database_source = consensus_chain_config.database.clone();
