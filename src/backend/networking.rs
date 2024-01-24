@@ -60,14 +60,7 @@ impl Default for NetworkOptions {
         Self {
             keypair: Keypair::generate(),
             bootstrap_nodes: vec![],
-            listen_on: vec![
-                "/ip4/0.0.0.0/udp/30433/quic-v1"
-                    .parse()
-                    .expect("Statically correct; qed"),
-                "/ip4/0.0.0.0/tcp/30433"
-                    .parse()
-                    .expect("Statically correct; qed"),
-            ],
+            listen_on: vec![],
             enable_private_ips: false,
             reserved_peers: Vec::new(),
             in_connections: 300,

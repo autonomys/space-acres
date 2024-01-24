@@ -10,6 +10,9 @@ use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 
+const DEFAULT_SUBSTRATE_PORT: u16 = 30333;
+const DEFAULT_SUBSPACE_PORT: u16 = 30433;
+
 // TODO: Replace with `DiskFarm`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,6 +39,21 @@ pub enum RawConfigError {
     FailedToDeserialize(serde_json::Error),
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct NetworkConfiguration {
+    pub substrate_port: u16,
+    pub subspace_port: u16,
+}
+
+impl Default for NetworkConfiguration {
+    fn default() -> Self {
+        Self {
+            substrate_port: DEFAULT_SUBSTRATE_PORT,
+            subspace_port: DEFAULT_SUBSPACE_PORT,
+        }
+    }
+}
+
 // TODO: This config is not necessarily valid, probably combine with valid config
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "version")]
@@ -46,6 +64,8 @@ pub enum RawConfig {
         node_path: PathBuf,
         // TODO: Use disk farm once it supports serde
         farms: Vec<Farm>,
+        #[serde(default)]
+        network: NetworkConfiguration,
     },
 }
 
@@ -55,6 +75,7 @@ impl Default for RawConfig {
             reward_address: String::new(),
             node_path: PathBuf::new(),
             farms: Vec::new(),
+            network: NetworkConfiguration::default(),
         }
     }
 }
@@ -125,6 +146,11 @@ impl RawConfig {
         let Self::V0 { farms, .. } = self;
         farms
     }
+
+    pub fn network(&self) -> NetworkConfiguration {
+        let Self::V0 { network, .. } = self;
+        *network
+    }
 }
 
 /// Valid configuration error
@@ -152,6 +178,7 @@ pub struct Config {
     pub reward_address: PublicKey,
     pub node_path: PathBuf,
     pub farms: Vec<DiskFarm>,
+    pub network: NetworkConfiguration,
 }
 
 impl Config {
@@ -194,6 +221,7 @@ impl Config {
             reward_address,
             node_path,
             farms,
+            network: raw_config.network(),
         })
     }
 }
