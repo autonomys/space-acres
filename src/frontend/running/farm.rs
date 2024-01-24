@@ -12,7 +12,7 @@ use subspace_farmer::single_disk_farm::{
 /// and allows for sectors to not occupy too much vertical space
 const MIN_SECTORS_PER_ROW: u32 = 108;
 /// Effectively no limit
-const MAX_SECTORS_PER_ROW: u32 = 10_000;
+const MAX_SECTORS_PER_ROW: u32 = 100_000;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum PlottingKind {
@@ -176,7 +176,7 @@ impl FactoryComponent for FarmWidget {
             self.sectors_grid.clone() -> gtk::GridView {
                 remove_css_class: "view",
                 set_max_columns: MAX_SECTORS_PER_ROW,
-                set_min_columns: MIN_SECTORS_PER_ROW,
+                set_min_columns: MIN_SECTORS_PER_ROW.min(self.sectors.len() as u32),
                 set_sensitive: false,
             },
         },
