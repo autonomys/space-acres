@@ -83,6 +83,12 @@ pub enum SyncState {
     Idle,
 }
 
+impl SyncState {
+    pub fn is_synced(&self) -> bool {
+        matches!(self, SyncState::Idle)
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct BlockImported {
     pub number: BlockNumber,
