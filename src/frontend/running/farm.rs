@@ -176,7 +176,7 @@ impl FactoryComponent for FarmWidget {
             self.sectors_grid.clone() -> gtk::GridView {
                 remove_css_class: "view",
                 set_max_columns: MAX_SECTORS_PER_ROW,
-                set_min_columns: MIN_SECTORS_PER_ROW.min(self.sectors.len() as u32),
+                set_min_columns: MIN_SECTORS_PER_ROW.min(self.sectors.len() as u32 - 1),
                 set_sensitive: false,
             },
         },
