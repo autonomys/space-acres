@@ -1,19 +1,17 @@
 mod farm;
+mod node;
 
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::{FarmerNotification, InitialFarmState};
-use crate::backend::node::{ChainInfo, SyncKind, SyncState};
+use crate::backend::node::ChainInfo;
 use crate::backend::NodeNotification;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
+use crate::frontend::running::node::{NodeInput, NodeView};
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
-
-/// Maximum blocks to store in the import queue.
-// HACK: This constant comes from Substrate's sync, but it is not public in there
-const MAX_IMPORTING_BLOCKS: BlockNumber = 2048;
 
 #[derive(Debug)]
 pub enum RunningInput {
@@ -30,25 +28,20 @@ pub enum RunningInput {
 }
 
 #[derive(Debug, Default)]
-struct NodeState {
-    best_block_number: BlockNumber,
-    sync_state: SyncState,
-}
-
-#[derive(Debug, Default)]
 struct FarmerState {
     initial_reward_address_balance: Balance,
     reward_address_balance: Balance,
     piece_cache_sync_progress: f32,
-    reward_address: String,
+    reward_address_url: String,
+    token_symbol: String,
 }
 
 #[derive(Debug)]
 pub struct RunningView {
-    node_state: NodeState,
+    node_view: Controller<NodeView>,
+    node_synced: bool,
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
-    chain_info: ChainInfo,
 }
 
 #[relm4::component(pub)]
@@ -63,79 +56,7 @@ impl Component for RunningView {
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
 
-            gtk::Box {
-                set_height_request: 100,
-                set_orientation: gtk::Orientation::Vertical,
-                set_spacing: 10,
-
-                gtk::Label {
-                    add_css_class: "heading",
-                    set_halign: gtk::Align::Start,
-                    #[watch]
-                    set_label: &format!(
-                        "{} consensus node",
-                        model.chain_info.chain_name.strip_prefix("Subspace ").unwrap_or(&model.chain_info.chain_name)
-                    ),
-                },
-
-                #[transition = "SlideUpDown"]
-                match model.node_state.sync_state {
-                    SyncState::Unknown => gtk::Box {
-                        gtk::Label {
-                            #[watch]
-                            set_label: &format!(
-                                "Connecting to the network, best block #{}",
-                                model.node_state.best_block_number
-                            ),
-                        }
-                    },
-                    SyncState::Syncing { kind, target, speed } => gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 10,
-
-                        gtk::Box {
-                            set_spacing: 5,
-
-                            gtk::Label {
-                                set_halign: gtk::Align::Start,
-
-                                #[watch]
-                                set_label: &{
-                                    let kind = match kind {
-                                        SyncKind::Dsn => "Syncing from DSN",
-                                        SyncKind::Regular => "Regular sync",
-                                    };
-
-                                    format!(
-                                        "{} #{}/{}{}",
-                                        kind,
-                                        model.node_state.best_block_number,
-                                        target,
-                                        speed
-                                            .map(|speed| format!(", {:.2} blocks/s", speed))
-                                            .unwrap_or_default(),
-                                    )
-                                },
-                            },
-
-                            gtk::Spinner {
-                                start: (),
-                            },
-                        },
-
-                        gtk::ProgressBar {
-                            #[watch]
-                            set_fraction: model.node_state.best_block_number as f64 / target as f64,
-                        },
-                    },
-                    SyncState::Idle => gtk::Box {
-                        gtk::Label {
-                            #[watch]
-                            set_label: &format!("Synced, best block #{}", model.node_state.best_block_number),
-                        }
-                    },
-                },
-            },
+            model.node_view.widget().clone(),
 
             gtk::Separator {
                 set_margin_all: 10,
@@ -159,13 +80,7 @@ impl Component for RunningView {
                             remove_css_class: "link",
                             set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
                             #[watch]
-                            // TODO: Would be great to have `gemini-3g` in chain spec, but it is
-                            //  not available in there in clean form
-                            set_uri: &format!(
-                                "https://explorer.subspace.network/#/{}/consensus/accounts/{}",
-                                model.chain_info.protocol_id.strip_prefix("subspace-").unwrap_or(&model.chain_info.protocol_id),
-                                model.farmer_state.reward_address
-                            ),
+                            set_uri: &model.farmer_state.reward_address_url,
                             set_use_underline: false,
 
                             gtk::Label {
@@ -175,7 +90,7 @@ impl Component for RunningView {
                                     let balance_increase = model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance;
                                     let current_balance = (current_balance / (SSC / 100)) as f32 / 100.0;
                                     let balance_increase = (balance_increase / (SSC / 100)) as f32 / 100.0;
-                                    let token_symbol = &model.chain_info.token_symbol;
+                                    let token_symbol = &model.farmer_state.token_symbol;
 
                                     format!(
                                         "{current_balance:.2}<span color=\"#3bbf2c\"><sup>+{balance_increase:.2}</sup></span> {token_symbol}"
@@ -243,15 +158,16 @@ impl Component for RunningView {
         _root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let node_view = NodeView::builder().launch(()).detach();
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
 
         let model = Self {
-            node_state: NodeState::default(),
+            node_view,
+            node_synced: false,
             farmer_state: FarmerState::default(),
             farms,
-            chain_info: ChainInfo::default(),
         };
 
         let farms_box = model.farms.widget();
@@ -296,78 +212,64 @@ impl RunningView {
                     );
                 }
 
-                self.node_state = NodeState {
-                    best_block_number,
-                    sync_state: SyncState::default(),
-                };
                 self.farmer_state = FarmerState {
                     initial_reward_address_balance: reward_address_balance,
                     reward_address_balance,
-                    reward_address: raw_config.reward_address().to_string(),
                     piece_cache_sync_progress: 0.0,
+                    // TODO: Would be great to have `gemini-3g` in chain spec, but it is
+                    //  not available in there in clean form
+                    reward_address_url: format!(
+                        "https://explorer.subspace.network/#/{}/consensus/accounts/{}",
+                        chain_info
+                            .protocol_id
+                            .strip_prefix("subspace-")
+                            .unwrap_or(&chain_info.protocol_id),
+                        raw_config.reward_address()
+                    ),
+                    token_symbol: chain_info.token_symbol.clone(),
                 };
-                self.chain_info = chain_info;
+                self.node_view.emit(NodeInput::Initialize {
+                    best_block_number,
+                    chain_info,
+                    node_path: raw_config.node_path().clone(),
+                });
             }
-            RunningInput::NodeNotification(node_notification) => match node_notification {
-                NodeNotification::SyncStateUpdate(mut sync_state) => {
-                    if let SyncState::Syncing {
-                        target: new_target, ..
-                    } = &mut sync_state
-                    {
-                        *new_target = (*new_target).max(self.node_state.best_block_number);
+            RunningInput::NodeNotification(node_notification) => {
+                self.node_view
+                    .emit(NodeInput::NodeNotification(node_notification.clone()));
 
-                        // Ensure target is never below current block
-                        if let SyncState::Syncing {
-                            target: old_target, ..
-                        } = &self.node_state.sync_state
-                        {
-                            // If old target was within `MAX_IMPORTING_BLOCKS` from new target, keep old target
-                            if old_target
-                                .checked_sub(*new_target)
-                                .map(|diff| diff <= MAX_IMPORTING_BLOCKS)
-                                .unwrap_or_default()
-                            {
-                                *new_target = *old_target;
-                            }
+                match node_notification {
+                    NodeNotification::SyncStateUpdate(sync_state) => {
+                        let new_synced = sync_state.is_synced();
+                        if self.node_synced != new_synced {
+                            self.farms
+                                .broadcast(FarmWidgetInput::NodeSynced(new_synced));
                         }
+                        self.node_synced = new_synced;
                     }
-
-                    let old_synced = matches!(self.node_state.sync_state, SyncState::Idle);
-                    let new_synced = matches!(sync_state, SyncState::Idle);
-                    if old_synced != new_synced {
-                        self.farms
-                            .broadcast(FarmWidgetInput::NodeSynced(new_synced));
-                    }
-                    self.node_state.sync_state = sync_state;
-                }
-                NodeNotification::BlockImported(imported_block) => {
-                    self.node_state.best_block_number = imported_block.number;
-                    if !matches!(self.node_state.sync_state, SyncState::Idle) {
-                        // Do not count balance increase during sync as increase related to farming,
-                        // but preserve accumulated diff
-                        let previous_diff = self.farmer_state.reward_address_balance
-                            - self.farmer_state.initial_reward_address_balance;
-                        self.farmer_state.initial_reward_address_balance =
-                            imported_block.reward_address_balance - previous_diff;
-                    }
-                    // In case balance decreased, subtract it from initial balance to ignore, this
-                    // typically happens due to chain reorg when reward is "disappears"
-                    if let Some(decreased_by) = self
-                        .farmer_state
-                        .reward_address_balance
-                        .checked_sub(imported_block.reward_address_balance)
-                    {
-                        self.farmer_state.initial_reward_address_balance -= decreased_by;
-                    }
-                    self.farmer_state.reward_address_balance =
-                        imported_block.reward_address_balance;
-
-                    // Ensure target is never below current block
-                    if let SyncState::Syncing { target, .. } = &mut self.node_state.sync_state {
-                        *target = (*target).max(self.node_state.best_block_number);
+                    NodeNotification::BlockImported(imported_block) => {
+                        if !self.node_synced {
+                            // Do not count balance increase during sync as increase related to
+                            // farming, but preserve accumulated diff
+                            let previous_diff = self.farmer_state.reward_address_balance
+                                - self.farmer_state.initial_reward_address_balance;
+                            self.farmer_state.initial_reward_address_balance =
+                                imported_block.reward_address_balance - previous_diff;
+                        }
+                        // In case balance decreased, subtract it from initial balance to ignore,
+                        // this typically happens due to chain reorg when reward is "disappears"
+                        if let Some(decreased_by) = self
+                            .farmer_state
+                            .reward_address_balance
+                            .checked_sub(imported_block.reward_address_balance)
+                        {
+                            self.farmer_state.initial_reward_address_balance -= decreased_by;
+                        }
+                        self.farmer_state.reward_address_balance =
+                            imported_block.reward_address_balance;
                     }
                 }
-            },
+            }
             RunningInput::FarmerNotification(farmer_notification) => match farmer_notification {
                 FarmerNotification::SectorUpdate {
                     farm_index,
