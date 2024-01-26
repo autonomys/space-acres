@@ -19,6 +19,14 @@ progressbar progress {
     color: #ff3800;
 }
 
+.free-disk-space > trough >  block.low {
+    background-color: #ff3800;
+}
+
+.free-disk-space > trough >  block.high {
+    background-color: #ffA400;
+}
+
 farm-sectors > child {
     padding: 0;
 }

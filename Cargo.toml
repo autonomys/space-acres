@@ -41,6 +41,7 @@ duct = "0.13.6"
 event-listener-primitives = "2.0.1"
 file-rotate = "0.7.5"
 frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "c63a8b28a9fd26d42116b0dcef1f2a5cefb9cd1c", default-features = false }
+fs4 = "0.7.0"
 futures = "0.3.29"
 gtk = { version = "0.7.3", package = "gtk4" }
 hex = "0.4.3"

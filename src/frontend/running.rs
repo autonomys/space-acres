@@ -231,6 +231,7 @@ impl RunningView {
                 self.node_view.emit(NodeInput::Initialize {
                     best_block_number,
                     chain_info,
+                    node_path: raw_config.node_path().clone(),
                 });
             }
             RunningInput::NodeNotification(node_notification) => {

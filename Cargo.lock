@@ -10709,6 +10709,7 @@ dependencies = [
  "event-listener-primitives",
  "file-rotate",
  "frame-system",
+ "fs4 0.7.0",
  "futures",
  "gtk4",
  "hex",
