@@ -30,6 +30,8 @@ const PROVING_TIME_TRACKING_WINDOW: usize = 10;
 const BLOCK_AUTHORING_DELAY: Duration = Duration::from_secs(4);
 /// 1800ms proving time is excellent, anything larger will result in proving performance indicator decrease
 const EXCELLENT_PROVING_TIME: Duration = Duration::from_millis(1800);
+/// Number of samples over which to track sector plotting time
+const SECTOR_PLOTTING_TIME_TRACKING_WINDOW: usize = 10;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum PlottingKind {
@@ -43,8 +45,6 @@ enum PlottingState {
         kind: PlottingKind,
         /// Progress so far in % (not including this sector)
         progress: f32,
-        /// Plotting/replotting speed in sectors/s
-        speed: Option<f32>,
     },
     Idle,
 }
@@ -97,6 +97,7 @@ pub(super) struct FarmWidget {
     size: String,
     auditing_time: SmaWrapper<Duration, u32, AUDITING_TIME_TRACKING_WINDOW>,
     proving_time: SmaWrapper<Duration, u32, PROVING_TIME_TRACKING_WINDOW>,
+    sector_plotting_time: SmaWrapper<Duration, u32, SECTOR_PLOTTING_TIME_TRACKING_WINDOW>,
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_piece_cache_synced: bool,
@@ -195,7 +196,7 @@ impl FactoryComponent for FarmWidget {
                     set_halign: gtk::Align::Start,
                     set_label: "Waiting for piece cache sync",
                 },
-                (PlottingState::Plotting { kind, progress, speed }, _, true) => gtk::Box {
+                (PlottingState::Plotting { kind, progress }, _, true) => gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 10,
 
@@ -212,25 +213,38 @@ impl FactoryComponent for FarmWidget {
 
                             #[watch]
                             set_label: &{
-                                let kind = match kind {
-                                    PlottingKind::Initial => {
-                                        if self.farm_during_initial_plotting {
-                                            "Initial plotting, farming"
-                                        } else {
-                                            "Initial plotting, not farming"
-                                        }
-                                    },
-                                    PlottingKind::Replotting => "Replotting, farming",
+                                let plotting_speed = if self.sector_plotting_time.get_num_samples() > 0 {
+                                     format!(
+                                        " ({:.2} m/sector, {:.2} sectors/h)",
+                                        self.sector_plotting_time.get_average().as_secs_f32() / 60.0,
+                                        3600.0 / self.sector_plotting_time.get_average().as_secs_f32()
+                                    )
+                                } else {
+                                    String::new()
                                 };
 
-                                format!(
-                                    "{} {:.2}%{}",
-                                    kind,
-                                    progress,
-                                    speed
-                                        .map(|speed| format!(", {:.2} sectors/h", 3600.0 / speed))
-                                        .unwrap_or_default(),
-                                )
+                                match kind {
+                                    PlottingKind::Initial => {
+                                        if self.farm_during_initial_plotting {
+                                            format!(
+                                                "Initial plotting {:.2}%{}, farming",
+                                                progress,
+                                                plotting_speed,
+                                            )
+                                        } else {
+                                            format!(
+                                                "Initial plotting {:.2}%{}, not farming",
+                                                progress,
+                                                plotting_speed,
+                                            )
+                                        }
+                                    },
+                                    PlottingKind::Replotting => format!(
+                                        "Replotting {:.2}%{}, farming",
+                                        progress,
+                                        plotting_speed,
+                                    ),
+                                }
                             },
                         },
 
@@ -306,6 +320,7 @@ impl FactoryComponent for FarmWidget {
             size: init.farm.size,
             auditing_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
             proving_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
+            sector_plotting_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
             is_piece_cache_synced: false,
@@ -341,7 +356,6 @@ impl FarmWidget {
                                 PlottingKind::Initial
                             },
                             progress,
-                            speed: None,
                         };
 
                         if last_queued {
@@ -366,7 +380,7 @@ impl FarmWidget {
                     SectorPlottingDetails::Written(_) => {
                         self.remove_sector_state(sector_index, SectorState::Writing);
                     }
-                    SectorPlottingDetails::Finished { .. } => {
+                    SectorPlottingDetails::Finished { time, .. } => {
                         if self.last_sector_plotted == Some(sector_index) {
                             self.last_sector_plotted.take();
 
@@ -374,6 +388,7 @@ impl FarmWidget {
                         }
 
                         self.update_sector_state(sector_index, SectorState::Plotted);
+                        self.sector_plotting_time.add_sample(time);
                     }
                 },
                 SectorUpdate::Expiration(expiration_update) => match expiration_update {

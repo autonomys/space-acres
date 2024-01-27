@@ -77,8 +77,6 @@ pub enum SyncState {
     Syncing {
         kind: SyncKind,
         target: BlockNumber,
-        /// Sync speed in blocks/s
-        speed: Option<f32>,
     },
     Idle,
 }
@@ -183,8 +181,6 @@ impl ConsensusNode {
                                 _ => SyncKind::Regular,
                             },
                             target: sync_status.best_seen_block.unwrap_or_default(),
-                            // TODO: Sync speed
-                            speed: None,
                         }
                     } else if sync_status.num_connected_peers > 0 {
                         SyncState::Idle
