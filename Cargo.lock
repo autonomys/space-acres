@@ -9849,6 +9849,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "simple_moving_average"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a09d361a867b34a1feb1de0bddf0fd7dd53e274c47c9cc7091ebfe3e345a382"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "siphasher"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10735,6 +10744,7 @@ dependencies = [
  "semver 1.0.21",
  "serde",
  "serde_json",
+ "simple_moving_average",
  "sp-consensus-subspace",
  "sp-core",
  "sp-domains-fraud-proof",

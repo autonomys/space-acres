@@ -19,6 +19,7 @@ use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
+use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
     SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
@@ -52,6 +53,10 @@ pub enum FarmerNotification {
         farm_index: u8,
         sector_index: SectorIndex,
         update: SectorUpdate,
+    },
+    FarmingNotification {
+        farm_index: u8,
+        notification: FarmingNotification,
     },
     PieceCacheSyncProgress {
         /// Progress so far in %
@@ -420,15 +425,30 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             );
             let readers_and_pieces = Arc::clone(&readers_and_pieces);
             let span = info_span!("farm", %disk_farm_index);
-            let notifications = Arc::clone(&notifications);
 
             single_disk_farm
-                .on_sector_update(Arc::new(move |(sector_index, sector_update)| {
-                    notifications.call_simple(&FarmerNotification::SectorUpdate {
-                        farm_index: disk_farm_index,
-                        sector_index: *sector_index,
-                        update: sector_update.clone(),
-                    });
+                .on_sector_update(Arc::new({
+                    let notifications = Arc::clone(&notifications);
+
+                    move |(sector_index, sector_update)| {
+                        notifications.call_simple(&FarmerNotification::SectorUpdate {
+                            farm_index: disk_farm_index,
+                            sector_index: *sector_index,
+                            update: sector_update.clone(),
+                        });
+                    }
+                }))
+                .detach();
+            single_disk_farm
+                .on_farming_notification(Arc::new({
+                    let notifications = Arc::clone(&notifications);
+
+                    move |notification| {
+                        notifications.call_simple(&FarmerNotification::FarmingNotification {
+                            farm_index: disk_farm_index,
+                            notification: notification.clone(),
+                        });
+                    }
                 }))
                 .detach();
 

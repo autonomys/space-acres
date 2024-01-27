@@ -1,9 +1,14 @@
 use crate::backend::config::Farm;
+use crate::frontend::running::SmaWrapper;
 use gtk::prelude::*;
 use relm4::prelude::*;
+use relm4_icons::icon_name;
+use simple_moving_average::{SingleSumSMA, SMA};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 use subspace_core_primitives::SectorIndex;
+use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
     SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
 };
@@ -13,6 +18,18 @@ use subspace_farmer::single_disk_farm::{
 const MIN_SECTORS_PER_ROW: u32 = 108;
 /// Effectively no limit
 const MAX_SECTORS_PER_ROW: u32 = 100_000;
+/// Number of samples over which to track auditing time, 1 minute in slots
+const AUDITING_TIME_TRACKING_WINDOW: usize = 60;
+/// One second to audit
+const MAX_AUDITING_TIME: Duration = Duration::from_secs(1);
+/// 500ms auditing time is excellent, anything larger will result in auditing performance indicator decrease
+const EXCELLENT_AUDITING_TIME: Duration = Duration::from_millis(500);
+/// Number of samples over which to track proving time
+const PROVING_TIME_TRACKING_WINDOW: usize = 10;
+/// TODO: Ideally this would come from node's chain constants, but this will do for now
+const BLOCK_AUTHORING_DELAY: Duration = Duration::from_secs(4);
+/// 1800ms proving time is excellent, anything larger will result in proving performance indicator decrease
+const EXCELLENT_PROVING_TIME: Duration = Duration::from_millis(1800);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum PlottingKind {
@@ -69,6 +86,7 @@ pub(super) enum FarmWidgetInput {
         sector_index: SectorIndex,
         update: SectorUpdate,
     },
+    FarmingNotification(FarmingNotification),
     PieceCacheSynced(bool),
     NodeSynced(bool),
 }
@@ -77,6 +95,8 @@ pub(super) enum FarmWidgetInput {
 pub(super) struct FarmWidget {
     path: PathBuf,
     size: String,
+    auditing_time: SmaWrapper<Duration, u32, AUDITING_TIME_TRACKING_WINDOW>,
+    proving_time: SmaWrapper<Duration, u32, PROVING_TIME_TRACKING_WINDOW>,
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_piece_cache_synced: bool,
@@ -101,9 +121,72 @@ impl FactoryComponent for FarmWidget {
             set_orientation: gtk::Orientation::Vertical,
             set_spacing: 10,
 
-            gtk::Label {
-                set_halign: gtk::Align::Start,
-                set_label: &format!("{} [{}]:", self.path.display(), self.size),
+            gtk::Box {
+                gtk::Label {
+                    set_halign: gtk::Align::Start,
+                    set_label: &format!("{} [{}]:", self.path.display(), self.size),
+                },
+
+                gtk::Box {
+                    set_halign: gtk::Align::End,
+                    set_hexpand: true,
+
+                    gtk::Box {
+                        set_spacing: 10,
+                        #[watch]
+                        set_tooltip: &format!(
+                            "Auditing performance: average time {:.2}s, time limit {:.2}s",
+                            self.auditing_time.get_average().as_secs_f32(),
+                            MAX_AUDITING_TIME.as_secs_f32()
+                        ),
+                        #[watch]
+                        set_visible: self.auditing_time.get_num_samples() > 0,
+
+                        gtk::Image {
+                            set_icon_name: Some(icon_name::PUZZLE_PIECE),
+                        },
+
+                        gtk::LevelBar {
+                            add_css_class: "auditing-performance",
+                            #[watch]
+                            set_value: {
+                                let average_time = self.auditing_time.get_average();
+                                let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                                let excellent_time_fraction_remaining = 1.0 - EXCELLENT_AUDITING_TIME.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                                (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
+                            },
+                            set_width_request: 70,
+                        },
+                    },
+
+                    gtk::Box {
+                        set_spacing: 10,
+                        #[watch]
+                        set_tooltip: &format!(
+                            "Proving performance: average time {:.2}s, time limit {:.2}s",
+                            self.proving_time.get_average().as_secs_f32(),
+                            BLOCK_AUTHORING_DELAY.as_secs_f32()
+                        ),
+                        #[watch]
+                        set_visible: self.proving_time.get_num_samples() > 0,
+
+                        gtk::Image {
+                            set_icon_name: Some(icon_name::PROCESSOR),
+                        },
+
+                        gtk::LevelBar {
+                            add_css_class: "proving-performance",
+                            #[watch]
+                            set_value: {
+                                let average_time = self.proving_time.get_average();
+                                let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                                let excellent_time_fraction_remaining = 1.0 - EXCELLENT_PROVING_TIME.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                                (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
+                            },
+                            set_width_request: 70,
+                        },
+                    },
+                },
             },
 
             #[transition = "SlideUpDown"]
@@ -221,6 +304,8 @@ impl FactoryComponent for FarmWidget {
         Self {
             path: init.farm.path,
             size: init.farm.size,
+            auditing_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
+            proving_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
             is_piece_cache_synced: false,
@@ -303,6 +388,14 @@ impl FarmWidget {
                         self.update_sector_state(sector_index, SectorState::Expired);
                     }
                 },
+            },
+            FarmWidgetInput::FarmingNotification(notification) => match notification {
+                FarmingNotification::Auditing(auditing_details) => {
+                    self.auditing_time.add_sample(auditing_details.time);
+                }
+                FarmingNotification::Proving(proving_details) => {
+                    self.proving_time.add_sample(proving_details.time);
+                }
             },
             FarmWidgetInput::PieceCacheSynced(synced) => {
                 self.is_piece_cache_synced = synced;
