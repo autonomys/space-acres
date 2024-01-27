@@ -131,6 +131,7 @@ impl FactoryComponent for FarmWidget {
                 gtk::Box {
                     set_halign: gtk::Align::End,
                     set_hexpand: true,
+                    set_spacing: 10,
 
                     gtk::Box {
                         set_spacing: 10,
