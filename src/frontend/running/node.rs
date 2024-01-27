@@ -1,14 +1,16 @@
 use crate::backend::node::{ChainInfo, SyncKind, SyncState};
 use crate::backend::NodeNotification;
+use crate::frontend::running::SmaWrapper;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use relm4_icons::icon_name;
+use simple_moving_average::{SingleSumSMA, SMA};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use subspace_core_primitives::BlockNumber;
 use tracing::error;
 
@@ -19,6 +21,8 @@ const MAX_IMPORTING_BLOCKS: BlockNumber = 2048;
 const FREE_DISK_SPACE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 /// Free disk space below which warning must be shown
 const FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD: u64 = 10 * 1024 * 1024 * 1024;
+/// Number of samples over which to track block import time, 1 minute in slots
+const BLOCK_IMPORT_TIME_TRACKING_WINDOW: usize = 1000;
 
 #[derive(Debug)]
 pub enum NodeInput {
@@ -42,6 +46,8 @@ pub struct NodeView {
     free_disk_space: Option<ByteSize>,
     chain_name: String,
     node_path: Arc<Mutex<PathBuf>>,
+    block_import_time: SmaWrapper<Duration, u32, BLOCK_IMPORT_TIME_TRACKING_WINDOW>,
+    last_block_import_time: Option<Instant>,
 }
 
 #[relm4::component(pub)]
@@ -115,7 +121,7 @@ impl Component for NodeView {
                         ),
                     }
                 },
-                SyncState::Syncing { kind, target, speed } => gtk::Box {
+                SyncState::Syncing { kind, target } => gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 10,
 
@@ -131,15 +137,43 @@ impl Component for NodeView {
                                     SyncKind::Dsn => "Syncing from DSN",
                                     SyncKind::Regular => "Regular sync",
                                 };
+                                let sync_speed = if model.block_import_time.get_num_samples() > 0 {
+                                     let mut sync_speed = format!(
+                                        ", {:.2} blocks/s",
+                                        1.0 / model.block_import_time.get_average().as_secs_f32(),
+                                    );
+
+                                    if target > model.best_block_number {
+                                        let time_remaining = (target - model.best_block_number) * model.block_import_time.get_average();
+                                        if time_remaining > Duration::from_secs(3600) {
+                                            sync_speed += &format!(
+                                                " (~{:.2} hours remaining)",
+                                                time_remaining.as_secs_f32() / 3600.0
+                                            );
+                                        } else if time_remaining > Duration::from_secs(60) {
+                                            sync_speed += &format!(
+                                                " (~{:.2} minutes remaining)",
+                                                time_remaining.as_secs_f32() / 60.0
+                                            );
+                                        } else {
+                                            sync_speed += &format!(
+                                                " (~{:.2} seconds remaining)",
+                                                time_remaining.as_secs_f32()
+                                            );
+                                        }
+                                    }
+
+                                    sync_speed
+                                } else {
+                                    String::new()
+                                };
 
                                 format!(
                                     "{} #{}/{}{}",
                                     kind,
                                     model.best_block_number,
                                     target,
-                                    speed
-                                        .map(|speed| format!(", {:.2} blocks/s", speed))
-                                        .unwrap_or_default(),
+                                    sync_speed,
                                 )
                             },
                         },
@@ -176,6 +210,8 @@ impl Component for NodeView {
             free_disk_space: None,
             chain_name: String::new(),
             node_path: node_path.clone(),
+            block_import_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
+            last_block_import_time: None,
         };
 
         let widgets = view_output!();
@@ -220,10 +256,10 @@ impl NodeView {
                 *self.node_path.lock() = node_path;
             }
             NodeInput::NodeNotification(node_notification) => match node_notification {
-                NodeNotification::SyncStateUpdate(mut sync_state) => {
+                NodeNotification::SyncStateUpdate(mut new_sync_state) => {
                     if let SyncState::Syncing {
                         target: new_target, ..
-                    } = &mut sync_state
+                    } = &mut new_sync_state
                     {
                         *new_target = (*new_target).max(self.best_block_number);
 
@@ -242,13 +278,26 @@ impl NodeView {
                             }
                         }
                     }
-                    self.sync_state = sync_state;
+                    // Reset block import time on transition to sync
+                    if self.sync_state.is_synced() && !new_sync_state.is_synced() {
+                        self.block_import_time =
+                            SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO));
+                        self.last_block_import_time.take();
+                    }
+                    self.sync_state = new_sync_state;
                 }
                 NodeNotification::BlockImported(imported_block) => {
                     self.best_block_number = imported_block.number;
                     // Ensure target is never below current block
                     if let SyncState::Syncing { target, .. } = &mut self.sync_state {
                         *target = (*target).max(self.best_block_number);
+                    }
+
+                    if let Some(last_block_import_time) =
+                        self.last_block_import_time.replace(Instant::now())
+                    {
+                        self.block_import_time
+                            .add_sample(last_block_import_time.elapsed());
                     }
                 }
             },

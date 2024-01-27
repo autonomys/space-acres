@@ -19,6 +19,7 @@ use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
+use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
     SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
@@ -26,8 +27,8 @@ use subspace_farmer::utils::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
 use subspace_farmer::utils::{
-    all_cpu_cores, create_plotting_thread_pool_manager, run_future_in_dedicated_thread,
-    thread_pool_core_indices,
+    all_cpu_cores, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
+    run_future_in_dedicated_thread, thread_pool_core_indices,
 };
 use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_farmer_components::plotting::PlottedSector;
@@ -52,6 +53,10 @@ pub enum FarmerNotification {
         farm_index: u8,
         sector_index: SectorIndex,
         update: SectorUpdate,
+    },
+    FarmingNotification {
+        farm_index: u8,
+        notification: FarmingNotification,
     },
     PieceCacheSyncProgress {
         /// Progress so far in %
@@ -242,17 +247,12 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             .into_iter()
             .zip(replotting_thread_pool_core_indices),
     )?;
-    let farming_thread_pool_size = all_cpu_cores
-        .first()
-        .expect("Not empty according to function description; qed")
-        .cpu_cores()
-        .len();
 
     // TODO: Expose this in UI somehow, maybe warning if not enough farms are configured too
     if all_cpu_cores.len() > 1 {
         info!(numa_nodes = %all_cpu_cores.len(), "NUMA system detected");
 
-        if all_cpu_cores.len() < disk_farms.len() {
+        if all_cpu_cores.len() > disk_farms.len() {
             warn!(
                 numa_nodes = %all_cpu_cores.len(),
                 farms_count = %disk_farms.len(),
@@ -282,7 +282,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 cache_percentage: CACHE_PERCENTAGE,
                 downloading_semaphore: Arc::clone(&downloading_semaphore),
                 farm_during_initial_plotting,
-                farming_thread_pool_size,
+                farming_thread_pool_size: recommended_number_of_farming_threads(),
                 plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
                 plotting_delay: Some(plotting_delay_receiver),
             },
@@ -425,15 +425,30 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             );
             let readers_and_pieces = Arc::clone(&readers_and_pieces);
             let span = info_span!("farm", %disk_farm_index);
-            let notifications = Arc::clone(&notifications);
 
             single_disk_farm
-                .on_sector_update(Arc::new(move |(sector_index, sector_update)| {
-                    notifications.call_simple(&FarmerNotification::SectorUpdate {
-                        farm_index: disk_farm_index,
-                        sector_index: *sector_index,
-                        update: sector_update.clone(),
-                    });
+                .on_sector_update(Arc::new({
+                    let notifications = Arc::clone(&notifications);
+
+                    move |(sector_index, sector_update)| {
+                        notifications.call_simple(&FarmerNotification::SectorUpdate {
+                            farm_index: disk_farm_index,
+                            sector_index: *sector_index,
+                            update: sector_update.clone(),
+                        });
+                    }
+                }))
+                .detach();
+            single_disk_farm
+                .on_farming_notification(Arc::new({
+                    let notifications = Arc::clone(&notifications);
+
+                    move |notification| {
+                        notifications.call_simple(&FarmerNotification::FarmingNotification {
+                            farm_index: disk_farm_index,
+                            notification: notification.clone(),
+                        });
+                    }
                 }))
                 .detach();
 

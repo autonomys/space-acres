@@ -27,6 +27,11 @@ progressbar progress {
     background-color: #ffA400;
 }
 
+.auditing-performance > trough >  block.low,
+.proving-performance > trough >  block.low {
+    background-color: #ffA400;
+}
+
 farm-sectors > child {
     padding: 0;
 }
