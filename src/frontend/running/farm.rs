@@ -278,7 +278,7 @@ impl FarmWidget {
                     SectorPlottingDetails::Writing => {
                         self.update_sector_state(sector_index, SectorState::Writing);
                     }
-                    SectorPlottingDetails::Wrote(_) => {
+                    SectorPlottingDetails::Written(_) => {
                         self.remove_sector_state(sector_index, SectorState::Writing);
                     }
                     SectorPlottingDetails::Finished { .. } => {
