@@ -250,14 +250,14 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     // TODO: Expose this in UI somehow, maybe warning if not enough farms are configured too
     if all_cpu_cores.len() > 1 {
-        info!(numa_nodes = %all_cpu_cores.len(), "NUMA system detected");
+        info!(l3_cache_groups = %all_cpu_cores.len(), "Multiple L3 cache groups detected");
 
         if all_cpu_cores.len() > disk_farms.len() {
             warn!(
-                numa_nodes = %all_cpu_cores.len(),
+                l3_cache_groups = %all_cpu_cores.len(),
                 farms_count = %disk_farms.len(),
                 "Too few disk farms, CPU will not be utilized fully during plotting, same number \
-                of farms as NUMA nodes or more is recommended"
+                of farms as L3 cache groups or more is recommended"
             );
         }
     }
