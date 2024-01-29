@@ -6,11 +6,12 @@ use relm4_icons::icon_name;
 use simple_moving_average::{SingleSumSMA, SMA};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::SectorIndex;
 use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
-    SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
+    FarmingError, SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
 };
 
 /// Experimentally found number that is good for default window size to not have horizontal scroll
@@ -105,6 +106,7 @@ pub(super) struct FarmWidget {
     farm_during_initial_plotting: bool,
     sectors_grid: gtk::GridView,
     sectors: HashMap<SectorIndex, gtk::Box>,
+    non_fatal_farming_error: Option<Arc<FarmingError>>,
 }
 
 #[relm4::factory(pub(super))]
@@ -187,6 +189,19 @@ impl FactoryComponent for FarmWidget {
                             },
                             set_width_request: 70,
                         },
+                    },
+
+                    gtk::Image {
+                        set_icon_name: Some(icon_name::WARNING),
+                        set_tooltip: &{
+                            let last_error = self.non_fatal_farming_error
+                                .as_ref()
+                                .map(|error| error.to_string())
+                                .unwrap_or_default();
+
+                            format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
+                        },
+                        set_visible: self.non_fatal_farming_error.is_some(),
                     },
                 },
             },
@@ -329,6 +344,7 @@ impl FactoryComponent for FarmWidget {
             farm_during_initial_plotting: init.farm_during_initial_plotting,
             sectors_grid,
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
+            non_fatal_farming_error: None,
         }
     }
 
@@ -411,6 +427,9 @@ impl FarmWidget {
                 }
                 FarmingNotification::Proving(proving_details) => {
                     self.proving_time.add_sample(proving_details.time);
+                }
+                FarmingNotification::NonFatalError(error) => {
+                    self.non_fatal_farming_error.replace(error);
                 }
             },
             FarmWidgetInput::PieceCacheSynced(synced) => {
