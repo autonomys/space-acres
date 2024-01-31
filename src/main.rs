@@ -85,10 +85,12 @@ enum AppInput {
     Configuration(ConfigurationOutput),
     OpenReconfiguration,
     ShowAboutDialog,
+    InitialConfiguration,
     Restart,
 }
 
 enum View {
+    Welcome,
     Loading,
     Configuration,
     Reconfiguration,
@@ -100,6 +102,7 @@ enum View {
 impl View {
     fn title(&self) -> &'static str {
         match self {
+            Self::Welcome => "Welcome",
             Self::Loading => "Loading",
             Self::Configuration => "Configuration",
             Self::Reconfiguration => "Reconfiguration",
@@ -236,6 +239,46 @@ impl AsyncComponent for App {
 
                     #[transition = "SlideLeftRight"]
                     match &model.current_view {
+                        View::Welcome => gtk::Box {
+                            set_margin_all: 10,
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 20,
+
+                            gtk::Image {
+                                set_height_request: 256,
+                                set_from_pixbuf: Some(
+                                    &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
+                                        .expect("Statically correct image; qed")
+                                ),
+                            },
+
+                            gtk::Label {
+                                set_label: indoc::indoc! {"
+                                    Space Acres is an opinionated unofficial GUI application for farming on Subspace Network.
+
+                                    Before continuing you need 3 things:
+                                    ✔ Wallet address where you'll receive rewards (use Subwallet, polkadot{.js} extension or any other wallet compatible with Substrate chain)
+                                    ✔ 100G of space on a good quality SSD to store node data
+                                    ✔ any SSDs (or multiple) with as much space as you can afford for farming purposes, this is what will generate rewards"
+                                },
+                                set_wrap: true,
+                            },
+
+                            gtk::Box {
+                                set_halign: gtk::Align::End,
+
+
+                                gtk::Button {
+                                    add_css_class: "suggested-action",
+                                    connect_clicked => AppInput::InitialConfiguration,
+
+                                    gtk::Label {
+                                        set_label: "Continue",
+                                        set_margin_all: 10,
+                                    },
+                                },
+                            },
+                        },
                         View::Loading => model.loading_view.widget().clone(),
                         View::Configuration | View::Reconfiguration => model.configuration_view.widget().clone(),
                         View::Running=> model.running_view.widget().clone(),
@@ -442,6 +485,9 @@ impl AsyncComponent for App {
                 self.menu_popover.hide();
                 self.about_dialog.show();
             }
+            AppInput::InitialConfiguration => {
+                self.current_view = View::Configuration;
+            }
             AppInput::Restart => {
                 self.exit_status_code
                     .store(AppStatusCode::Restart, Ordering::Release);
@@ -461,8 +507,7 @@ impl App {
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
             BackendNotification::NotConfigured => {
-                // TODO: Welcome screen first
-                self.current_view = View::Configuration;
+                self.current_view = View::Welcome;
             }
             BackendNotification::ConfigurationIsInvalid { error, .. } => {
                 self.status_bar_notification =
@@ -544,6 +589,10 @@ impl App {
                     self.current_view =
                         View::Error(anyhow::anyhow!("Failed to send config to backend: {error}"));
                 }
+            }
+            ConfigurationOutput::Back => {
+                // Back to welcome screen
+                self.current_view = View::Welcome;
             }
             ConfigurationOutput::Close => {
                 // Configuration view is closed when application is already running, switch to corresponding screen
