@@ -375,10 +375,12 @@ async fn run(
         })
     });
 
-    let networking_fut = pin!(networking_fut);
-    let consensus_node_fut = pin!(consensus_node.run(&config.reward_address));
-    let farmer_fut = pin!(farmer.run());
-    let process_backend_actions_fut = pin!({
+    // Order is important here, we want to destroy dependents first and only then corresponding
+    // dependencies to avoid unnecessary errors and warnings in logs
+    let networking_fut = networking_fut;
+    let consensus_node_fut = consensus_node.run(&config.reward_address);
+    let farmer_fut = farmer.run();
+    let process_backend_actions_fut = {
         let mut notifications_sender = notifications_sender.clone();
 
         async move {
@@ -389,25 +391,24 @@ async fn run(
             )
             .await
         }
-    });
-    // Order is important here, we want to destroy dependents first and only then corresponding dependencies to avoid
-    // unnecessary errors and warnings in logs
-    let mut networking_fut = networking_fut.fuse();
-    let mut consensus_node_fut = consensus_node_fut.fuse();
-    let mut farmer_fut = farmer_fut.fuse();
-    let mut process_backend_actions_fut = process_backend_actions_fut.fuse();
+    };
+
+    let networking_fut = pin!(networking_fut);
+    let consensus_node_fut = pin!(consensus_node_fut);
+    let farmer_fut = pin!(farmer_fut);
+    let process_backend_actions_fut = pin!(process_backend_actions_fut);
 
     let result: anyhow::Result<()> = select! {
-        result = consensus_node_fut => {
+        result = networking_fut.fuse() => {
             result.map_err(anyhow::Error::from)
         }
-        result = farmer_fut => {
+        result = consensus_node_fut.fuse() => {
             result.map_err(anyhow::Error::from)
         }
-        result = networking_fut => {
+        result = farmer_fut.fuse() => {
             result.map_err(|_cancelled| anyhow::anyhow!("Networking exited"))
         }
-        _ = process_backend_actions_fut => {
+        _ = process_backend_actions_fut.fuse() => {
             Ok(())
         }
     };

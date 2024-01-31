@@ -28,14 +28,14 @@ use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
 use subspace_farmer::utils::{
     all_cpu_cores, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
-    run_future_in_dedicated_thread, thread_pool_core_indices,
+    run_future_in_dedicated_thread, thread_pool_core_indices, CpuCoreSet,
 };
 use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_networking::Node;
 use tokio::sync::Semaphore;
-use tracing::{error, info, info_span, warn, Instrument};
+use tracing::{error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
 const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
@@ -228,8 +228,8 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     let mut single_disk_farms = Vec::with_capacity(disk_farms.len());
 
     let farm_during_initial_plotting = should_farm_during_initial_plotting();
-    let plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
-    let replotting_thread_pool_core_indices = {
+    let mut plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
+    let mut replotting_thread_pool_core_indices = {
         let mut replotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
         // The default behavior is to use all CPU cores, but for replotting we just want half
         replotting_thread_pool_core_indices
@@ -238,29 +238,33 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         replotting_thread_pool_core_indices
     };
 
+    if plotting_thread_pool_core_indices.len() > 1 {
+        info!(
+            l3_cache_groups = %plotting_thread_pool_core_indices.len(),
+            "Multiple L3 cache groups detected"
+        );
+
+        if plotting_thread_pool_core_indices.len() > disk_farms.len() {
+            plotting_thread_pool_core_indices =
+                CpuCoreSet::regroup(&plotting_thread_pool_core_indices, disk_farms.len());
+            replotting_thread_pool_core_indices =
+                CpuCoreSet::regroup(&replotting_thread_pool_core_indices, disk_farms.len());
+
+            info!(
+                farms_count = %disk_farms.len(),
+                "Regrouped CPU cores to match number of farms, more farms may leverage CPU more efficiently"
+            );
+        }
+    }
+
     let downloading_semaphore =
         Arc::new(Semaphore::new(plotting_thread_pool_core_indices.len() + 1));
 
-    let all_cpu_cores = all_cpu_cores();
     let plotting_thread_pool_manager = create_plotting_thread_pool_manager(
         plotting_thread_pool_core_indices
             .into_iter()
             .zip(replotting_thread_pool_core_indices),
     )?;
-
-    // TODO: Expose this in UI somehow, maybe warning if not enough farms are configured too
-    if all_cpu_cores.len() > 1 {
-        info!(l3_cache_groups = %all_cpu_cores.len(), "Multiple L3 cache groups detected");
-
-        if all_cpu_cores.len() > disk_farms.len() {
-            warn!(
-                l3_cache_groups = %all_cpu_cores.len(),
-                farms_count = %disk_farms.len(),
-                "Too few disk farms, CPU will not be utilized fully during plotting, same number \
-                of farms as L3 cache groups or more is recommended"
-            );
-        }
-    }
 
     let mut plotting_delay_senders = Vec::with_capacity(disk_farms.len());
 
