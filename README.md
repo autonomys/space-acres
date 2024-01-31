@@ -18,9 +18,11 @@ Current version supports Gemini 3g chain only and doesn't allow to select anythi
 ## Features
 
 Current features:
-* Configuration (only essentials)
-* Node sync with displayed progress
-* Farmer plotting/farming with a single farm with displayed plotting/replotting progress
+* Configuration (reward address, node location, multiple farms, P2P ports)
+* Node sync with displayed progress, speed and ETA
+* Farmer plotting/farming piece cache/plotting/replotting progress display and speed calculation
+* Farmer auditing/proving performance indicators
+* Farmer sector state visualization
 
 Upcoming features/capabilities: see open issues, also consider contributing if something is missing!
 
