@@ -33,6 +33,7 @@ pub enum ConfigurationInput {
     Delete(DynamicIndex),
     Reconfigure(RawConfig),
     Start,
+    Back,
     Cancel,
     Save,
     Ignore,
@@ -42,6 +43,7 @@ pub enum ConfigurationInput {
 pub enum ConfigurationOutput {
     StartWithNewConfig(RawConfig),
     ConfigUpdate(RawConfig),
+    Back,
     Close,
 }
 
@@ -384,6 +386,16 @@ impl Component for ConfigurationView {
                         } else {
                             gtk::Box {
                                 set_halign: gtk::Align::End,
+                                set_spacing: 10,
+
+                                gtk::Button {
+                                    connect_clicked => ConfigurationInput::Back,
+
+                                    gtk::Label {
+                                        set_label: "Back",
+                                        set_margin_all: 10,
+                                    },
+                                },
 
                                 gtk::Button {
                                     add_css_class: "suggested-action",
@@ -536,6 +548,11 @@ impl ConfigurationView {
                     .is_err()
                 {
                     debug!("Failed to send ConfigurationOutput::StartWithNewConfig");
+                }
+            }
+            ConfigurationInput::Back => {
+                if sender.output(ConfigurationOutput::Back).is_err() {
+                    debug!("Failed to send ConfigurationOutput::Back");
                 }
             }
             ConfigurationInput::Cancel => {
