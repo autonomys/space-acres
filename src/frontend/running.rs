@@ -248,7 +248,7 @@ impl RunningView {
                     initial_reward_address_balance: reward_address_balance,
                     reward_address_balance,
                     piece_cache_sync_progress: 0.0,
-                    // TODO: Would be great to have `gemini-3g` in chain spec, but it is
+                    // TODO: Would be great to have `gemini-3h` in chain spec, but it is
                     //  not available in there in clean form
                     reward_address_url: format!(
                         "https://explorer.subspace.network/#/{}/consensus/accounts/{}",

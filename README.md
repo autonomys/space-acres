@@ -13,7 +13,8 @@ Current status of the project is Alpha.
 This means that while it should generally work, expect things to not work sometimes, break in unexpected ways and error
 handling to be lacking.
 
-Current version supports Gemini 3g chain only and doesn't allow to select anything else.
+Current version supports Gemini 3h chain only and doesn't allow to select anything else. It supports upgrading existing
+installations from 3g.
 
 ## Features
 

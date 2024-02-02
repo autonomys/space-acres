@@ -19,7 +19,7 @@ use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
 use parking_lot::Mutex;
-use sc_subspace_chain_specs::GEMINI_3G_CHAIN_SPEC;
+use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::pin::pin;
@@ -501,7 +501,7 @@ async fn load_chain_specification(
         })
         .await?;
 
-    let chain_spec = node::load_chain_specification(GEMINI_3G_CHAIN_SPEC.as_bytes())
+    let chain_spec = node::load_chain_specification(GEMINI_3H_CHAIN_SPEC.as_bytes())
         .map_err(|error| anyhow::anyhow!(error))?;
 
     notifications_sender

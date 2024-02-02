@@ -6,8 +6,7 @@ use subspace_core_primitives::SegmentHeader;
 use subspace_farmer::node_client::{Error, NodeClientExt};
 use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_rpc_primitives::{
-    FarmerAppInfo, NodeSyncStatus, RewardSignatureResponse, RewardSigningInfo, SlotInfo,
-    SolutionResponse,
+    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
 };
 
 // TODO: Replace RPC client with a client that can work with node directly
@@ -72,15 +71,6 @@ impl NodeClient for MaybeNodeRpcClient {
     > {
         match &*self.inner.load() {
             Some(inner) => inner.subscribe_archived_segment_headers().await,
-            None => Err("Inner node client not injected yet".into()),
-        }
-    }
-
-    async fn subscribe_node_sync_status_change(
-        &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = NodeSyncStatus> + Send + 'static>>, Error> {
-        match &*self.inner.load() {
-            Some(inner) => inner.subscribe_node_sync_status_change().await,
             None => Err("Inner node client not injected yet".into()),
         }
     }
