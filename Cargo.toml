@@ -174,3 +174,6 @@ hwlocality = { git = "https://github.com/HadrienG2/hwlocality", rev = "0f248573b
 # TODO: Switch to stable release once https://github.com/paritytech/substrate-bip39/pull/20 is published
 substrate-bip39 = { git = "https://github.com/paritytech/substrate-bip39", rev = "03f02a7225d9bc5add92b7657790ee1ac8ab90a4" }
 
+[patch."https://github.com/paritytech/polkadot-sdk.git"]
+# TODO: https://github.com/paritytech/arkworks-substrate depends on Substrate's git commit and requires override
+sp-crypto-ec-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8" }
