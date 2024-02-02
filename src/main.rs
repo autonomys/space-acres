@@ -10,7 +10,6 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInput, RunningView};
-use atomic::Atomic;
 use clap::Parser;
 use duct::cmd;
 use file_rotate::compression::Compression;
@@ -19,6 +18,7 @@ use file_rotate::{ContentLimit, FileRotate};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
+use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver, RELM_THREADS};
 use relm4_icons::icon_name;
@@ -26,7 +26,6 @@ use std::future::Future;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::thread::available_parallelism;
 use std::{env, fs, io, process};
@@ -167,7 +166,7 @@ impl StatusBarNotification {
 }
 
 struct AppInit {
-    exit_status_code: Arc<Atomic<AppStatusCode>>,
+    exit_status_code: Arc<Mutex<AppStatusCode>>,
     minimize_on_start: bool,
 }
 
@@ -183,7 +182,7 @@ struct App {
     running_view: Controller<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
-    exit_status_code: Arc<Atomic<AppStatusCode>>,
+    exit_status_code: Arc<Mutex<AppStatusCode>>,
     // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
     _background_tasks: Box<dyn Future<Output = ()>>,
 }
@@ -548,8 +547,7 @@ impl AsyncComponent for App {
                 self.current_view = View::Loading;
             }
             AppInput::Restart => {
-                self.exit_status_code
-                    .store(AppStatusCode::Restart, Ordering::Release);
+                *self.exit_status_code.lock() = AppStatusCode::Restart;
                 relm4::main_application().quit();
             }
         }
@@ -684,8 +682,7 @@ impl App {
                 self.process_backend_notification(notification);
             }
             AppCommandOutput::Restart => {
-                self.exit_status_code
-                    .store(AppStatusCode::Restart, Ordering::Release);
+                *self.exit_status_code.lock() = AppStatusCode::Restart;
                 relm4::main_application().quit();
             }
         }
@@ -818,14 +815,14 @@ impl Cli {
             }
         }
 
-        let exit_status_code = Arc::new(Atomic::new(AppStatusCode::Exit));
+        let exit_status_code = Arc::new(Mutex::new(AppStatusCode::Exit));
 
         app.run_async::<App>(AppInit {
             exit_status_code: Arc::clone(&exit_status_code),
             minimize_on_start: self.startup,
         });
 
-        let exit_status_code = exit_status_code.load(Ordering::Acquire);
+        let exit_status_code = *exit_status_code.lock();
         info!(
             ?exit_status_code,
             "Exiting {} {}",
