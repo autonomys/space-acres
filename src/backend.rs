@@ -12,8 +12,8 @@ use crate::backend::farmer::{
 };
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
-    dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode, SyncState,
-    GENESIS_HASH, RPC_PORT,
+    dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode,
+    ConsensusNodeCreationError, SyncState, GENESIS_HASH, RPC_PORT,
 };
 use future::FutureExt;
 use futures::channel::mpsc;
@@ -26,6 +26,7 @@ use std::pin::pin;
 use std::sync::Arc;
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
+use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_farmer::NodeRpcClient;
@@ -66,6 +67,19 @@ pub enum LoadingStep {
     ConsensusNodeCreatedSuccessfully,
     CreatingFarmer,
     FarmerCreatedSuccessfully,
+    WipingFarm {
+        farm_index: u8,
+        path: PathBuf,
+    },
+    WipingNode {
+        path: PathBuf,
+    },
+}
+
+#[derive(Debug)]
+enum LoadedConsensusChainNode {
+    Compatible(ConsensusNode),
+    Incompatible { compatible_chain: String },
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +98,10 @@ pub enum BackendNotification {
         // TODO: Set this to non-zero where it is used
         /// Progress in %: 0.0..=100.0
         progress: f32,
+    },
+    IncompatibleChain {
+        raw_config: RawConfig,
+        compatible_chain: String,
     },
     NotConfigured,
     // TODO: Indicate what is invalid so that UI can render it properly
@@ -127,6 +145,14 @@ struct LoadedBackend {
     consensus_node: ConsensusNode,
     farmer: Farmer,
     node_runner: NodeRunner<PieceCache>,
+}
+
+enum BackendLoadingResult {
+    Success(LoadedBackend),
+    IncompatibleChain {
+        raw_config: RawConfig,
+        compatible_chain: String,
+    },
 }
 
 // NOTE: this is an async function, but it might do blocking operations and should be running on a
@@ -186,9 +212,24 @@ pub async fn create(
     };
 
     let loaded_backend = match loading_result {
-        Ok(loaded_backend) => {
+        Ok(BackendLoadingResult::Success(loaded_backend)) => {
             // Loaded successfully
             loaded_backend
+        }
+        Ok(BackendLoadingResult::IncompatibleChain {
+            raw_config,
+            compatible_chain,
+        }) => {
+            if let Err(error) = notifications_sender
+                .send(BackendNotification::IncompatibleChain {
+                    raw_config,
+                    compatible_chain,
+                })
+                .await
+            {
+                error!(%error, "Failed to send incompatible chain notification");
+            }
+            return;
         }
         Err(error) => {
             if let Err(error) = notifications_sender
@@ -218,7 +259,7 @@ pub async fn create(
 
 async fn load(
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
-) -> anyhow::Result<Option<LoadedBackend>> {
+) -> anyhow::Result<Option<BackendLoadingResult>> {
     let (config_file_path, Some(raw_config)) = load_configuration(notifications_sender).await?
     else {
         return Ok(None);
@@ -248,15 +289,23 @@ async fn load(
     )
     .await?;
 
-    let consensus_node = create_consensus_node(
+    let create_consensus_node_fut = create_consensus_node(
         &network_keypair,
         config.node_path.clone(),
         config.network.substrate_port,
         chain_spec,
         node.clone(),
         notifications_sender,
-    )
-    .await?;
+    );
+    let consensus_node = match create_consensus_node_fut.await? {
+        LoadedConsensusChainNode::Compatible(consensus_node) => consensus_node,
+        LoadedConsensusChainNode::Incompatible { compatible_chain } => {
+            return Ok(Some(BackendLoadingResult::IncompatibleChain {
+                raw_config,
+                compatible_chain,
+            }));
+        }
+    };
 
     let farmer = create_farmer(
         config.reward_address,
@@ -270,14 +319,14 @@ async fn load(
     )
     .await?;
 
-    Ok(Some(LoadedBackend {
+    Ok(Some(BackendLoadingResult::Success(LoadedBackend {
         config,
         raw_config,
         config_file_path,
         consensus_node,
         farmer,
         node_runner,
-    }))
+    })))
 }
 
 async fn run(
@@ -726,7 +775,7 @@ async fn create_consensus_node(
     chain_spec: ChainSpec,
     node: Node,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
-) -> anyhow::Result<ConsensusNode> {
+) -> anyhow::Result<LoadedConsensusChainNode> {
     notifications_sender
         .send(BackendNotification::Loading {
             step: LoadingStep::CreatingConsensusNode,
@@ -734,9 +783,17 @@ async fn create_consensus_node(
         })
         .await?;
 
-    let consensus_node =
-        node::create_consensus_node(network_keypair, node_path, substrate_port, chain_spec, node)
-            .await?;
+    let create_consensus_node_fut =
+        node::create_consensus_node(network_keypair, node_path, substrate_port, chain_spec, node);
+    let consensus_node = match create_consensus_node_fut.await {
+        Ok(consensus_node) => consensus_node,
+        Err(ConsensusNodeCreationError::Service(error)) => {
+            return Err(error.into());
+        }
+        Err(ConsensusNodeCreationError::IncompatibleChain { compatible_chain }) => {
+            return Ok(LoadedConsensusChainNode::Incompatible { compatible_chain });
+        }
+    };
 
     notifications_sender
         .send(BackendNotification::Loading {
@@ -745,7 +802,7 @@ async fn create_consensus_node(
         })
         .await?;
 
-    Ok(consensus_node)
+    Ok(LoadedConsensusChainNode::Compatible(consensus_node))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -821,4 +878,85 @@ async fn process_backend_actions(
             }
         }
     }
+}
+
+pub async fn wipe(
+    raw_config: &RawConfig,
+    notifications_sender: &mut mpsc::Sender<BackendNotification>,
+) -> anyhow::Result<()> {
+    let farms = raw_config.farms();
+    for (farm_index, farm) in farms.iter().enumerate() {
+        let path = &farm.path;
+        notifications_sender
+            .send(BackendNotification::Loading {
+                step: LoadingStep::WipingFarm {
+                    farm_index: farm_index as u8,
+                    path: path.to_path_buf(),
+                },
+                progress: 0.0,
+            })
+            .await?;
+
+        let wipe_fut = tokio::task::spawn_blocking({
+            let path = path.to_path_buf();
+
+            move || SingleDiskFarm::wipe(&path)
+        });
+
+        match wipe_fut.await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                notifications_sender
+                    .send(BackendNotification::IrrecoverableError {
+                        error: anyhow::anyhow!(
+                            "Failed to wipe farm {farm_index} at {}: {error}",
+                            path.display()
+                        ),
+                    })
+                    .await?
+            }
+            Err(error) => {
+                notifications_sender
+                    .send(BackendNotification::IrrecoverableError {
+                        error: anyhow::anyhow!(
+                            "Failed to wipe farm {farm_index} at {}: {error}",
+                            path.display()
+                        ),
+                    })
+                    .await?
+            }
+        }
+    }
+
+    {
+        let path = &raw_config.node_path();
+        notifications_sender
+            .send(BackendNotification::Loading {
+                step: LoadingStep::WipingNode {
+                    path: path.to_path_buf(),
+                },
+                progress: 0.0,
+            })
+            .await?;
+
+        // TODO: Remove "paritydb" once support for upgrade from Gemini 3g is no longer necessary
+        for subdirectory in &["db", "network", "paritydb"] {
+            let path = path.join(subdirectory);
+
+            if fs::try_exists(&path).await.unwrap_or(true) {
+                if let Err(error) = fs::remove_dir_all(&path).await {
+                    notifications_sender
+                        .send(BackendNotification::IrrecoverableError {
+                            error: anyhow::anyhow!(
+                                "Failed to node subdirectory at {}: {error}",
+                                path.display()
+                            ),
+                        })
+                        .await?;
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

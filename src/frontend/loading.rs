@@ -62,40 +62,54 @@ impl LoadingView {
     fn process_input(&mut self, input: LoadingInput) {
         match input {
             LoadingInput::BackendLoading(step) => {
-                let message = match step {
-                    LoadingStep::LoadingConfiguration => "Loading configuration...",
-                    LoadingStep::ReadingConfiguration => "Reading configuration...",
+                self.message = match step {
+                    LoadingStep::LoadingConfiguration => "Loading configuration...".to_string(),
+                    LoadingStep::ReadingConfiguration => "Reading configuration...".to_string(),
                     LoadingStep::ConfigurationReadSuccessfully { .. } => {
-                        "Configuration read successfully"
+                        "Configuration read successfully".to_string()
                     }
-                    LoadingStep::CheckingConfiguration => "Checking configuration...",
-                    LoadingStep::ConfigurationIsValid => "Configuration is valid",
-                    LoadingStep::DecodingChainSpecification => "Decoding chain specification...",
+                    LoadingStep::CheckingConfiguration => "Checking configuration...".to_string(),
+                    LoadingStep::ConfigurationIsValid => "Configuration is valid".to_string(),
+                    LoadingStep::DecodingChainSpecification => {
+                        "Decoding chain specification...".to_string()
+                    }
                     LoadingStep::DecodedChainSpecificationSuccessfully => {
-                        "Decoded chain specification successfully"
+                        "Decoded chain specification successfully".to_string()
                     }
-                    LoadingStep::CheckingNodePath => "Checking node path...",
-                    LoadingStep::CreatingNodePath => "Creating node path...",
-                    LoadingStep::NodePathReady => "Node path ready",
-                    LoadingStep::PreparingNetworkingStack => "Preparing networking stack...",
-                    LoadingStep::ReadingNetworkKeypair => "Reading network keypair...",
-                    LoadingStep::GeneratingNetworkKeypair => "Generating network keypair...",
-                    LoadingStep::WritingNetworkKeypair => "Writing network keypair to disk...",
+                    LoadingStep::CheckingNodePath => "Checking node path...".to_string(),
+                    LoadingStep::CreatingNodePath => "Creating node path...".to_string(),
+                    LoadingStep::NodePathReady => "Node path ready".to_string(),
+                    LoadingStep::PreparingNetworkingStack => {
+                        "Preparing networking stack...".to_string()
+                    }
+                    LoadingStep::ReadingNetworkKeypair => "Reading network keypair...".to_string(),
+                    LoadingStep::GeneratingNetworkKeypair => {
+                        "Generating network keypair...".to_string()
+                    }
+                    LoadingStep::WritingNetworkKeypair => {
+                        "Writing network keypair to disk...".to_string()
+                    }
                     LoadingStep::InstantiatingNetworkingStack => {
-                        "Instantiating networking stack..."
+                        "Instantiating networking stack...".to_string()
                     }
                     LoadingStep::NetworkingStackCreatedSuccessfully => {
-                        "Networking stack created successfully"
+                        "Networking stack created successfully".to_string()
                     }
-                    LoadingStep::CreatingConsensusNode => "Creating consensus node...",
+                    LoadingStep::CreatingConsensusNode => "Creating consensus node...".to_string(),
                     LoadingStep::ConsensusNodeCreatedSuccessfully => {
-                        "Consensus node created successfully"
+                        "Consensus node created successfully".to_string()
                     }
-                    LoadingStep::CreatingFarmer => "Creating farmer...",
-                    LoadingStep::FarmerCreatedSuccessfully => "Farmer created successfully",
+                    LoadingStep::CreatingFarmer => "Creating farmer...".to_string(),
+                    LoadingStep::FarmerCreatedSuccessfully => {
+                        "Farmer created successfully".to_string()
+                    }
+                    LoadingStep::WipingFarm { farm_index, path } => {
+                        format!("Wiping farm {farm_index} at {}...", path.display())
+                    }
+                    LoadingStep::WipingNode { path } => {
+                        format!("Wiping node at {}...", path.display())
+                    }
                 };
-
-                self.message = message.to_string();
             }
         }
     }

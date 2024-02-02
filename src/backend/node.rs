@@ -39,6 +39,7 @@ use subspace_service::config::{
     SubstrateNetworkConfiguration, SubstrateRpcConfiguration,
 };
 use subspace_service::{FullClient, NewFull};
+use tokio::fs;
 use tokio::time::MissedTickBehavior;
 use tracing::error;
 
@@ -49,6 +50,16 @@ const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// The maximum number of characters for a node name.
 const NODE_NAME_MAX_LENGTH: usize = 64;
+
+#[derive(Debug, thiserror::Error)]
+pub(super) enum ConsensusNodeCreationError {
+    /// Substrate service error
+    #[error("Substate service error: {0}")]
+    Service(#[from] sc_service::Error),
+    /// Incompatible chain
+    #[error("Incompatible chain, only {compatible_chain} is supported")]
+    IncompatibleChain { compatible_chain: String },
+}
 
 pub(super) struct ChainSpec(GenericChainSpec<RuntimeGenesisConfig>);
 
@@ -414,7 +425,7 @@ pub(super) async fn create_consensus_node(
     substrate_port: u16,
     chain_spec: ChainSpec,
     node: Node,
-) -> Result<ConsensusNode, sc_service::Error> {
+) -> Result<ConsensusNode, ConsensusNodeCreationError> {
     set_default_ss58_version(&chain_spec);
 
     let pot_external_entropy = pot_external_entropy(&chain_spec)?;
@@ -454,6 +465,16 @@ pub(super) async fn create_consensus_node(
             timekeeper_cpu_cores: Default::default(),
         };
 
+        // TODO: Remove once support for upgrade from Gemini 3g is no longer necessary
+        if fs::try_exists(base_path.join("paritydb"))
+            .await
+            .unwrap_or_default()
+        {
+            return Err(ConsensusNodeCreationError::IncompatibleChain {
+                compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
+            });
+        }
+
         let partial_components = subspace_service::new_partial::<PosTable, RuntimeApi>(
             &consensus_chain_config.base,
             &pot_external_entropy,
@@ -461,6 +482,12 @@ pub(super) async fn create_consensus_node(
         .map_err(|error| {
             sc_service::Error::Other(format!("Failed to build a full subspace node: {error:?}"))
         })?;
+
+        if hex::encode(partial_components.client.info().genesis_hash) != GENESIS_HASH {
+            return Err(ConsensusNodeCreationError::IncompatibleChain {
+                compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
+            });
+        }
 
         subspace_service::new_full::<PosTable, _>(
             consensus_chain_config,
