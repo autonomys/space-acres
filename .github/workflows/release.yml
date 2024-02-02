@@ -151,11 +151,11 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build app (Linux and Windows)
-        run: cargo build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
         if: runner.os != 'macOS'
 
       - name: Build app (macOS)
-        run: cargo build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --no-default-features
+        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --no-default-features
         if: runner.os == 'macOS'
 
       # TODO: Package macOS

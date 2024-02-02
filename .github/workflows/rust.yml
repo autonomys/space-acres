@@ -165,7 +165,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: cargo clippy
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
 
   cargo-test:
     strategy:
@@ -285,4 +285,4 @@ jobs:
           tool: cargo-nextest
 
       - name: cargo nextest run --locked
-        run: cargo nextest run --locked
+        run: cargo -Zgitoxide -Zgit nextest run --locked

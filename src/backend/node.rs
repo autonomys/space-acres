@@ -3,7 +3,6 @@ mod utils;
 use crate::backend::node::utils::account_storage_key;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
-use atomic::Atomic;
 use event_listener_primitives::HandlerId;
 use frame_system::AccountInfo;
 use futures::{select, FutureExt, StreamExt};
@@ -12,44 +11,45 @@ use pallet_balances::AccountData;
 use parity_scale_codec::Decode;
 use sc_client_api::client::BlockchainEvents;
 use sc_client_api::{HeaderBackend, StorageProvider};
-use sc_client_db::{DatabaseSource, PruningMode};
+use sc_client_db::PruningMode;
 use sc_consensus_slots::SlotProportion;
 use sc_informant::OutputFormat;
-use sc_network::config::{Ed25519Secret, NetworkConfiguration, NodeKeyConfig, SyncMode};
-use sc_service::config::{KeystoreConfig, OffchainWorkerConfig};
-use sc_service::{BasePath, BlocksPruning, Configuration, Role, RpcMethods};
+use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig};
+use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
-use sc_subspace_chain_specs::ConsensusChainSpec;
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
 use sp_core::H256;
 use sp_runtime::traits::Header;
 use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::path::Path;
-use std::sync::atomic::Ordering;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
-use subspace_runtime::{ExecutorDispatch, RuntimeApi, RuntimeGenesisConfig};
+use subspace_runtime::{RuntimeApi, RuntimeGenesisConfig};
 use subspace_runtime_primitives::{Balance, Nonce};
-use subspace_service::{FullClient, NewFull, SubspaceConfiguration, SubspaceNetworking};
-use tokio::runtime::Handle;
+use subspace_service::config::{
+    SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
+    SubstrateNetworkConfiguration, SubstrateRpcConfiguration,
+};
+use subspace_service::{FullClient, NewFull};
 use tokio::time::MissedTickBehavior;
 use tracing::error;
 
 pub(super) const GENESIS_HASH: &str =
-    "418040fc282f5e5ddd432c46d05297636f6f75ce68d66499ff4cbda69ccd180b";
+    "0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34";
 pub(super) const RPC_PORT: u16 = 9944;
 const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// The maximum number of characters for a node name.
 const NODE_NAME_MAX_LENGTH: usize = 64;
 
-pub(super) struct ChainSpec(ConsensusChainSpec<RuntimeGenesisConfig>);
+pub(super) struct ChainSpec(GenericChainSpec<RuntimeGenesisConfig>);
 
 impl fmt::Debug for ChainSpec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -100,8 +100,8 @@ struct Handlers {
 }
 
 pub(super) struct ConsensusNode {
-    full_node: NewFull<FullClient<RuntimeApi, ExecutorDispatch>>,
-    sync_mode: Arc<Atomic<SyncMode>>,
+    full_node: NewFull<FullClient<RuntimeApi>>,
+    pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
     handlers: Handlers,
 }
@@ -114,13 +114,13 @@ impl fmt::Debug for ConsensusNode {
 
 impl ConsensusNode {
     fn new(
-        full_node: NewFull<FullClient<RuntimeApi, ExecutorDispatch>>,
-        sync_mode: Arc<Atomic<SyncMode>>,
+        full_node: NewFull<FullClient<RuntimeApi>>,
+        pause_sync: Arc<AtomicBool>,
         chain_info: ChainInfo,
     ) -> Self {
         Self {
             full_node,
-            sync_mode,
+            pause_sync,
             chain_info,
             handlers: Handlers::default(),
         }
@@ -173,12 +173,11 @@ impl ConsensusNode {
                 if let Ok(sync_status) = self.full_node.sync_service.status().await {
                     let sync_state = if sync_status.state.is_major_syncing() {
                         SyncState::Syncing {
-                            kind: match self.sync_mode.load(Ordering::Acquire) {
-                                SyncMode::Paused => {
-                                    // We are pausing Substrate's sync during sync from DNS
-                                    SyncKind::Dsn
-                                }
-                                _ => SyncKind::Regular,
+                            kind: if self.pause_sync.load(Ordering::Acquire) {
+                                // We are pausing Substrate's sync during sync from DNS
+                                SyncKind::Dsn
+                            } else {
+                                SyncKind::Regular
                             },
                             target: sync_status.best_seen_block.unwrap_or_default(),
                         }
@@ -240,7 +239,7 @@ impl ConsensusNode {
 }
 
 fn get_total_account_balance(
-    client: &FullClient<RuntimeApi, ExecutorDispatch>,
+    client: &FullClient<RuntimeApi>,
     block_hash: H256,
     address_storage_key: &StorageKey,
 ) -> Option<Balance> {
@@ -267,7 +266,7 @@ fn get_total_account_balance(
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
-    ConsensusChainSpec::from_json_bytes(chain_spec).map(ChainSpec)
+    GenericChainSpec::from_json_bytes(chain_spec).map(ChainSpec)
 }
 
 fn set_default_ss58_version(chain_spec: &ChainSpec) {
@@ -335,108 +334,77 @@ pub(super) fn generate_node_name() -> String {
 
 fn create_consensus_chain_config(
     keypair: &Keypair,
-    base_path: &Path,
+    base_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
 ) -> Configuration {
     let telemetry_endpoints = chain_spec.0.telemetry_endpoints().clone();
 
-    Configuration {
+    let consensus_chain_config = SubstrateConfiguration {
         impl_name: env!("CARGO_PKG_NAME").to_string(),
         impl_version: env!("CARGO_PKG_VERSION").to_string(),
-        role: Role::Authority,
-        tokio_handle: Handle::current(),
+        farmer: true,
+        base_path,
         transaction_pool: Default::default(),
-        network: {
-            let mut network = NetworkConfiguration::new(
-                generate_node_name(),
-                format!("{}/{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
-                NodeKeyConfig::Ed25519(Ed25519Secret::Input(
-                    libp2p_identity_substate::ed25519::SecretKey::try_from_bytes(
-                        keypair.secret().as_ref().to_vec(),
-                    )
-                    .expect("Correct keypair, just libp2p version is different; qed"),
-                )),
-                None,
-            );
-
-            network.boot_nodes = chain_spec.0.boot_nodes().to_vec();
-            network.listen_addresses = vec![
+        network: SubstrateNetworkConfiguration {
+            listen_on: vec![
                 sc_network::Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
                     .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
                 sc_network::Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
                     .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
-            ];
-            // Substrate's default
-            network.default_peers_set.out_peers = 8;
-            // Substrate's default
-            network.default_peers_set.in_peers = 32;
-
-            network
+            ],
+            public_addresses: Vec::new(),
+            bootstrap_nodes: chain_spec.0.boot_nodes().to_vec(),
+            node_key: NodeKeyConfig::Ed25519(Ed25519Secret::Input(
+                libp2p_identity_substate::ed25519::SecretKey::try_from_bytes(
+                    keypair.secret().as_ref().to_vec(),
+                )
+                .expect("Correct keypair, just libp2p version is different; qed"),
+            )),
+            default_peers_set: SetConfig {
+                // Substrate's default
+                in_peers: 8,
+                // Substrate's default
+                out_peers: 32,
+                reserved_nodes: Vec::new(),
+                non_reserved_mode: NonReservedPeerMode::Accept,
+            },
+            node_name: generate_node_name(),
+            allow_private_ips: false,
+            force_synced: false,
         },
-        keystore: KeystoreConfig::InMemory,
-        database: DatabaseSource::ParityDb {
-            path: base_path.join("paritydb"),
-        },
-        // Substrate's default
-        trie_cache_maximum_size: Some(64 * 1024 * 1024),
         state_pruning: Some(PruningMode::ArchiveCanonical),
         blocks_pruning: BlocksPruning::Some(256),
-        chain_spec: Box::new(chain_spec.0),
-        wasm_method: Default::default(),
-        wasm_runtime_overrides: None,
-        rpc_addr: None,
-        // Substrate's default
-        rpc_max_connections: 100,
-        // TODO: Replace with `Some(Vec::new())` once node client for farmer is rewritten
-        rpc_cors: Some(vec![
-            "http://localhost:*".to_string(),
-            "http://127.0.0.1:*".to_string(),
-            "https://localhost:*".to_string(),
-            "https://127.0.0.1:*".to_string(),
-            "https://polkadot.js.org".to_string(),
-        ]),
-        // TODO: Disable unsafe methods once node client for farmer is rewritten
-        rpc_methods: RpcMethods::Unsafe,
-        // Substrate's default, in MiB
-        rpc_max_request_size: 15,
-        // Substrate's default, in MiB
-        rpc_max_response_size: 15,
-        rpc_id_provider: None,
-        // Substrate's default
-        rpc_max_subs_per_conn: 1024,
-        // Substrate's default
-        rpc_port: RPC_PORT,
-        prometheus_config: None,
-        telemetry_endpoints,
-        default_heap_pages: None,
-        // Substrate's default
-        offchain_worker: OffchainWorkerConfig {
-            enabled: true,
-            indexing_enabled: false,
+        rpc_options: SubstrateRpcConfiguration {
+            listen_on: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, RPC_PORT)),
+            // Substrate's default
+            max_connections: 100,
+            // TODO: Replace with `Some(Vec::new())` once node client for farmer is rewritten
+            cors: Some(vec![
+                "http://localhost:*".to_string(),
+                "http://127.0.0.1:*".to_string(),
+                "https://localhost:*".to_string(),
+                "https://127.0.0.1:*".to_string(),
+                "https://polkadot.js.org".to_string(),
+            ]),
+            methods: Default::default(),
+            max_subscriptions_per_connection: 0,
         },
+        prometheus_listen_on: None,
+        telemetry_endpoints,
         force_authoring: false,
-        disable_grandpa: false,
-        dev_key_seed: None,
-        tracing_targets: None,
-        tracing_receiver: Default::default(),
-        // Substrate's default
-        max_runtime_instances: 8,
-        // Substrate's default
-        announce_block: true,
-        data_path: Default::default(),
-        base_path: BasePath::new(base_path),
+        chain_spec: Box::new(chain_spec.0),
         informant_output_format: OutputFormat {
             enable_color: false,
         },
-        // Substrate's default
-        runtime_cache_size: 2,
-    }
+    };
+
+    Configuration::from(consensus_chain_config)
 }
 
 pub(super) async fn create_consensus_node(
     keypair: &Keypair,
-    base_path: &Path,
+    base_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
     node: Node,
@@ -459,10 +427,8 @@ pub(super) async fn create_consensus_node(
     };
 
     let consensus_chain_config =
-        create_consensus_chain_config(keypair, base_path, substrate_port, chain_spec);
-    let sync_mode = Arc::clone(&consensus_chain_config.network.sync_mode);
-
-    let database_source = consensus_chain_config.database.clone();
+        create_consensus_chain_config(keypair, base_path.clone(), substrate_port, chain_spec);
+    let pause_sync = Arc::clone(&consensus_chain_config.network.pause_sync);
 
     let consensus_node = {
         let span = tracing::info_span!("Node");
@@ -478,21 +444,19 @@ pub(super) async fn create_consensus_node(
                 metrics_registry: None,
             },
             sync_from_dsn: true,
-            enable_subspace_block_relay: true,
             is_timekeeper: false,
             timekeeper_cpu_cores: Default::default(),
         };
 
-        let partial_components = subspace_service::new_partial::<
-            PosTable,
-            RuntimeApi,
-            ExecutorDispatch,
-        >(&consensus_chain_config.base, &pot_external_entropy)
+        let partial_components = subspace_service::new_partial::<PosTable, RuntimeApi>(
+            &consensus_chain_config.base,
+            &pot_external_entropy,
+        )
         .map_err(|error| {
             sc_service::Error::Other(format!("Failed to build a full subspace node: {error:?}"))
         })?;
 
-        subspace_service::new_full::<PosTable, _, _>(
+        subspace_service::new_full::<PosTable, _>(
             consensus_chain_config,
             partial_components,
             true,
@@ -511,12 +475,12 @@ pub(super) async fn create_consensus_node(
             // Substrate's default, in seconds
             polling_period: 5,
         },
-        database_source,
+        base_path,
         &consensus_node.task_manager.spawn_essential_handle(),
     )
     .map_err(|error| {
         sc_service::Error::Other(format!("Failed to start storage monitor: {error:?}"))
     })?;
 
-    Ok(ConsensusNode::new(consensus_node, sync_mode, chain_info))
+    Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
 }
