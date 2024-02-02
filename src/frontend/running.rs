@@ -272,12 +272,7 @@ impl RunningView {
 
                 match node_notification {
                     NodeNotification::SyncStateUpdate(sync_state) => {
-                        let new_synced = sync_state.is_synced();
-                        if self.node_synced != new_synced {
-                            self.farms
-                                .broadcast(FarmWidgetInput::NodeSynced(new_synced));
-                        }
-                        self.node_synced = new_synced;
+                        self.node_synced = sync_state.is_synced();
                     }
                     NodeNotification::BlockImported(imported_block) => {
                         if !self.node_synced {

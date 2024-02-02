@@ -89,7 +89,6 @@ pub(super) enum FarmWidgetInput {
     },
     FarmingNotification(FarmingNotification),
     PieceCacheSynced(bool),
-    NodeSynced(bool),
 }
 
 #[derive(Debug)]
@@ -102,7 +101,6 @@ pub(super) struct FarmWidget {
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_piece_cache_synced: bool,
-    is_node_synced: bool,
     farm_during_initial_plotting: bool,
     sectors_grid: gtk::GridView,
     sectors: HashMap<SectorIndex, gtk::Box>,
@@ -207,12 +205,12 @@ impl FactoryComponent for FarmWidget {
             },
 
             #[transition = "SlideUpDown"]
-            match (self.plotting_state, self.is_piece_cache_synced, self.is_node_synced) {
-                (_, false, _) => gtk::Label {
+            match (self.plotting_state, self.is_piece_cache_synced) {
+                (_, false) => gtk::Label {
                     set_halign: gtk::Align::Start,
                     set_label: "Waiting for piece cache sync",
                 },
-                (PlottingState::Plotting { kind, progress }, _, true) => gtk::Box {
+                (PlottingState::Plotting { kind, progress }, _) => gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 10,
 
@@ -274,14 +272,9 @@ impl FactoryComponent for FarmWidget {
                         set_fraction: progress as f64 / 100.0,
                     },
                 },
-                (PlottingState::Idle, _, true) => gtk::Box {
+                (PlottingState::Idle, _) => gtk::Box {
                     gtk::Label {
                         set_label: "Farming",
-                    }
-                },
-                _ => gtk::Box {
-                    gtk::Label {
-                        set_label: "Waiting for node to sync first",
                     }
                 },
             },
@@ -340,7 +333,6 @@ impl FactoryComponent for FarmWidget {
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
             is_piece_cache_synced: false,
-            is_node_synced: false,
             farm_during_initial_plotting: init.farm_during_initial_plotting,
             sectors_grid,
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
@@ -434,9 +426,6 @@ impl FarmWidget {
             },
             FarmWidgetInput::PieceCacheSynced(synced) => {
                 self.is_piece_cache_synced = synced;
-            }
-            FarmWidgetInput::NodeSynced(synced) => {
-                self.is_node_synced = synced;
             }
         }
     }
