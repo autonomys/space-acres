@@ -250,7 +250,7 @@ async fn load(
 
     let consensus_node = create_consensus_node(
         &network_keypair,
-        &config.node_path,
+        config.node_path.clone(),
         config.network.substrate_port,
         chain_spec,
         node.clone(),
@@ -721,7 +721,7 @@ async fn create_networking_stack(
 
 async fn create_consensus_node(
     network_keypair: &Keypair,
-    node_path: &Path,
+    node_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
     node: Node,
