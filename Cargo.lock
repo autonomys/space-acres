@@ -10552,7 +10552,6 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "async-trait",
- "atomic",
  "bytesize",
  "clap 4.4.18",
  "dark-light",
