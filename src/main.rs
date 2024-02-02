@@ -5,7 +5,7 @@ mod backend;
 mod frontend;
 
 use crate::backend::config::RawConfig;
-use crate::backend::{BackendAction, BackendNotification};
+use crate::backend::{wipe, BackendAction, BackendNotification};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
@@ -20,7 +20,7 @@ use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
 use relm4::prelude::*;
-use relm4::RELM_THREADS;
+use relm4::{Sender, ShutdownReceiver, RELM_THREADS};
 use relm4_icons::icon_name;
 use std::future::Future;
 use std::io::{Read, Write};
@@ -32,7 +32,7 @@ use std::thread::available_parallelism;
 use std::{env, fs, io, process};
 use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
 use subspace_proof_of_space::chia::ChiaTable;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -86,11 +86,19 @@ enum AppInput {
     OpenReconfiguration,
     ShowAboutDialog,
     InitialConfiguration,
+    StartUpgrade,
+    Restart,
+}
+
+#[derive(Debug)]
+enum AppCommandOutput {
+    BackendNotification(BackendNotification),
     Restart,
 }
 
 enum View {
     Welcome,
+    Upgrade { chain_name: String },
     Loading,
     Configuration,
     Reconfiguration,
@@ -103,6 +111,7 @@ impl View {
     fn title(&self) -> &'static str {
         match self {
             Self::Welcome => "Welcome",
+            Self::Upgrade { .. } => "Upgrade",
             Self::Loading => "Loading",
             Self::Configuration => "Configuration",
             Self::Reconfiguration => "Reconfiguration",
@@ -184,7 +193,7 @@ impl AsyncComponent for App {
     type Init = AppInit;
     type Input = AppInput;
     type Output = ();
-    type CommandOutput = ();
+    type CommandOutput = AppCommandOutput;
 
     view! {
         gtk::Window {
@@ -274,6 +283,46 @@ impl AsyncComponent for App {
 
                                     gtk::Label {
                                         set_label: "Continue",
+                                        set_margin_all: 10,
+                                    },
+                                },
+                            },
+                        },
+                        View::Upgrade { chain_name } => gtk::Box {
+                            set_margin_all: 10,
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 20,
+
+                            gtk::Image {
+                                set_height_request: 256,
+                                set_from_pixbuf: Some(
+                                    &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
+                                        .expect("Statically correct image; qed")
+                                ),
+                            },
+
+                            gtk::Label {
+                                set_label: indoc::indoc! {"
+                                    Thanks for choosing Space Acres again!
+
+                                    The chain you were running before upgrade is no longer compatible with this release of Space Acres, likely because you were participating in the previous version of Subspace Network.
+
+                                    But fear not, you can upgrade to currently supported network with a single click of a button!"
+                                },
+                                set_wrap: true,
+                            },
+
+                            gtk::Box {
+                                set_halign: gtk::Align::End,
+
+
+                                gtk::Button {
+                                    add_css_class: "destructive-action",
+                                    connect_clicked => AppInput::StartUpgrade,
+
+                                    gtk::Label {
+                                        #[watch]
+                                        set_label: &format!("Upgrade to {chain_name}"),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -462,7 +511,7 @@ impl AsyncComponent for App {
     async fn update(
         &mut self,
         input: Self::Input,
-        _sender: AsyncComponentSender<Self>,
+        sender: AsyncComponentSender<Self>,
         _root: &Self::Root,
     ) {
         match input {
@@ -488,12 +537,31 @@ impl AsyncComponent for App {
             AppInput::InitialConfiguration => {
                 self.current_view = View::Configuration;
             }
+            AppInput::StartUpgrade => {
+                let raw_config = self
+                    .current_raw_config
+                    .clone()
+                    .expect("Must have raw config when corresponding button is clicked; qed");
+                sender.command(move |sender, shutdown_receiver| async move {
+                    Self::do_upgrade(sender, shutdown_receiver, raw_config).await;
+                });
+                self.current_view = View::Loading;
+            }
             AppInput::Restart => {
                 self.exit_status_code
                     .store(AppStatusCode::Restart, Ordering::Release);
                 relm4::main_application().quit();
             }
         }
+    }
+
+    async fn update_cmd(
+        &mut self,
+        input: Self::CommandOutput,
+        _sender: AsyncComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
+        self.process_command(input);
     }
 }
 
@@ -505,6 +573,15 @@ impl App {
                 self.current_view = View::Loading;
                 self.status_bar_notification = StatusBarNotification::None;
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
+            }
+            BackendNotification::IncompatibleChain {
+                raw_config,
+                compatible_chain,
+            } => {
+                self.current_raw_config.replace(raw_config);
+                self.current_view = View::Upgrade {
+                    chain_name: compatible_chain,
+                };
             }
             BackendNotification::NotConfigured => {
                 self.current_view = View::Welcome;
@@ -599,6 +676,54 @@ impl App {
                 self.current_view = View::Running;
             }
         }
+    }
+
+    fn process_command(&mut self, input: AppCommandOutput) {
+        match input {
+            AppCommandOutput::BackendNotification(notification) => {
+                self.process_backend_notification(notification);
+            }
+            AppCommandOutput::Restart => {
+                self.exit_status_code
+                    .store(AppStatusCode::Restart, Ordering::Release);
+                relm4::main_application().quit();
+            }
+        }
+    }
+
+    async fn do_upgrade(
+        sender: Sender<AppCommandOutput>,
+        shutdown_receiver: ShutdownReceiver,
+        raw_config: RawConfig,
+    ) {
+        shutdown_receiver
+            .register(async move {
+                let (mut backend_notification_sender, mut backend_notification_receiver) =
+                    mpsc::channel(100);
+
+                tokio::spawn({
+                    let sender = sender.clone();
+
+                    async move {
+                        while let Some(notification) = backend_notification_receiver.next().await {
+                            if sender
+                                .send(AppCommandOutput::BackendNotification(notification))
+                                .is_err()
+                            {
+                                return;
+                            }
+                        }
+                    }
+                });
+
+                if let Err(error) = wipe(&raw_config, &mut backend_notification_sender).await {
+                    error!(%error, "Wiping error");
+                }
+
+                let _ = sender.send(AppCommandOutput::Restart);
+            })
+            .drop_on_shutdown()
+            .await
     }
 }
 
