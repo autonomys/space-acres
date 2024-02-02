@@ -17,6 +17,7 @@ use sc_informant::OutputFormat;
 use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig};
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
+use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
 use sp_core::H256;
@@ -294,13 +295,17 @@ fn pot_external_entropy(chain_spec: &ChainSpec) -> Result<Vec<u8>, sc_service::E
         .0
         .properties()
         .get("potExternalEntropy")
-        .map(|d| serde_json::from_value(d.clone()))
-        .transpose()
-        .map_err(|error| {
-            sc_service::Error::Other(format!("Failed to decode PoT initial key: {error:?}"))
-        })?
-        .flatten();
-    Ok(maybe_chain_spec_pot_external_entropy.unwrap_or_default())
+        .map(|d| match d.clone() {
+            Value::String(s) => Ok(s),
+            Value::Null => Ok(String::new()),
+            _ => Err(sc_service::Error::Other(
+                "Failed to decode PoT initial key".to_string(),
+            )),
+        })
+        .transpose()?;
+    Ok(maybe_chain_spec_pot_external_entropy
+        .unwrap_or_default()
+        .into_bytes())
 }
 
 pub(super) fn dsn_bootstrap_nodes(
@@ -388,7 +393,8 @@ fn create_consensus_chain_config(
                 "https://polkadot.js.org".to_string(),
             ]),
             methods: Default::default(),
-            max_subscriptions_per_connection: 0,
+            // Substrate's default
+            max_subscriptions_per_connection: 1024,
         },
         prometheus_listen_on: None,
         telemetry_endpoints,

@@ -120,7 +120,7 @@ impl RawConfig {
         let mut options = OpenOptions::new();
         options.write(true).truncate(true).create(true);
         #[cfg(unix)]
-        options.mode(0x600);
+        options.mode(0o600);
         options
             .open(config_file_path)
             .await?

@@ -400,13 +400,13 @@ async fn run(
 
     let result: anyhow::Result<()> = select! {
         result = networking_fut.fuse() => {
-            result.map_err(anyhow::Error::from)
+            result.map_err(|error| anyhow::anyhow!("Networking exited: {error}"))
         }
         result = consensus_node_fut.fuse() => {
-            result.map_err(anyhow::Error::from)
+            result.map_err(|error| anyhow::anyhow!("Consensus node exited: {error}"))
         }
         result = farmer_fut.fuse() => {
-            result.map_err(|_cancelled| anyhow::anyhow!("Networking exited"))
+            result.map_err(|error| anyhow::anyhow!("Farm exited: {error}"))
         }
         _ = process_backend_actions_fut.fuse() => {
             Ok(())
@@ -641,7 +641,7 @@ async fn create_networking_stack(
         let mut options = OpenOptions::new();
         options.write(true).truncate(true).create(true);
         #[cfg(unix)]
-        options.mode(0x600);
+        options.mode(0o600);
         options
             .open(&keypair_path)
             .await?
