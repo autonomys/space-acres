@@ -226,12 +226,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let mut single_disk_farms = Vec::with_capacity(disk_farms.len());
 
-    // TODO: Restore normal value once incentivization starts on 3h
-    let farm_during_initial_plotting = if false {
-        false
-    } else {
-        should_farm_during_initial_plotting()
-    };
+    let farm_during_initial_plotting = should_farm_during_initial_plotting();
     let mut plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
     let mut replotting_thread_pool_core_indices = {
         let mut replotting_thread_pool_core_indices = thread_pool_core_indices(None, None);

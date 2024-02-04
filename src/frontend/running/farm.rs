@@ -89,6 +89,7 @@ pub(super) enum FarmWidgetInput {
     },
     FarmingNotification(FarmingNotification),
     PieceCacheSynced(bool),
+    NodeSynced(bool),
 }
 
 #[derive(Debug)]
@@ -101,6 +102,7 @@ pub(super) struct FarmWidget {
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_piece_cache_synced: bool,
+    is_node_synced: bool,
     farm_during_initial_plotting: bool,
     sectors_grid: gtk::GridView,
     sectors: HashMap<SectorIndex, gtk::Box>,
@@ -240,10 +242,16 @@ impl FactoryComponent for FarmWidget {
                                 match kind {
                                     PlottingKind::Initial => {
                                         if self.farm_during_initial_plotting {
+                                            let farming = if self.is_node_synced {
+                                                "farming"
+                                            } else {
+                                                "not farming"
+                                            };
                                             format!(
-                                                "Initial plotting {:.2}%{}, farming",
+                                                "Initial plotting {:.2}%{}, {}",
                                                 progress,
                                                 plotting_speed,
+                                                farming
                                             )
                                         } else {
                                             format!(
@@ -333,6 +341,7 @@ impl FactoryComponent for FarmWidget {
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
             is_piece_cache_synced: false,
+            is_node_synced: false,
             farm_during_initial_plotting: init.farm_during_initial_plotting,
             sectors_grid,
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
@@ -426,6 +435,9 @@ impl FarmWidget {
             },
             FarmWidgetInput::PieceCacheSynced(synced) => {
                 self.is_piece_cache_synced = synced;
+            }
+            FarmWidgetInput::NodeSynced(synced) => {
+                self.is_node_synced = synced;
             }
         }
     }
