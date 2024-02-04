@@ -713,7 +713,7 @@ async fn create_networking_stack(
         })
         .await?;
 
-    let network_options = NetworkOptions {
+    let mut network_options = NetworkOptions {
         // TODO: Persist keypair on disk
         keypair: network_keypair.clone(),
         bootstrap_nodes,
@@ -731,6 +731,12 @@ async fn create_networking_stack(
         ],
         ..NetworkOptions::default()
     };
+    if config.network.faster_networking {
+        network_options.in_connections = 500;
+        network_options.out_connections = 500;
+        network_options.pending_in_connections = 500;
+        network_options.pending_out_connections = 500;
+    }
     let readers_and_pieces = Arc::<Mutex<Option<ReadersAndPieces>>>::default();
     let maybe_node_client = MaybeNodeRpcClient::default();
 
