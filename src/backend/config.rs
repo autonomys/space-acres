@@ -43,6 +43,8 @@ pub enum RawConfigError {
 pub struct NetworkConfiguration {
     pub substrate_port: u16,
     pub subspace_port: u16,
+    #[serde(default)]
+    pub faster_networking: bool,
 }
 
 impl Default for NetworkConfiguration {
@@ -50,6 +52,7 @@ impl Default for NetworkConfiguration {
         Self {
             substrate_port: DEFAULT_SUBSTRATE_PORT,
             subspace_port: DEFAULT_SUBSPACE_PORT,
+            faster_networking: false,
         }
     }
 }

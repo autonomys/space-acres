@@ -30,6 +30,7 @@ pub enum ConfigurationInput {
     DirectorySelected(PathBuf),
     SubstratePortChanged(u16),
     SubspacePortChanged(u16),
+    FasterNetworkingChanged(bool),
     Delete(DynamicIndex),
     Reconfigure(RawConfig),
     Start,
@@ -96,6 +97,7 @@ impl<T> MaybeValid<T> {
 struct NetworkConfigurationWrapper {
     substrate_port: MaybeValid<u16>,
     subspace_port: MaybeValid<u16>,
+    faster_networking: bool,
 }
 
 impl Default for NetworkConfigurationWrapper {
@@ -110,6 +112,7 @@ impl From<NetworkConfiguration> for NetworkConfigurationWrapper {
         Self {
             substrate_port: MaybeValid::Unknown(config.substrate_port),
             subspace_port: MaybeValid::Unknown(config.subspace_port),
+            faster_networking: config.faster_networking,
         }
     }
 }
@@ -333,6 +336,27 @@ impl Component for ConfigurationView {
                                             set_width_chars: 5,
                                         },
                                     },
+
+                                    gtk::Box {
+                                        set_spacing: 10,
+
+                                        gtk::Label {
+                                            set_label: "Faster networking:"
+                                        },
+                                        gtk::Switch {
+                                            connect_state_set[sender] => move |_switch, state| {
+                                                sender.input(ConfigurationInput::FasterNetworkingChanged(
+                                                    state
+                                                ));
+
+                                                gtk::glib::Propagation::Proceed
+                                            },
+                                            set_tooltip:
+                                                "By default networking is optimized for consumer routers, but if you have more powerful setup, faster networking may improve sync speed and other processes",
+                                            #[watch]
+                                            set_state: model.network_configuration.faster_networking,
+                                        },
+                                    },
                                 },
                             },
                         },
@@ -505,6 +529,9 @@ impl ConfigurationView {
             ConfigurationInput::SubspacePortChanged(port) => {
                 self.network_configuration.subspace_port = MaybeValid::Valid(port);
             }
+            ConfigurationInput::FasterNetworkingChanged(faster_networking) => {
+                self.network_configuration.faster_networking = faster_networking;
+            }
             ConfigurationInput::Delete(index) => {
                 let mut farms = self.farms.guard();
                 farms.remove(index.current_index());
@@ -583,6 +610,7 @@ impl ConfigurationView {
             network: NetworkConfiguration {
                 substrate_port: *self.network_configuration.substrate_port,
                 subspace_port: *self.network_configuration.subspace_port,
+                faster_networking: self.network_configuration.faster_networking,
             },
         }
     }
