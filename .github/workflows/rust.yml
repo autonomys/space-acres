@@ -57,7 +57,7 @@ jobs:
       matrix:
         os:
           - ubuntu-22.04
-          - macos-12
+          - macos-14
           - windows-2022
 
     runs-on: ${{ matrix.os }}
@@ -136,6 +136,11 @@ jobs:
         with:
           version: "15.0"
         if: runner.os != 'macOS'
+
+      # TODO: Workaround for https://github.com/actions/runner-images/issues/9290
+      - name: Install glibtoolize (macOS)
+        run: brew install libtool
+        if: runner.os == 'macOS'
 
       - name: Install Protoc
         uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
@@ -172,7 +177,7 @@ jobs:
       matrix:
         os:
           - ubuntu-22.04
-          - macos-12
+          - macos-14
           - windows-2022
 
     runs-on: ${{ matrix.os }}
@@ -251,6 +256,11 @@ jobs:
         with:
           version: "15.0"
         if: runner.os != 'macOS'
+
+      # TODO: Workaround for https://github.com/actions/runner-images/issues/9290
+      - name: Install glibtoolize (macOS)
+        run: brew install libtool
+        if: runner.os == 'macOS'
 
       - name: Install Protoc
         uses: arduino/setup-protoc@9b1ee5b22b0a3f1feb8c2ff99b32c89b3c3191e9 # v2.0.0
