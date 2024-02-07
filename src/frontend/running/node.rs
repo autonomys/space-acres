@@ -1,6 +1,5 @@
 use crate::backend::node::{ChainInfo, SyncKind, SyncState};
 use crate::backend::NodeNotification;
-use crate::frontend::running::SmaWrapper;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use parking_lot::Mutex;
@@ -46,7 +45,7 @@ pub struct NodeView {
     free_disk_space: Option<ByteSize>,
     chain_name: String,
     node_path: Arc<Mutex<PathBuf>>,
-    block_import_time: SmaWrapper<Duration, u32, BLOCK_IMPORT_TIME_TRACKING_WINDOW>,
+    block_import_time: SingleSumSMA<Duration, u32, BLOCK_IMPORT_TIME_TRACKING_WINDOW>,
     last_block_import_time: Option<Instant>,
 }
 
@@ -211,7 +210,7 @@ impl Component for NodeView {
             free_disk_space: None,
             chain_name: String::new(),
             node_path: node_path.clone(),
-            block_import_time: SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO)),
+            block_import_time: SingleSumSMA::from_zero(Duration::ZERO),
             last_block_import_time: None,
         };
 
@@ -281,8 +280,7 @@ impl NodeView {
                     }
                     // Reset block import time on transition to sync
                     if self.sync_state.is_synced() && !new_sync_state.is_synced() {
-                        self.block_import_time =
-                            SmaWrapper(SingleSumSMA::from_zero(Duration::ZERO));
+                        self.block_import_time = SingleSumSMA::from_zero(Duration::ZERO);
                         self.last_block_import_time.take();
                     }
                     self.sync_state = new_sync_state;

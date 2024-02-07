@@ -10,40 +10,8 @@ use crate::frontend::running::node::{NodeInput, NodeView};
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
-use simple_moving_average::SingleSumSMA;
-use std::fmt;
-use std::ops::{Deref, DerefMut};
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
-
-// TODO: Remove wrapper once https://github.com/oskargustafsson/moving_average/issues/2 is resolved
-struct SmaWrapper<Sample, Divisor, const WINDOW_SIZE: usize>(
-    SingleSumSMA<Sample, Divisor, WINDOW_SIZE>,
-);
-
-impl<Sample, Divisor, const WINDOW_SIZE: usize> fmt::Debug
-    for SmaWrapper<Sample, Divisor, WINDOW_SIZE>
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SingleSumSMA").finish()
-    }
-}
-
-impl<Sample, Divisor, const WINDOW_SIZE: usize> Deref for SmaWrapper<Sample, Divisor, WINDOW_SIZE> {
-    type Target = SingleSumSMA<Sample, Divisor, WINDOW_SIZE>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<Sample, Divisor, const WINDOW_SIZE: usize> DerefMut
-    for SmaWrapper<Sample, Divisor, WINDOW_SIZE>
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 #[derive(Debug)]
 pub enum RunningInput {
