@@ -68,7 +68,7 @@ sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = 
 semver = "1.0.21"
 serde = { version = "1.0.196", features = ["derive"]}
 serde_json = "1.0.113"
-simple_moving_average = "1.0.1"
+simple_moving_average = "1.0.2"
 sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8", default-features = false }
 sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "8b58dc8fed23d6531a27423f4b433729dfabdcd5" }
 sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "8b58dc8fed23d6531a27423f4b433729dfabdcd5" }
