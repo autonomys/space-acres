@@ -14,10 +14,7 @@ use subspace_farmer::single_disk_farm::{
 };
 
 /// Experimentally found number that is good for default window size to not have horizontal scroll
-/// and allows for sectors to not occupy too much vertical space
-const MIN_SECTORS_PER_ROW: u32 = 108;
-/// Effectively no limit
-const MAX_SECTORS_PER_ROW: u32 = 100_000;
+const SECTORS_PER_ROW: usize = 108;
 /// Number of samples over which to track auditing time, 1 minute in slots
 const AUDITING_TIME_TRACKING_WINDOW: usize = 60;
 /// One second to audit
@@ -103,7 +100,7 @@ pub(super) struct FarmWidget {
     is_piece_cache_synced: bool,
     is_node_synced: bool,
     farm_during_initial_plotting: bool,
-    sectors_grid: gtk::GridView,
+    sector_rows: gtk::Box,
     sectors: HashMap<SectorIndex, gtk::Box>,
     non_fatal_farming_error: Option<Arc<FarmingError>>,
 }
@@ -286,12 +283,7 @@ impl FactoryComponent for FarmWidget {
                 },
             },
 
-            self.sectors_grid.clone() -> gtk::GridView {
-                remove_css_class: "view",
-                set_max_columns: MAX_SECTORS_PER_ROW,
-                set_min_columns: MIN_SECTORS_PER_ROW.min(self.sectors.len() as u32 - 1),
-                set_sensitive: false,
-            },
+            self.sector_rows.clone(),
         },
     }
 
@@ -305,31 +297,18 @@ impl FactoryComponent for FarmWidget {
             if sector_index < init.plotted_total_sectors {
                 sector.add_css_class("plotted")
             }
+            Self::update_sector_tooltip(&sector, sector_index);
             sectors.push(sector);
         }
 
-        let factory = gtk::SignalListItemFactory::new();
-        factory.connect_bind(|_, list_item| {
-            if let Some(item) = list_item.item() {
-                list_item.set_child(Some(
-                    &item
-                        .downcast::<gtk::Box>()
-                        .expect("Box was created above; qed"),
-                ));
+        let sector_rows = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        sectors.chunks(SECTORS_PER_ROW).for_each(|sectors| {
+            let sector_row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+            sector_rows.append(&sector_row);
+            for sector in sectors {
+                sector_row.append(sector);
             }
         });
-
-        let selection = gtk::NoSelection::new(Some({
-            let store = gtk::gio::ListStore::new::<gtk::Box>();
-            store.extend_from_slice(&sectors);
-            store
-        }));
-        let sectors_grid = gtk::GridView::builder()
-            .single_click_activate(true)
-            .model(&selection)
-            .factory(&factory)
-            .css_name("farm-sectors")
-            .build();
 
         Self {
             path: init.farm.path,
@@ -342,7 +321,7 @@ impl FactoryComponent for FarmWidget {
             is_piece_cache_synced: false,
             is_node_synced: false,
             farm_during_initial_plotting: init.farm_during_initial_plotting,
-            sectors_grid,
+            sector_rows,
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
             non_fatal_farming_error: None,
         }
@@ -451,12 +430,40 @@ impl FarmWidget {
                     sector.add_css_class(sector_state.css_class());
                 }
             }
+
+            Self::update_sector_tooltip(sector, sector_index);
         }
     }
 
     fn remove_sector_state(&self, sector_index: SectorIndex, sector_state: SectorState) {
         if let Some(sector) = self.sectors.get(&sector_index) {
             sector.remove_css_class(sector_state.css_class());
+
+            Self::update_sector_tooltip(sector, sector_index);
+        }
+    }
+
+    fn update_sector_tooltip(sector: &gtk::Box, sector_index: SectorIndex) {
+        if sector.has_css_class(SectorState::Downloading.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: downloading")));
+        } else if sector.has_css_class(SectorState::Encoding.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: encoding")));
+        } else if sector.has_css_class(SectorState::Writing.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: writing")));
+        } else if sector.has_css_class(SectorState::Expired.css_class()) {
+            sector.set_tooltip_text(Some(&format!(
+                "Sector {sector_index}: expired, waiting to be replotted"
+            )));
+        } else if sector.has_css_class(SectorState::AboutToExpire.css_class()) {
+            sector.set_tooltip_text(Some(&format!(
+                "Sector {sector_index}: about to expire, waiting to be replotted"
+            )));
+        } else if sector.has_css_class(SectorState::Plotted.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: up to date")));
+        } else {
+            sector.set_tooltip_text(Some(&format!(
+                "Sector {sector_index}: waiting to be plotted"
+            )));
         }
     }
 }
