@@ -297,6 +297,7 @@ impl FactoryComponent for FarmWidget {
             if sector_index < init.plotted_total_sectors {
                 sector.add_css_class("plotted")
             }
+            Self::update_sector_tooltip(&sector, sector_index);
             sectors.push(sector);
         }
 
@@ -429,12 +430,40 @@ impl FarmWidget {
                     sector.add_css_class(sector_state.css_class());
                 }
             }
+
+            Self::update_sector_tooltip(sector, sector_index);
         }
     }
 
     fn remove_sector_state(&self, sector_index: SectorIndex, sector_state: SectorState) {
         if let Some(sector) = self.sectors.get(&sector_index) {
             sector.remove_css_class(sector_state.css_class());
+
+            Self::update_sector_tooltip(sector, sector_index);
+        }
+    }
+
+    fn update_sector_tooltip(sector: &gtk::Box, sector_index: SectorIndex) {
+        if sector.has_css_class(SectorState::Downloading.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: downloading")));
+        } else if sector.has_css_class(SectorState::Encoding.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: encoding")));
+        } else if sector.has_css_class(SectorState::Writing.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: writing")));
+        } else if sector.has_css_class(SectorState::Expired.css_class()) {
+            sector.set_tooltip_text(Some(&format!(
+                "Sector {sector_index}: expired, waiting to be replotted"
+            )));
+        } else if sector.has_css_class(SectorState::AboutToExpire.css_class()) {
+            sector.set_tooltip_text(Some(&format!(
+                "Sector {sector_index}: about to expire, waiting to be replotted"
+            )));
+        } else if sector.has_css_class(SectorState::Plotted.css_class()) {
+            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: up to date")));
+        } else {
+            sector.set_tooltip_text(Some(&format!(
+                "Sector {sector_index}: waiting to be plotted"
+            )));
         }
     }
 }
