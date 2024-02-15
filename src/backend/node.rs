@@ -45,7 +45,7 @@ use tracing::error;
 
 pub(super) const GENESIS_HASH: &str =
     "0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34";
-pub(super) const RPC_PORT: u16 = 9944;
+pub(super) const RPC_PORT: u16 = 19944;
 const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// The maximum number of characters for a node name.
