@@ -192,6 +192,21 @@ jobs:
           Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
         if: runner.os == 'Windows'
 
+      - name: Sign Application (Windows)
+        run: |
+          $ErrorActionPreference = "Stop"
+          
+          dotnet tool install --global AzureSignTool
+
+          (Get-ChildItem -Path target\wix -Include space-acres-*.msi -Recurse) | ForEach-Object {
+            Write("Signing $($_)");
+          
+            AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
+          }
+        # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
+        continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
+        if: runner.os == 'Windows'
+
       - name: Upload installer to artifacts (Windows)
         uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # @v3.1.1
         with:
