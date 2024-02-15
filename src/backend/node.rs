@@ -389,7 +389,7 @@ fn create_consensus_chain_config(
             allow_private_ips: false,
             force_synced: false,
         },
-        state_pruning: Some(PruningMode::ArchiveCanonical),
+        state_pruning: PruningMode::ArchiveCanonical,
         blocks_pruning: BlocksPruning::Some(256),
         rpc_options: SubstrateRpcConfiguration {
             listen_on: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, RPC_PORT)),
@@ -458,8 +458,9 @@ pub(super) async fn create_consensus_node(
             subspace_networking: SubspaceNetworking::Reuse {
                 node,
                 bootstrap_nodes: dsn_bootstrap_nodes,
-                metrics_registry: None,
             },
+            // TODO: Custom piece getter
+            dsn_piece_getter: None,
             sync_from_dsn: true,
             is_timekeeper: false,
             timekeeper_cpu_cores: Default::default(),
@@ -492,6 +493,7 @@ pub(super) async fn create_consensus_node(
         subspace_service::new_full::<PosTable, _>(
             consensus_chain_config,
             partial_components,
+            None,
             true,
             SlotProportion::new(3f32 / 4f32),
         )

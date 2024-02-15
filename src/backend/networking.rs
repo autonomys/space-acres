@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::{Arc, Weak};
 use subspace_farmer::node_client::NodeClientExt;
 use subspace_farmer::piece_cache::PieceCache;
-use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
+use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::kad::RecordKey;
@@ -85,7 +85,7 @@ pub fn create_network<NC>(
         pending_out_connections,
         external_addresses,
     }: NetworkOptions,
-    weak_readers_and_pieces: Weak<Mutex<Option<ReadersAndPieces>>>,
+    weak_plotted_pieces: Weak<Mutex<Option<PlottedPieces>>>,
     node_client: NC,
     piece_cache: PieceCache,
 ) -> Result<(Node, NodeRunner<PieceCache>), anyhow::Error>
@@ -116,7 +116,7 @@ where
             PieceByIndexRequestHandler::create(move |_, &PieceByIndexRequest { piece_index }| {
                 debug!(?piece_index, "Piece request received. Trying cache...");
 
-                let weak_readers_and_pieces = weak_readers_and_pieces.clone();
+                let weak_plotted_pieces = weak_plotted_pieces.clone();
                 let piece_cache = piece_cache.clone();
 
                 async move {
@@ -132,16 +132,16 @@ where
                         );
 
                         let read_piece_fut = {
-                            let readers_and_pieces = match weak_readers_and_pieces.upgrade() {
-                                Some(readers_and_pieces) => readers_and_pieces,
+                            let plotted_pieces = match weak_plotted_pieces.upgrade() {
+                                Some(plotted_pieces) => plotted_pieces,
                                 None => {
                                     debug!("A readers and pieces are already dropped");
                                     return None;
                                 }
                             };
-                            let readers_and_pieces = readers_and_pieces.lock();
-                            let readers_and_pieces = match readers_and_pieces.as_ref() {
-                                Some(readers_and_pieces) => readers_and_pieces,
+                            let plotted_pieces = plotted_pieces.lock();
+                            let plotted_pieces = match plotted_pieces.as_ref() {
+                                Some(plotted_pieces) => plotted_pieces,
                                 None => {
                                     debug!(
                                         ?piece_index,
@@ -151,9 +151,7 @@ where
                                 }
                             };
 
-                            readers_and_pieces
-                                .read_piece(&piece_index)?
-                                .in_current_span()
+                            plotted_pieces.read_piece(&piece_index)?.in_current_span()
                         };
 
                         let piece = read_piece_fut.await;
