@@ -1,10 +1,10 @@
 # Space Acres
 
-[![Latest Release](https://img.shields.io/github/v/release/nazar-pc/space-acres?display_name=tag&style=flat-square)](https://github.com/nazar-pc/space-acres/releases)
-[![Downloads Latest](https://img.shields.io/github/downloads/nazar-pc/space-acres/latest/total?style=flat-square)](https://github.com/nazar-pc/space-acres/releases/latest)
-[![Rust](https://img.shields.io/github/actions/workflow/status/nazar-pc/space-acres/rust.yml?branch=main)](https://github.com/nazar-pc/space-acres/actions/workflows/rust.yaml)
+[![Latest Release](https://img.shields.io/github/v/release/subspace/space-acres?display_name=tag&style=flat-square)](https://github.com/subspace/space-acres/releases)
+[![Downloads Latest](https://img.shields.io/github/downloads/subspace/space-acres/latest/total?style=flat-square)](https://github.com/subspace/space-acres/releases/latest)
+[![Rust](https://img.shields.io/github/actions/workflow/status/subspace/space-acres/rust.yml?branch=main)](https://github.com/subspace/space-acres/actions/workflows/rust.yaml)
 
-Space Acres is an opinionated unofficial GUI application for farming on [Subspace Network](https://subspace.network/).
+Space Acres is an opinionated GUI application for farming on [Subspace Network](https://subspace.network/).
 
 ## Current status
 

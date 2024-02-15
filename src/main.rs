@@ -262,7 +262,7 @@ impl AsyncComponent for App {
 
                             gtk::Label {
                                 set_label: indoc::indoc! {"
-                                    Space Acres is an opinionated unofficial GUI application for farming on Subspace Network.
+                                    Space Acres is an opinionated GUI application for farming on Subspace Network.
 
                                     Before continuing you need 3 things:
                                     ✔ Wallet address where you'll receive rewards (use Subwallet, polkadot{.js} extension or any other wallet compatible with Substrate chain)

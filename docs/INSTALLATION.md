@@ -45,7 +45,7 @@ this application may sometimes work fine and sometimes have a hard time syncing 
 
 ## Windows
 
-For Windows go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
+For Windows go to [the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached
 file with `.msi` extension. It is not digitally signed, so you'll have to agree to accept the risk when downloading and
 installing it for now. Note that while things might work on other versions of Windows, **only Windows 10 and 11** with
 latest updates supported.
@@ -65,7 +65,7 @@ Currently, there are two ways to get Space Acres on Linux:
 
 ### Ubuntu
 
-For **Ubuntu 22.04 or newer** (older versions not supported) go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
+For **Ubuntu 22.04 or newer** (older versions not supported) go to [the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached
 file with `.deb` extension for your architecture (most likely `amd64`).
 
 Then open terminal and run following commands to switch to downloads directory and install an app:
@@ -80,7 +80,7 @@ replace `space-acres*.deb` with a full name of the file you've downloaded.
 
 ### Other Linux
 
-For other distributions AppImage is available too, go to [the latest release](https://github.com/nazar-pc/space-acres/releases/latest) and download attached
+For other distributions AppImage is available too, go to [the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached
 file with `.AppImage` extension for your architecture (most likely `x86_64`).
 
 Then open terminal and run following commands to switch to downloads directory and make it executable:
@@ -101,4 +101,4 @@ Consider contributing to Linux packaging though!
 ## macOS
 
 There are no official packages for macOS yet and if you build from source you hopefully know what you are doing.
-Consider [contributing to macOS packaging](https://github.com/nazar-pc/space-acres/issues/7) though!
+Consider [contributing to macOS packaging](https://github.com/subspace/space-acres/issues/7) though!
