@@ -52,9 +52,9 @@ impl Component for NewVersion {
 
                 if repository.starts_with("https://github.com") {
                     // Turn:
-                    // https://github.com/nazar-pc/space-acres
+                    // https://github.com/subspace/space-acres
                     // Into:
-                    // https://github.com/nazar-pc/space-acres/releases
+                    // https://github.com/subspace/space-acres/releases
                     format!("{}/releases", env!("CARGO_PKG_REPOSITORY"))
                 } else {
                     repository.to_string()
@@ -102,9 +102,9 @@ impl NewVersion {
             return;
         }
         // Turn:
-        // https://github.com/nazar-pc/space-acres
+        // https://github.com/subspace/space-acres
         // Into:
-        // https://api.github.com/repos/nazar-pc/space-acres/releases/latest
+        // https://api.github.com/repos/subspace/space-acres/releases/latest
         let mut url = url.replace("https://github.com", "https://api.github.com/repos");
         url.push_str("/releases/latest");
 
