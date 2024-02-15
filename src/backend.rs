@@ -27,7 +27,7 @@ use std::sync::Arc;
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
-use subspace_farmer::utils::readers_and_pieces::ReadersAndPieces;
+use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
@@ -278,7 +278,7 @@ async fn load(
         node,
         node_runner,
         network_keypair,
-        readers_and_pieces,
+        plotted_pieces,
         piece_cache,
         piece_cache_worker,
     ) = create_networking_stack(
@@ -311,7 +311,7 @@ async fn load(
         config.reward_address,
         config.farms.clone(),
         node,
-        readers_and_pieces,
+        plotted_pieces,
         piece_cache,
         piece_cache_worker,
         &maybe_node_client,
@@ -617,7 +617,7 @@ async fn create_networking_stack(
     Node,
     NodeRunner<PieceCache>,
     Keypair,
-    Arc<Mutex<Option<ReadersAndPieces>>>,
+    Arc<Mutex<Option<PlottedPieces>>>,
     PieceCache,
     CacheWorker<MaybeNodeRpcClient>,
 )> {
@@ -737,10 +737,10 @@ async fn create_networking_stack(
         network_options.pending_in_connections = 500;
         network_options.pending_out_connections = 500;
     }
-    let readers_and_pieces = Arc::<Mutex<Option<ReadersAndPieces>>>::default();
+    let plotted_pieces = Arc::<Mutex<Option<PlottedPieces>>>::default();
     let maybe_node_client = MaybeNodeRpcClient::default();
 
-    let weak_readers_and_pieces = Arc::downgrade(&readers_and_pieces);
+    let weak_plotted_pieces = Arc::downgrade(&plotted_pieces);
     let (piece_cache, piece_cache_worker) = PieceCache::new(
         maybe_node_client.clone(),
         subspace_networking::libp2p::identity::PublicKey::from(network_keypair.public())
@@ -751,7 +751,7 @@ async fn create_networking_stack(
         protocol_prefix,
         &network_path,
         network_options,
-        weak_readers_and_pieces,
+        weak_plotted_pieces,
         maybe_node_client.clone(),
         piece_cache.clone(),
     )?;
@@ -768,7 +768,7 @@ async fn create_networking_stack(
         node,
         node_runner,
         network_keypair,
-        readers_and_pieces,
+        plotted_pieces,
         piece_cache,
         piece_cache_worker,
     ))
@@ -816,7 +816,7 @@ async fn create_farmer(
     reward_address: PublicKey,
     disk_farms: Vec<DiskFarm>,
     node: Node,
-    readers_and_pieces: Arc<Mutex<Option<ReadersAndPieces>>>,
+    plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
     piece_cache: PieceCache,
     piece_cache_worker: CacheWorker<MaybeNodeRpcClient>,
     maybe_node_client: &MaybeNodeRpcClient,
@@ -840,7 +840,7 @@ async fn create_farmer(
         disk_farms,
         node_client,
         node,
-        readers_and_pieces,
+        plotted_pieces,
         piece_cache,
         piece_cache_worker,
     };
