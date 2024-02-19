@@ -49,7 +49,7 @@ jobs:
 
       - name: Install GTK4 and libfuse2 (Linux)
         # libfuse2 is needed for AppImage to run
-        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev libfuse2
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev libfuse2
         if: runner.os == 'Linux'
 
       - name: Configure GTK4 cache (Windows)

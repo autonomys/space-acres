@@ -67,7 +67,7 @@ jobs:
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
 
       - name: Install GTK4 (Ubuntu)
-        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev
         if: runner.os == 'Linux'
 
       - name: Install GTK4 (macOS)
@@ -187,7 +187,7 @@ jobs:
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # @v3.1.0
 
       - name: Install GTK4 (Ubuntu)
-        run: sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev
         if: runner.os == 'Linux'
 
       - name: Install GTK4 (macOS)
