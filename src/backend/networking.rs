@@ -2,8 +2,8 @@ use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, Weak};
+use subspace_farmer::farmer_cache::FarmerCache;
 use subspace_farmer::node_client::NodeClientExt;
-use subspace_farmer::piece_cache::PieceCache;
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
@@ -87,8 +87,8 @@ pub fn create_network<NC>(
     }: NetworkOptions,
     weak_plotted_pieces: Weak<Mutex<Option<PlottedPieces>>>,
     node_client: NC,
-    piece_cache: PieceCache,
-) -> Result<(Node, NodeRunner<PieceCache>), anyhow::Error>
+    farmer_cache: FarmerCache,
+) -> Result<(Node, NodeRunner<FarmerCache>), anyhow::Error>
 where
     NC: NodeClientExt,
 {
@@ -106,7 +106,7 @@ where
     })
     .map(Box::new)?;
 
-    let default_config = Config::new(protocol_prefix, keypair.into(), piece_cache.clone(), None);
+    let default_config = Config::new(protocol_prefix, keypair.into(), farmer_cache.clone(), None);
     let config = Config {
         reserved_peers,
         listen_on,
@@ -117,11 +117,11 @@ where
                 debug!(?piece_index, "Piece request received. Trying cache...");
 
                 let weak_plotted_pieces = weak_plotted_pieces.clone();
-                let piece_cache = piece_cache.clone();
+                let farmer_cache = farmer_cache.clone();
 
                 async move {
                     let key = RecordKey::from(piece_index.to_multihash());
-                    let piece_from_store = piece_cache.get_piece(key).await;
+                    let piece_from_store = farmer_cache.get_piece(key).await;
 
                     if let Some(piece) = piece_from_store {
                         Some(PieceByIndexResponse { piece: Some(piece) })
