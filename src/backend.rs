@@ -25,7 +25,7 @@ use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::Arc;
 use subspace_core_primitives::{BlockNumber, PublicKey};
-use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
+use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
@@ -144,7 +144,7 @@ struct LoadedBackend {
     config_file_path: PathBuf,
     consensus_node: ConsensusNode,
     farmer: Farmer,
-    node_runner: NodeRunner<PieceCache>,
+    node_runner: NodeRunner<FarmerCache>,
 }
 
 enum BackendLoadingResult {
@@ -279,8 +279,8 @@ async fn load(
         node_runner,
         network_keypair,
         plotted_pieces,
-        piece_cache,
-        piece_cache_worker,
+        farmer_cache,
+        farmer_cache_worker,
     ) = create_networking_stack(
         &config,
         GENESIS_HASH.to_string(),
@@ -312,8 +312,8 @@ async fn load(
         config.farms.clone(),
         node,
         plotted_pieces,
-        piece_cache,
-        piece_cache_worker,
+        farmer_cache,
+        farmer_cache_worker,
         &maybe_node_client,
         notifications_sender,
     )
@@ -615,11 +615,11 @@ async fn create_networking_stack(
 ) -> anyhow::Result<(
     MaybeNodeRpcClient,
     Node,
-    NodeRunner<PieceCache>,
+    NodeRunner<FarmerCache>,
     Keypair,
     Arc<Mutex<Option<PlottedPieces>>>,
-    PieceCache,
-    CacheWorker<MaybeNodeRpcClient>,
+    FarmerCache,
+    FarmerCacheWorker<MaybeNodeRpcClient>,
 )> {
     notifications_sender
         .send(BackendNotification::Loading {
@@ -741,7 +741,7 @@ async fn create_networking_stack(
     let maybe_node_client = MaybeNodeRpcClient::default();
 
     let weak_plotted_pieces = Arc::downgrade(&plotted_pieces);
-    let (piece_cache, piece_cache_worker) = PieceCache::new(
+    let (farmer_cache, farmer_cache_worker) = FarmerCache::new(
         maybe_node_client.clone(),
         subspace_networking::libp2p::identity::PublicKey::from(network_keypair.public())
             .to_peer_id(),
@@ -753,7 +753,7 @@ async fn create_networking_stack(
         network_options,
         weak_plotted_pieces,
         maybe_node_client.clone(),
-        piece_cache.clone(),
+        farmer_cache.clone(),
     )?;
 
     notifications_sender
@@ -769,8 +769,8 @@ async fn create_networking_stack(
         node_runner,
         network_keypair,
         plotted_pieces,
-        piece_cache,
-        piece_cache_worker,
+        farmer_cache,
+        farmer_cache_worker,
     ))
 }
 
@@ -817,8 +817,8 @@ async fn create_farmer(
     disk_farms: Vec<DiskFarm>,
     node: Node,
     plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
-    piece_cache: PieceCache,
-    piece_cache_worker: CacheWorker<MaybeNodeRpcClient>,
+    farmer_cache: FarmerCache,
+    farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
     maybe_node_client: &MaybeNodeRpcClient,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<Farmer> {
@@ -841,8 +841,8 @@ async fn create_farmer(
         node_client,
         node,
         plotted_pieces,
-        piece_cache,
-        piece_cache_worker,
+        farmer_cache,
+        farmer_cache_worker,
     };
 
     let farmer = farmer::create_farmer(farmer_options).await?;

@@ -293,7 +293,7 @@ impl RunningView {
                         FarmWidgetInput::FarmingNotification(notification),
                     );
                 }
-                FarmerNotification::PieceCacheSyncProgress { progress } => {
+                FarmerNotification::FarmerCacheSyncProgress { progress } => {
                     let old_synced = self.farmer_state.piece_cache_sync_progress == 100.0;
                     let new_synced = progress == 100.0;
                     if old_synced != new_synced {

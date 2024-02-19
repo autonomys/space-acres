@@ -17,7 +17,7 @@ use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_farmer::piece_cache::{CacheWorker, PieceCache};
+use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
     SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
@@ -56,7 +56,7 @@ pub enum FarmerNotification {
         farm_index: u8,
         notification: FarmingNotification,
     },
-    PieceCacheSyncProgress {
+    FarmerCacheSyncProgress {
         /// Progress so far in %
         progress: f32,
     },
@@ -66,7 +66,7 @@ type Notifications = Handler<FarmerNotification>;
 
 pub(super) struct Farmer {
     farm_fut: BoxFuture<'static, anyhow::Result<()>>,
-    piece_cache_worker_fut: BoxFuture<'static, ()>,
+    farmer_cache_worker_fut: BoxFuture<'static, ()>,
     initial_farm_states: Vec<InitialFarmState>,
     farm_during_initial_plotting: bool,
     notifications: Arc<Notifications>,
@@ -74,14 +74,14 @@ pub(super) struct Farmer {
 
 impl Farmer {
     pub(super) async fn run(self) -> anyhow::Result<()> {
-        let piece_cache_worker_fut = match run_future_in_dedicated_thread(
-            move || self.piece_cache_worker_fut,
-            "piece-cache-worker".to_string(),
+        let farmer_cache_worker_fut = match run_future_in_dedicated_thread(
+            move || self.farmer_cache_worker_fut,
+            "farmer-cache-worker".to_string(),
         ) {
-            Ok(piece_cache_worker_fut) => piece_cache_worker_fut,
+            Ok(farmer_cache_worker_fut) => farmer_cache_worker_fut,
             Err(error) => {
                 return Err(anyhow::anyhow!(
-                    "Failed to spawn piece future in background thread: {error}"
+                    "Failed to spawn farmer cache future in background thread: {error}"
                 ));
             }
         };
@@ -90,16 +90,16 @@ impl Farmer {
             move || self.farm_fut,
             "farmer-farm".to_string(),
         ) {
-            Ok(piece_cache_worker_fut) => piece_cache_worker_fut,
+            Ok(farmer_cache_worker_fut) => farmer_cache_worker_fut,
             Err(error) => {
                 return Err(anyhow::anyhow!(
-                    "Failed to spawn piece future in background thread: {error}"
+                    "Failed to spawn farm future in background thread: {error}"
                 ));
             }
         };
 
         select! {
-            _ = piece_cache_worker_fut.fuse() => {
+            _ = farmer_cache_worker_fut.fuse() => {
                 // Nothing to do, just exit
             }
             result = farm_fut.fuse() => {
@@ -151,8 +151,8 @@ pub(super) struct FarmerOptions {
     pub(super) node_client: NodeRpcClient,
     pub(super) node: Node,
     pub(super) plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
-    pub(super) piece_cache: PieceCache,
-    pub(super) piece_cache_worker: CacheWorker<MaybeNodeRpcClient>,
+    pub(super) farmer_cache: FarmerCache,
+    pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
 }
 
 pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farmer> {
@@ -165,8 +165,8 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         node_client,
         node,
         plotted_pieces,
-        piece_cache,
-        piece_cache_worker,
+        farmer_cache,
+        farmer_cache_worker,
     } = farmer_options;
 
     if disk_farms.is_empty() {
@@ -207,14 +207,14 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let piece_getter = Arc::new(FarmerPieceGetter::new(
         piece_provider,
-        piece_cache.clone(),
+        farmer_cache.clone(),
         node_client.clone(),
         Arc::clone(&plotted_pieces),
     ));
 
-    let piece_cache_worker_fut = Box::pin(
-        piece_cache_worker
-            .run(piece_getter.clone())
+    let farmer_cache_worker_fut = Box::pin(
+        farmer_cache_worker
+            .run(piece_getter.downgrade())
             .in_current_span(),
     );
 
@@ -253,6 +253,15 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     let downloading_semaphore =
         Arc::new(Semaphore::new(plotting_thread_pool_core_indices.len() + 1));
 
+    let record_encoding_concurrency = {
+        let cpu_cores = plotting_thread_pool_core_indices
+            .first()
+            .expect("Guaranteed to have some CPU cores; qed");
+
+        NonZeroUsize::new((cpu_cores.cpu_cores().len() / 2).min(8))
+            .expect("Guaranteed to have some CPU cores; qed")
+    };
+
     let plotting_thread_pool_manager = create_plotting_thread_pool_manager(
         plotting_thread_pool_core_indices
             .into_iter()
@@ -278,10 +287,12 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 piece_getter: piece_getter.clone(),
                 cache_percentage: CACHE_PERCENTAGE,
                 downloading_semaphore: Arc::clone(&downloading_semaphore),
+                record_encoding_concurrency,
                 farm_during_initial_plotting,
                 farming_thread_pool_size: recommended_number_of_farming_threads(),
                 plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
                 plotting_delay: Some(plotting_delay_receiver),
+                disable_farm_locking: false,
             },
             disk_farm_index,
         );
@@ -322,7 +333,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         single_disk_farms.push(single_disk_farm);
     }
 
-    let cache_acknowledgement_receiver = piece_cache
+    let cache_acknowledgement_receiver = farmer_cache
         .replace_backing_caches(
             single_disk_farms
                 .iter()
@@ -387,12 +398,12 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let notifications = Arc::new(Notifications::default());
 
-    piece_cache
+    farmer_cache
         .on_sync_progress(Arc::new({
             let notifications = Arc::clone(&notifications);
 
             move |progress| {
-                notifications.call_simple(&FarmerNotification::PieceCacheSyncProgress {
+                notifications.call_simple(&FarmerNotification::FarmerCacheSyncProgress {
                     progress: *progress,
                 });
             }
@@ -508,7 +519,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     anyhow::Ok(Farmer {
         farm_fut,
-        piece_cache_worker_fut,
+        farmer_cache_worker_fut,
         initial_farm_states,
         farm_during_initial_plotting,
         notifications,
