@@ -278,7 +278,12 @@ impl FactoryComponent for FarmWidget {
                 },
                 (PlottingState::Idle, _) => gtk::Box {
                     gtk::Label {
-                        set_label: "Farming",
+                        #[watch]
+                        set_label: if self.is_node_synced {
+                            "Farming"
+                        } else {
+                            "Waiting for node to sync"
+                        },
                     }
                 },
             },
