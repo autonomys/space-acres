@@ -1,5 +1,6 @@
 mod utils;
 
+use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::node::utils::account_storage_key;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
@@ -29,6 +30,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
@@ -38,6 +40,7 @@ use subspace_service::config::{
     SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
     SubstrateNetworkConfiguration, SubstrateRpcConfiguration,
 };
+use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
 use tokio::fs;
 use tokio::time::MissedTickBehavior;
@@ -424,7 +427,9 @@ pub(super) async fn create_consensus_node(
     base_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
+    piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
     node: Node,
+    maybe_node_rpc_client: &MaybeNodeRpcClient,
 ) -> Result<ConsensusNode, ConsensusNodeCreationError> {
     set_default_ss58_version(&chain_spec);
 
@@ -459,8 +464,7 @@ pub(super) async fn create_consensus_node(
                 node,
                 bootstrap_nodes: dsn_bootstrap_nodes,
             },
-            // TODO: Custom piece getter
-            dsn_piece_getter: None,
+            dsn_piece_getter: Some(piece_getter),
             sync_from_dsn: true,
             is_timekeeper: false,
             timekeeper_cpu_cores: Default::default(),
@@ -516,6 +520,18 @@ pub(super) async fn create_consensus_node(
     .map_err(|error| {
         sc_service::Error::Other(format!("Failed to start storage monitor: {error:?}"))
     })?;
+
+    let node_client = NodeRpcClient::new(&format!("ws://127.0.0.1:{RPC_PORT}"))
+        .await
+        .map_err(|error| {
+            sc_service::Error::Application(
+                format!("Failed to connect to internal node RPC: {error}").into(),
+            )
+        })?;
+
+    // Inject working node client into wrapper we have created before such that networking can
+    // respond to incoming requests properly
+    maybe_node_rpc_client.inject(node_client);
 
     Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
 }

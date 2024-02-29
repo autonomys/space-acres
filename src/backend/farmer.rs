@@ -2,9 +2,9 @@ pub(super) mod maybe_node_client;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::utils::{Handler, HandlerFn};
+use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
-use backoff::ExponentialBackoff;
 use event_listener_primitives::HandlerId;
 use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
@@ -13,9 +13,8 @@ use parking_lot::Mutex;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use std::{fmt, fs};
-use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
+use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
@@ -23,29 +22,19 @@ use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
     SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
-use subspace_farmer::utils::farmer_piece_getter::{DsnCacheRetryPolicy, FarmerPieceGetter};
-use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
     all_cpu_cores, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
     run_future_in_dedicated_thread, thread_pool_core_indices, CpuCoreSet,
 };
-use subspace_farmer::{NodeClient, NodeRpcClient};
+use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
-use subspace_networking::utils::piece_provider::PieceProvider;
-use subspace_networking::Node;
 use thread_priority::ThreadPriority;
 use tokio::sync::Semaphore;
 use tracing::{error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
 const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
-/// Get piece retry attempts number.
-const PIECE_GETTER_MAX_RETRIES: u16 = 7;
-/// Defines initial duration between get_piece calls.
-const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
-/// Defines max duration between get_piece calls.
-const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct InitialFarmState {
@@ -156,11 +145,12 @@ pub struct DiskFarm {
 pub(super) struct FarmerOptions {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
-    pub(super) node_client: NodeRpcClient,
-    pub(super) node: Node,
+    pub(super) node_client: MaybeNodeRpcClient,
+    pub(super) piece_getter: PieceGetterWrapper,
     pub(super) plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
     pub(super) farmer_cache: FarmerCache,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
+    pub(super) kzg: Kzg,
 }
 
 pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farmer> {
@@ -171,10 +161,11 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         reward_address,
         disk_farms,
         node_client,
-        node,
+        piece_getter,
         plotted_pieces,
         farmer_cache,
         farmer_cache_worker,
+        kzg,
     } = farmer_options;
 
     if disk_farms.is_empty() {
@@ -198,38 +189,11 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         .await
         .map_err(|error| anyhow::anyhow!(error))?;
 
-    let kzg = Kzg::new(embedded_kzg_settings());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .map_err(|error| anyhow::anyhow!(error))?;
-    let piece_provider = PieceProvider::new(
-        node.clone(),
-        Some(SegmentCommitmentPieceValidator::new(
-            node.clone(),
-            node_client.clone(),
-            kzg.clone(),
-        )),
-    );
-
-    let piece_getter = Arc::new(FarmerPieceGetter::new(
-        piece_provider,
-        farmer_cache.clone(),
-        node_client.clone(),
-        Arc::clone(&plotted_pieces),
-        DsnCacheRetryPolicy {
-            max_retries: PIECE_GETTER_MAX_RETRIES,
-            backoff: ExponentialBackoff {
-                initial_interval: GET_PIECE_INITIAL_INTERVAL,
-                max_interval: GET_PIECE_MAX_INTERVAL,
-                // Try until we get a valid piece
-                max_elapsed_time: None,
-                multiplier: 1.75,
-                ..ExponentialBackoff::default()
-            },
-        },
-    ));
 
     let farmer_cache_worker_fut = Box::pin(
         farmer_cache_worker

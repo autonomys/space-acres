@@ -13,33 +13,129 @@ use crate::backend::farmer::{
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
     dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode,
-    ConsensusNodeCreationError, SyncState, GENESIS_HASH, RPC_PORT,
+    ConsensusNodeCreationError, SyncState, GENESIS_HASH,
 };
+use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
 use parking_lot::Mutex;
 use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
+use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::pin::pin;
-use std::sync::Arc;
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use std::sync::{Arc, Weak};
+use std::time::Duration;
+use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
+use subspace_core_primitives::{BlockNumber, Piece, PieceIndex, PublicKey};
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
+use subspace_farmer::utils::farmer_piece_getter::{
+    DsnCacheRetryPolicy, FarmerPieceGetter, WeakFarmerPieceGetter,
+};
+use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
-use subspace_farmer::NodeRpcClient;
+use subspace_farmer_components::PieceGetter;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::libp2p::Multiaddr;
+use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_networking::{Node, NodeRunner};
 use subspace_runtime_primitives::Balance;
+use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::runtime::Handle;
+use tokio::sync::Semaphore;
 use tracing::{error, info_span, warn, Instrument};
+
+/// Get piece retry attempts number.
+const PIECE_GETTER_MAX_RETRIES: u16 = 7;
+/// Global limit on combined piece getter, a nice number that should result in enough pieces
+/// downloading successfully during DSN sync
+const PIECE_GETTER_MAX_CONCURRENCY: usize = 512;
+/// Defines initial duration between get_piece calls.
+const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
+/// Defines max duration between get_piece calls.
+const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
+
+#[derive(Debug, Clone)]
+struct PieceGetterWrapper {
+    farmer_piece_getter:
+        FarmerPieceGetter<SegmentCommitmentPieceValidator<MaybeNodeRpcClient>, MaybeNodeRpcClient>,
+    semaphore: Arc<Semaphore>,
+}
+
+#[async_trait::async_trait]
+impl DsnSyncPieceGetter for PieceGetterWrapper {
+    async fn get_piece(
+        &self,
+        piece_index: PieceIndex,
+    ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
+        let _permit = self.semaphore.acquire().await;
+        Ok(self.farmer_piece_getter.get_piece_fast(piece_index).await)
+    }
+}
+
+#[async_trait::async_trait]
+impl PieceGetter for PieceGetterWrapper {
+    async fn get_piece(
+        &self,
+        piece_index: PieceIndex,
+    ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
+        let _permit = self.semaphore.acquire().await;
+        self.farmer_piece_getter.get_piece(piece_index).await
+    }
+}
+
+impl PieceGetterWrapper {
+    fn new(
+        farmer_piece_getter: FarmerPieceGetter<
+            SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
+            MaybeNodeRpcClient,
+        >,
+    ) -> Self {
+        let semaphore = Arc::new(Semaphore::new(PIECE_GETTER_MAX_CONCURRENCY));
+        Self {
+            farmer_piece_getter,
+            semaphore,
+        }
+    }
+
+    fn downgrade(&self) -> WeakPieceGetterWrapper {
+        WeakPieceGetterWrapper {
+            farmer_piece_getter: self.farmer_piece_getter.downgrade(),
+            semaphore: Arc::downgrade(&self.semaphore),
+        }
+    }
+}
+
+// TODO: Derive `Debug` after https://github.com/subspace/subspace/pull/2573
+#[derive(Clone)]
+struct WeakPieceGetterWrapper {
+    farmer_piece_getter: WeakFarmerPieceGetter<
+        SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
+        MaybeNodeRpcClient,
+    >,
+    semaphore: Weak<Semaphore>,
+}
+
+#[async_trait::async_trait]
+impl PieceGetter for WeakPieceGetterWrapper {
+    async fn get_piece(
+        &self,
+        piece_index: PieceIndex,
+    ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
+        let Some(semaphore) = self.semaphore.upgrade() else {
+            return Ok(None);
+        };
+        let _permit = semaphore.acquire().await;
+        self.farmer_piece_getter.get_piece(piece_index).await
+    }
+}
 
 /// Major steps in application loading progress
 #[derive(Debug, Clone)]
@@ -289,12 +385,42 @@ async fn load(
     )
     .await?;
 
+    let kzg = Kzg::new(embedded_kzg_settings());
+    let piece_provider = PieceProvider::new(
+        node.clone(),
+        Some(SegmentCommitmentPieceValidator::new(
+            node.clone(),
+            maybe_node_client.clone(),
+            kzg.clone(),
+        )),
+    );
+
+    let piece_getter = PieceGetterWrapper::new(FarmerPieceGetter::new(
+        piece_provider,
+        farmer_cache.clone(),
+        maybe_node_client.clone(),
+        Arc::clone(&plotted_pieces),
+        DsnCacheRetryPolicy {
+            max_retries: PIECE_GETTER_MAX_RETRIES,
+            backoff: ExponentialBackoff {
+                initial_interval: GET_PIECE_INITIAL_INTERVAL,
+                max_interval: GET_PIECE_MAX_INTERVAL,
+                // Try until we get a valid piece
+                max_elapsed_time: None,
+                multiplier: 1.75,
+                ..ExponentialBackoff::default()
+            },
+        },
+    ));
+
     let create_consensus_node_fut = create_consensus_node(
         &network_keypair,
         config.node_path.clone(),
         config.network.substrate_port,
         chain_spec,
+        Arc::new(piece_getter.clone()),
         node.clone(),
+        &maybe_node_client,
         notifications_sender,
     );
     let consensus_node = match create_consensus_node_fut.await? {
@@ -310,11 +436,12 @@ async fn load(
     let farmer = create_farmer(
         config.reward_address,
         config.farms.clone(),
-        node,
         plotted_pieces,
         farmer_cache,
         farmer_cache_worker,
-        &maybe_node_client,
+        maybe_node_client,
+        kzg,
+        piece_getter,
         notifications_sender,
     )
     .await?;
@@ -714,7 +841,6 @@ async fn create_networking_stack(
         .await?;
 
     let mut network_options = NetworkOptions {
-        // TODO: Persist keypair on disk
         keypair: network_keypair.clone(),
         bootstrap_nodes,
         listen_on: vec![
@@ -774,12 +900,15 @@ async fn create_networking_stack(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn create_consensus_node(
     network_keypair: &Keypair,
     node_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
+    piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
     node: Node,
+    maybe_node_rpc_client: &MaybeNodeRpcClient,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<LoadedConsensusChainNode> {
     notifications_sender
@@ -789,8 +918,15 @@ async fn create_consensus_node(
         })
         .await?;
 
-    let create_consensus_node_fut =
-        node::create_consensus_node(network_keypair, node_path, substrate_port, chain_spec, node);
+    let create_consensus_node_fut = node::create_consensus_node(
+        network_keypair,
+        node_path,
+        substrate_port,
+        chain_spec,
+        piece_getter,
+        node,
+        maybe_node_rpc_client,
+    );
     let consensus_node = match create_consensus_node_fut.await {
         Ok(consensus_node) => consensus_node,
         Err(ConsensusNodeCreationError::Service(error)) => {
@@ -815,11 +951,12 @@ async fn create_consensus_node(
 async fn create_farmer(
     reward_address: PublicKey,
     disk_farms: Vec<DiskFarm>,
-    node: Node,
     plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
     farmer_cache: FarmerCache,
     farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
-    maybe_node_client: &MaybeNodeRpcClient,
+    node_client: MaybeNodeRpcClient,
+    kzg: Kzg,
+    piece_getter: PieceGetterWrapper,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<Farmer> {
     notifications_sender
@@ -829,20 +966,15 @@ async fn create_farmer(
         })
         .await?;
 
-    let node_client = NodeRpcClient::new(&format!("ws://127.0.0.1:{RPC_PORT}")).await?;
-
-    // Inject working node client into wrapper we have created before such that networking can respond to incoming
-    // requests properly
-    maybe_node_client.inject(node_client.clone());
-
     let farmer_options = FarmerOptions {
         reward_address,
         disk_farms,
         node_client,
-        node,
         plotted_pieces,
         farmer_cache,
         farmer_cache_worker,
+        kzg,
+        piece_getter,
     };
 
     let farmer = farmer::create_farmer(farmer_options).await?;
