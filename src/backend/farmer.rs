@@ -4,8 +4,8 @@ use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
 use anyhow::anyhow;
+use backoff::ExponentialBackoff;
 use event_listener_primitives::HandlerId;
-use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt};
@@ -13,6 +13,7 @@ use parking_lot::Mutex;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
@@ -22,7 +23,7 @@ use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
     SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
-use subspace_farmer::utils::farmer_piece_getter::FarmerPieceGetter;
+use subspace_farmer::utils::farmer_piece_getter::{DsnCacheRetryPolicy, FarmerPieceGetter};
 use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
@@ -33,11 +34,18 @@ use subspace_farmer::{NodeClient, NodeRpcClient};
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_networking::Node;
+use thread_priority::ThreadPriority;
 use tokio::sync::Semaphore;
 use tracing::{error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
 const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
+/// Get piece retry attempts number.
+const PIECE_GETTER_MAX_RETRIES: u16 = 7;
+/// Defines initial duration between get_piece calls.
+const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
+/// Defines max duration between get_piece calls.
+const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct InitialFarmState {
@@ -210,6 +218,17 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         farmer_cache.clone(),
         node_client.clone(),
         Arc::clone(&plotted_pieces),
+        DsnCacheRetryPolicy {
+            max_retries: PIECE_GETTER_MAX_RETRIES,
+            backoff: ExponentialBackoff {
+                initial_interval: GET_PIECE_INITIAL_INTERVAL,
+                max_interval: GET_PIECE_MAX_INTERVAL,
+                // Try until we get a valid piece
+                max_elapsed_time: None,
+                multiplier: 1.75,
+                ..ExponentialBackoff::default()
+            },
+        },
     ));
 
     let farmer_cache_worker_fut = Box::pin(
@@ -266,14 +285,10 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         plotting_thread_pool_core_indices
             .into_iter()
             .zip(replotting_thread_pool_core_indices),
+        Some(ThreadPriority::Min),
     )?;
 
-    let mut plotting_delay_senders = Vec::with_capacity(disk_farms.len());
-
     for (disk_farm_index, disk_farm) in disk_farms.into_iter().enumerate() {
-        let (plotting_delay_sender, plotting_delay_receiver) = oneshot::channel();
-        plotting_delay_senders.push(plotting_delay_sender);
-
         let single_disk_farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
             SingleDiskFarmOptions {
                 directory: disk_farm.directory.clone(),
@@ -291,7 +306,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 farm_during_initial_plotting,
                 farming_thread_pool_size: recommended_number_of_farming_threads(),
                 plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
-                plotting_delay: Some(plotting_delay_receiver),
                 disable_farm_locking: false,
             },
             disk_farm_index,
@@ -333,24 +347,20 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         single_disk_farms.push(single_disk_farm);
     }
 
-    let cache_acknowledgement_receiver = farmer_cache
-        .replace_backing_caches(
-            single_disk_farms
-                .iter()
-                .map(|single_disk_farm| single_disk_farm.piece_cache())
-                .collect(),
-        )
-        .await;
-
-    // Wait for cache initialization before starting plotting
-    tokio::spawn(async move {
-        if cache_acknowledgement_receiver.await.is_ok() {
-            for plotting_delay_sender in plotting_delay_senders {
-                // Doesn't matter if receiver is gone
-                let _ = plotting_delay_sender.send(());
-            }
-        }
-    });
+    drop(
+        farmer_cache
+            .replace_backing_caches(
+                single_disk_farms
+                    .iter()
+                    .map(|single_disk_farm| single_disk_farm.piece_cache())
+                    .collect(),
+                single_disk_farms
+                    .iter()
+                    .map(|single_disk_farm| single_disk_farm.plot_cache())
+                    .collect(),
+            )
+            .await,
+    );
 
     // Store piece readers so we can reference them later
     let piece_readers = single_disk_farms
