@@ -119,7 +119,6 @@ impl Component for RunningView {
 
                             gtk::Box {
                                 set_spacing: 5,
-                                set_tooltip: "Plotting starts after piece cache sync is complete",
 
                                 gtk::Label {
                                     set_halign: gtk::Align::Start,
@@ -294,13 +293,6 @@ impl RunningView {
                     );
                 }
                 FarmerNotification::FarmerCacheSyncProgress { progress } => {
-                    let old_synced = self.farmer_state.piece_cache_sync_progress == 100.0;
-                    let new_synced = progress == 100.0;
-                    if old_synced != new_synced {
-                        self.farms
-                            .broadcast(FarmWidgetInput::PieceCacheSynced(new_synced));
-                    }
-
                     self.farmer_state.piece_cache_sync_progress = progress;
                 }
             },

@@ -84,7 +84,6 @@ pub(super) enum FarmWidgetInput {
         update: SectorUpdate,
     },
     FarmingNotification(FarmingNotification),
-    PieceCacheSynced(bool),
     NodeSynced(bool),
 }
 
@@ -97,7 +96,6 @@ pub(super) struct FarmWidget {
     sector_plotting_time: SingleSumSMA<Duration, u32, SECTOR_PLOTTING_TIME_TRACKING_WINDOW>,
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
-    is_piece_cache_synced: bool,
     is_node_synced: bool,
     farm_during_initial_plotting: bool,
     sector_rows: gtk::Box,
@@ -203,12 +201,8 @@ impl FactoryComponent for FarmWidget {
             },
 
             #[transition = "SlideUpDown"]
-            match (self.plotting_state, self.is_piece_cache_synced) {
-                (_, false) => gtk::Label {
-                    set_halign: gtk::Align::Start,
-                    set_label: "Waiting for piece cache sync",
-                },
-                (PlottingState::Plotting { kind, progress }, _) => gtk::Box {
+            match self.plotting_state {
+                PlottingState::Plotting { kind, progress } => gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 10,
 
@@ -276,7 +270,7 @@ impl FactoryComponent for FarmWidget {
                         set_fraction: progress as f64 / 100.0,
                     },
                 },
-                (PlottingState::Idle, _) => gtk::Box {
+                PlottingState::Idle => gtk::Box {
                     gtk::Label {
                         #[watch]
                         set_label: if self.is_node_synced {
@@ -323,7 +317,6 @@ impl FactoryComponent for FarmWidget {
             sector_plotting_time: SingleSumSMA::from_zero(Duration::ZERO),
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
-            is_piece_cache_synced: false,
             is_node_synced: false,
             farm_during_initial_plotting: init.farm_during_initial_plotting,
             sector_rows,
@@ -416,9 +409,6 @@ impl FarmWidget {
                     self.non_fatal_farming_error.replace(error);
                 }
             },
-            FarmWidgetInput::PieceCacheSynced(synced) => {
-                self.is_piece_cache_synced = synced;
-            }
             FarmWidgetInput::NodeSynced(synced) => {
                 self.is_node_synced = synced;
             }
