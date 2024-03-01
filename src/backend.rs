@@ -113,8 +113,7 @@ impl PieceGetterWrapper {
     }
 }
 
-// TODO: Derive `Debug` after https://github.com/subspace/subspace/pull/2573
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct WeakPieceGetterWrapper {
     farmer_piece_getter: WeakFarmerPieceGetter<
         SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,

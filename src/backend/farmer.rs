@@ -389,9 +389,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         .map(|single_disk_farm| async {
             InitialFarmState {
                 total_sectors_count: single_disk_farm.total_sectors_count(),
-                // TODO: Should be `SectorSize` from the beginning
-                plotted_sectors_count: single_disk_farm.plotted_sectors_count().await
-                    as SectorIndex,
+                plotted_sectors_count: single_disk_farm.plotted_sectors_count().await,
             }
         })
         .collect::<FuturesOrdered<_>>()
