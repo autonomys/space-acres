@@ -14,6 +14,7 @@ use parking_lot::Mutex;
 use rayon::prelude::*;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
@@ -22,7 +23,8 @@ use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
-    SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
+    SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError,
+    SingleDiskFarmOptions, SingleDiskFarmSummary,
 };
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
@@ -70,6 +72,8 @@ pub(super) struct Farmer {
     initial_farm_states: Vec<InitialFarmState>,
     farm_during_initial_plotting: bool,
     notifications: Arc<Notifications>,
+    /// Whether one of the farms was resized during initialization
+    resized: bool,
 }
 
 impl Farmer {
@@ -116,6 +120,11 @@ impl Farmer {
 
     pub(super) fn farm_during_initial_plotting(&self) -> bool {
         self.farm_during_initial_plotting
+    }
+
+    /// Whether one of the farms was resized during initialization
+    pub(super) fn resized(&self) -> bool {
+        self.resized
     }
 
     pub(super) fn on_notification(&self, callback: HandlerFn<FarmerNotification>) -> HandlerId {
@@ -253,11 +262,13 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         Some(ThreadPriority::Min),
     )?;
 
-    let (single_disk_farms, plotting_delay_senders) = tokio::task::block_in_place(|| {
+    let (single_disk_farms, plotting_delay_senders, resized) = tokio::task::block_in_place(|| {
         let handle = Handle::current();
         let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
+
+        let resized = &AtomicBool::new(false);
 
         let single_disk_farms = disk_farms
             .into_par_iter()
@@ -266,6 +277,18 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             .map(
                 move |(disk_farm_index, (disk_farm, plotting_delay_receiver))| {
                     let _tokio_handle_guard = handle.enter();
+
+                    let resized_local =
+                        match SingleDiskFarm::collect_summary(disk_farm.directory.clone()) {
+                            SingleDiskFarmSummary::Found { info, .. } => {
+                                info.allocated_space() != disk_farm.allocated_plotting_space
+                            }
+                            SingleDiskFarmSummary::NotFound { .. } => true,
+                            SingleDiskFarmSummary::Error { .. } => true,
+                        };
+                    if resized_local {
+                        resized.store(true, Ordering::Release);
+                    }
 
                     let single_disk_farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
                         SingleDiskFarmOptions {
@@ -332,7 +355,11 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        anyhow::Ok((single_disk_farms, plotting_delay_senders))
+        anyhow::Ok((
+            single_disk_farms,
+            plotting_delay_senders,
+            resized.load(Ordering::Acquire),
+        ))
     })?;
 
     {
@@ -538,5 +565,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         initial_farm_states,
         farm_during_initial_plotting,
         notifications,
+        resized,
     })
 }
