@@ -23,18 +23,18 @@ jobs:
             suffix: ubuntu-x86_64-skylake-${{ github.ref_name }}
             rustflags: "-C target-cpu=skylake"
           # TODO: Package for more Linux distributions/packaging formats/architectures and macOS
-#          - os: ubuntu-22.04
-#            target: aarch64-unknown-linux-gnu
-#            suffix: ubuntu-aarch64-${{ github.ref_name }}
-#            # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
-#            #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
-#            rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
-#          - os: macos-14
-#            target: aarch64-apple-darwin
-#            suffix: macos-aarch64-${{ github.ref_name }}
-#            # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
-#            #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
-#            rustflags: "--cfg aes_armv8"
+          #- os: ubuntu-22.04
+          #  target: aarch64-unknown-linux-gnu
+          #  suffix: ubuntu-aarch64-${{ github.ref_name }}
+          #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
+          #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+          #  rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
+          #- os: macos-14
+          #  target: aarch64-apple-darwin
+          #  suffix: macos-aarch64-${{ github.ref_name }}
+          #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
+          #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+          #  rustflags: "--cfg aes_armv8"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             suffix: windows-x86_64-skylake-${{ github.ref_name }}
@@ -64,24 +64,10 @@ jobs:
         run: brew install gtk4
         if: runner.os == 'macOS'
 
-      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
-      - name: Move git binary (Windows)
-        run: |
-          Move-Item "C:\Program Files\Git\usr\bin" "C:\Program Files\Git\usr\notbin"
-          Move-Item "C:\Program Files\Git\bin" "C:\Program Files\Git\notbin"
-        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-
       - name: Install GTK4 (Windows)
         run: |
           pipx install gvsbuild
           gvsbuild build gtk4 librsvg
-        if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-
-      # TODO: This is a workaround for https://github.com/wingtk/gvsbuild/issues/984, remove once fixed upstream
-      - name: Restore git binary (Windows)
-        run: |
-          Move-Item "C:\Program Files\Git\usr\notbin" "C:\Program Files\Git\usr\bin"
-          Move-Item "C:\Program Files\Git\notbin" "C:\Program Files\Git\bin"
         if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       - name: Configure GTK4 (Windows)
