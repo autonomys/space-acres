@@ -6,12 +6,15 @@ use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
 use event_listener_primitives::HandlerId;
+use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt};
 use parking_lot::Mutex;
+use rayon::prelude::*;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
@@ -20,7 +23,8 @@ use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
-    SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
+    SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError,
+    SingleDiskFarmOptions, SingleDiskFarmSummary,
 };
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
@@ -30,6 +34,7 @@ use subspace_farmer::utils::{
 use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
 use thread_priority::ThreadPriority;
+use tokio::runtime::Handle;
 use tokio::sync::Semaphore;
 use tracing::{error, info, info_span, Instrument};
 
@@ -67,6 +72,8 @@ pub(super) struct Farmer {
     initial_farm_states: Vec<InitialFarmState>,
     farm_during_initial_plotting: bool,
     notifications: Arc<Notifications>,
+    /// Whether one of the farms was resized during initialization
+    resized: bool,
 }
 
 impl Farmer {
@@ -113,6 +120,11 @@ impl Farmer {
 
     pub(super) fn farm_during_initial_plotting(&self) -> bool {
         self.farm_during_initial_plotting
+    }
+
+    /// Whether one of the farms was resized during initialization
+    pub(super) fn resized(&self) -> bool {
+        self.resized
     }
 
     pub(super) fn on_notification(&self, callback: HandlerFn<FarmerNotification>) -> HandlerId {
@@ -201,8 +213,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             .in_current_span(),
     );
 
-    let mut single_disk_farms = Vec::with_capacity(disk_farms.len());
-
     let farm_during_initial_plotting = should_farm_during_initial_plotting();
     let mut plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
     let mut replotting_thread_pool_core_indices = {
@@ -252,79 +262,139 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         Some(ThreadPriority::Min),
     )?;
 
-    for (disk_farm_index, disk_farm) in disk_farms.into_iter().enumerate() {
-        let single_disk_farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
-            SingleDiskFarmOptions {
-                directory: disk_farm.directory.clone(),
-                farmer_app_info: farmer_app_info.clone(),
-                allocated_space: disk_farm.allocated_plotting_space,
-                max_pieces_in_sector: farmer_app_info.protocol_info.max_pieces_in_sector,
-                node_client: node_client.clone(),
-                reward_address,
-                kzg: kzg.clone(),
-                erasure_coding: erasure_coding.clone(),
-                piece_getter: piece_getter.clone(),
-                cache_percentage: CACHE_PERCENTAGE,
-                downloading_semaphore: Arc::clone(&downloading_semaphore),
-                record_encoding_concurrency,
-                farm_during_initial_plotting,
-                farming_thread_pool_size: recommended_number_of_farming_threads(),
-                plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
-                disable_farm_locking: false,
-            },
-            disk_farm_index,
-        );
+    let (single_disk_farms, plotting_delay_senders, resized) = tokio::task::block_in_place(|| {
+        let handle = Handle::current();
+        let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
+            .map(|_| oneshot::channel())
+            .unzip::<_, _, Vec<_>, Vec<_>>();
 
-        let single_disk_farm = match single_disk_farm_fut.await {
-            Ok(single_disk_farm) => single_disk_farm,
-            Err(SingleDiskFarmError::InsufficientAllocatedSpace {
-                min_space,
-                allocated_space,
-            }) => {
-                return Err(anyhow::anyhow!(
-                    "Allocated space {} ({}) is not enough, minimum is ~{} (~{}, {} bytes to be \
-                    exact)",
-                    bytesize::to_string(allocated_space, true),
-                    bytesize::to_string(allocated_space, false),
-                    bytesize::to_string(min_space, true),
-                    bytesize::to_string(min_space, false),
-                    min_space
-                ));
-            }
-            Err(error) => {
-                return Err(error.into());
-            }
-        };
+        let resized = &AtomicBool::new(false);
 
-        let info = single_disk_farm.info();
-        println!("Single disk farm {disk_farm_index}:");
-        println!("  ID: {}", info.id());
-        println!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
-        println!("  Public key: 0x{}", hex::encode(info.public_key()));
-        println!(
-            "  Allocated space: {} ({})",
-            bytesize::to_string(info.allocated_space(), true),
-            bytesize::to_string(info.allocated_space(), false)
-        );
-        println!("  Directory: {}", disk_farm.directory.display());
+        let single_disk_farms = disk_farms
+            .into_par_iter()
+            .zip(plotting_delay_receivers)
+            .enumerate()
+            .map(
+                move |(disk_farm_index, (disk_farm, plotting_delay_receiver))| {
+                    let _tokio_handle_guard = handle.enter();
 
-        single_disk_farms.push(single_disk_farm);
-    }
+                    let resized_local =
+                        match SingleDiskFarm::collect_summary(disk_farm.directory.clone()) {
+                            SingleDiskFarmSummary::Found { info, .. } => {
+                                info.allocated_space() != disk_farm.allocated_plotting_space
+                            }
+                            SingleDiskFarmSummary::NotFound { .. } => true,
+                            SingleDiskFarmSummary::Error { .. } => true,
+                        };
+                    if resized_local {
+                        resized.store(true, Ordering::Release);
+                    }
 
-    drop(
-        farmer_cache
-            .replace_backing_caches(
-                single_disk_farms
-                    .iter()
-                    .map(|single_disk_farm| single_disk_farm.piece_cache())
-                    .collect(),
-                single_disk_farms
-                    .iter()
-                    .map(|single_disk_farm| single_disk_farm.plot_cache())
-                    .collect(),
+                    let single_disk_farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
+                        SingleDiskFarmOptions {
+                            directory: disk_farm.directory.clone(),
+                            farmer_app_info: farmer_app_info.clone(),
+                            // TODO: Check for allocated space change and show warning in UI that
+                            //  restart is needed on Windows
+                            allocated_space: disk_farm.allocated_plotting_space,
+                            max_pieces_in_sector: farmer_app_info
+                                .protocol_info
+                                .max_pieces_in_sector,
+                            node_client: node_client.clone(),
+                            reward_address,
+                            kzg: kzg.clone(),
+                            erasure_coding: erasure_coding.clone(),
+                            piece_getter: piece_getter.clone(),
+                            cache_percentage: CACHE_PERCENTAGE,
+                            downloading_semaphore: Arc::clone(&downloading_semaphore),
+                            record_encoding_concurrency,
+                            farm_during_initial_plotting,
+                            farming_thread_pool_size: recommended_number_of_farming_threads(),
+                            plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
+                            plotting_delay: Some(plotting_delay_receiver),
+                            disable_farm_locking: false,
+                        },
+                        disk_farm_index,
+                    );
+
+                    let single_disk_farm = match handle.block_on(single_disk_farm_fut) {
+                        Ok(single_disk_farm) => single_disk_farm,
+                        Err(SingleDiskFarmError::InsufficientAllocatedSpace {
+                            min_space,
+                            allocated_space,
+                        }) => {
+                            return Err(anyhow::anyhow!(
+                                "Allocated space {} ({}) is not enough, minimum is ~{} (~{}, \
+                                {} bytes to be exact)",
+                                bytesize::to_string(allocated_space, true),
+                                bytesize::to_string(allocated_space, false),
+                                bytesize::to_string(min_space, true),
+                                bytesize::to_string(min_space, false),
+                                min_space
+                            ));
+                        }
+                        Err(error) => {
+                            return Err(error.into());
+                        }
+                    };
+
+                    let info = single_disk_farm.info();
+                    println!("Single disk farm {disk_farm_index}:");
+                    println!("  ID: {}", info.id());
+                    println!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
+                    println!("  Public key: 0x{}", hex::encode(info.public_key()));
+                    println!(
+                        "  Allocated space: {} ({})",
+                        bytesize::to_string(info.allocated_space(), true),
+                        bytesize::to_string(info.allocated_space(), false)
+                    );
+                    println!("  Directory: {}", disk_farm.directory.display());
+
+                    Ok(single_disk_farm)
+                },
             )
-            .await,
-    );
+            .collect::<Result<Vec<_>, _>>()?;
+
+        anyhow::Ok((
+            single_disk_farms,
+            plotting_delay_senders,
+            resized.load(Ordering::Acquire),
+        ))
+    })?;
+
+    {
+        let handler_id = Arc::new(Mutex::new(None));
+        // Wait for piece cache to read already cached contents before starting plotting to improve
+        // cache hit ratio
+        handler_id
+            .lock()
+            .replace(farmer_cache.on_sync_progress(Arc::new({
+                let handler_id = Arc::clone(&handler_id);
+                let plotting_delay_senders = Mutex::new(plotting_delay_senders);
+
+                move |_progress| {
+                    for plotting_delay_sender in plotting_delay_senders.lock().drain(..) {
+                        // Doesn't matter if receiver is gone
+                        let _ = plotting_delay_sender.send(());
+                    }
+
+                    // Unsubscribe from this event
+                    handler_id.lock().take();
+                }
+            })));
+    }
+    farmer_cache
+        .replace_backing_caches(
+            single_disk_farms
+                .iter()
+                .map(|single_disk_farm| single_disk_farm.piece_cache())
+                .collect(),
+            single_disk_farms
+                .iter()
+                .map(|single_disk_farm| single_disk_farm.plot_cache())
+                .collect(),
+        )
+        .await;
 
     // Store piece readers so we can reference them later
     let piece_readers = single_disk_farms
@@ -495,5 +565,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         initial_farm_states,
         farm_during_initial_plotting,
         notifications,
+        resized,
     })
 }

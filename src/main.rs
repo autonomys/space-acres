@@ -610,8 +610,21 @@ impl App {
                 reward_address_balance,
                 initial_farm_states,
                 farm_during_initial_plotting,
+                resized,
                 chain_info,
             } => {
+                // TODO: Workaround for
+                //  https://github.com/al8n/fs4-rs/issues/13
+                //  https://learn.microsoft.com/en-us/answers/questions/1608540/getfileinformationbyhandle-followed-by-read-with-f
+                if resized && cfg!(windows) {
+                    self.status_bar_notification = StatusBarNotification::Warning {
+                        message:
+                            "One of the farms was resized, restart is needed on Windows for best \
+                            performance"
+                                .to_string(),
+                        restart: true,
+                    };
+                }
                 self.current_raw_config.replace(raw_config.clone());
                 self.current_view = View::Running;
                 self.running_view.emit(RunningInput::Initialize {
