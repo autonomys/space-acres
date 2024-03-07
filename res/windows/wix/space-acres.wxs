@@ -167,10 +167,10 @@
                             <File Id='pango_1.0_0.dll' Name='pango-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pango-1.0-0.dll' />
                             <File Id='pangocairo_1.0_0.dll' Name='pangocairo-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangocairo-1.0-0.dll' />
                             <File Id='pangowin32_1.0_0.dll' Name='pangowin32-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangowin32-1.0-0.dll' />
-                            <File Id='pcre2_16.dll' Name='pcre2-16.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-16.dll' />
-                            <File Id='pcre2_32.dll' Name='pcre2-32.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-32.dll' />
-                            <File Id='pcre2_8.dll' Name='pcre2-8.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-8.dll' />
-                            <File Id='pcre2_posix.dll' Name='pcre2-posix.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-posix.dll' />
+                            <File Id='pcre2_16_0.dll' Name='pcre2-16-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-16-0.dll' />
+                            <File Id='pcre2_32_0.dll' Name='pcre2-32-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-32-0.dll' />
+                            <File Id='pcre2_8_0.dll' Name='pcre2-8-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-8-0.dll' />
+                            <File Id='pcre2_posix_3.dll' Name='pcre2-posix-3.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-posix-3.dll' />
                             <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pixman-1-0.dll' />
                             <File Id='pkgconf_4.dll' Name='pkgconf-4.dll' DiskId='1' Source='target\wix\gtk4\bin\pkgconf-4.dll' />
                             <File Id='rsvg_2.0_vs17.dll' Name='rsvg-2.0-vs17.dll' DiskId='1' Source='target\wix\gtk4\bin\rsvg-2.0-vs17.dll' />
