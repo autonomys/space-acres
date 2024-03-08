@@ -3,6 +3,7 @@
 
 mod backend;
 mod frontend;
+mod shortcut;
 
 use crate::backend::config::RawConfig;
 use crate::backend::{wipe, BackendAction, BackendNotification};
@@ -10,6 +11,7 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInput, RunningView};
+use crate::shortcut::open_folder;
 use clap::Parser;
 use duct::cmd;
 use file_rotate::compression::Compression;
@@ -82,6 +84,7 @@ type PosTable = ChiaTable;
 enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
+    OpenLogfolder,
     OpenReconfiguration,
     ShowAboutDialog,
     InitialConfiguration,
@@ -222,6 +225,13 @@ impl AsyncComponent for App {
                                 gtk::Box {
                                     set_orientation: gtk::Orientation::Vertical,
                                     set_spacing: 5,
+
+                                    gtk::Button {
+                                        connect_clicked => AppInput::OpenLogfolder,
+                                        set_label: "Logs folder",
+                                        #[watch]
+                                        set_visible: model.current_raw_config.is_some(),
+                                    },
 
                                     gtk::Button {
                                         connect_clicked => AppInput::OpenReconfiguration,
@@ -514,6 +524,9 @@ impl AsyncComponent for App {
         _root: &Self::Root,
     ) {
         match input {
+            AppInput::OpenLogfolder => {
+                self.open_log_folder();
+            }
             AppInput::BackendNotification(notification) => {
                 self.process_backend_notification(notification);
             }
@@ -564,6 +577,11 @@ impl AsyncComponent for App {
 }
 
 impl App {
+    fn open_log_folder(&mut self) {
+        let app_data_dir = dirs::data_local_dir().expect("data_local_dir not find");
+        let pkg_app_data_dir = app_data_dir.join(env!("CARGO_PKG_NAME"));
+        open_folder(pkg_app_data_dir);
+    }
     fn process_backend_notification(&mut self, notification: BackendNotification) {
         match notification {
             // TODO: Render progress

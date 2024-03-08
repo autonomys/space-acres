@@ -1,5 +1,6 @@
 use crate::backend::node::{ChainInfo, SyncKind, SyncState};
 use crate::backend::NodeNotification;
+use crate::open_folder;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use parking_lot::Mutex;
@@ -31,6 +32,7 @@ pub enum NodeInput {
         node_path: PathBuf,
     },
     NodeNotification(NodeNotification),
+    OpenNodeFolder(),
 }
 
 #[derive(Debug)]
@@ -64,12 +66,20 @@ impl Component for NodeView {
             set_spacing: 10,
 
             gtk::Box {
-                gtk::Label {
+                gtk::Button {
                     add_css_class: "heading",
+                    add_css_class : "folder-button",
+                    set_tooltip: "Open Folders",
+                    set_has_frame: false,
+                    set_use_underline: false,
                     set_halign: gtk::Align::Start,
                     #[watch]
                     set_label: &model.chain_name,
+                    connect_clicked[sender] => move |_| {
+                        sender.input(NodeInput::OpenNodeFolder())
+                    }
                 },
+
 
                 gtk::Box {
                     set_halign: gtk::Align::End,
@@ -300,6 +310,10 @@ impl NodeView {
                     }
                 }
             },
+            NodeInput::OpenNodeFolder() => {
+                let node_path = self.node_path.lock().clone();
+                open_folder(node_path);
+            }
         }
     }
 
