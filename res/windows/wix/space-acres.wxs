@@ -129,54 +129,154 @@
                                 Source='$(var.CargoTargetBinDir)\space-acres.exe'
                                 KeyPath='yes'/>
                         </Component>
-                        <Component Id='gtk4' Guid='f34c20a7-fec1-4afa-b06c-0945bbbc420f'>
-                            <File Id='gdbus.exe' Name='gdbus.exe' DiskId='1' Source='target\wix\gtk4\bin\gdbus.exe' />
-                            <File Id='gspawn_win64_helper.exe' Name='gspawn-win64-helper.exe' DiskId='1' Source='target\wix\gtk4\bin\gspawn-win64-helper.exe' />
-                            <File Id='gspawn_win64_helper_console.exe' Name='gspawn-win64-helper-console.exe' DiskId='1' Source='target\wix\gtk4\bin\gspawn-win64-helper-console.exe' />
+                        <!-- TODO: Next block is for cleanup after 0.1.5 -> 0.1.6 upgrade, remove once enough time has passed -->
+                        <Component Id="PcreCleanup" Guid="64d35867-a002-4ac5-8704-ba15236c4ca1">
+                          <RemoveFile Id="pcre2_16.dll" Name="pcre2-16.dll" On="both" />
+                          <RemoveFile Id="pcre2_32.dll" Name="pcre2-32.dll" On="both" />
+                          <RemoveFile Id="pcre2_8.dll" Name="pcre2-8.dll" On="both" />
+                          <RemoveFile Id="pcre2_posix.dll" Name="pcre2-posix.dll" On="both" />
+                        </Component>
 
+                        <Component Id='gtk4_gdbus.exe' Guid='230b7624-23b4-4a74-91f5-d864032a058a'>
+                            <File Id='gdbus.exe' Name='gdbus.exe' DiskId='1' Source='target\wix\gtk4\bin\gdbus.exe' />
+                        </Component>
+                        <Component Id='gtk4_gspawn_win64_helper.exe' Guid='f64e7cfa-d9e5-4674-a5c6-01f14139d08c'>
+                            <File Id='gspawn_win64_helper.exe' Name='gspawn-win64-helper.exe' DiskId='1' Source='target\wix\gtk4\bin\gspawn-win64-helper.exe' />
+                        </Component>
+                        <Component Id='gtk4_gspawn_win64_helper_console.exe' Guid='e886c4d9-aaac-4940-b8ca-7e040c1100e4'>
+                            <File Id='gspawn_win64_helper_console.exe' Name='gspawn-win64-helper-console.exe' DiskId='1' Source='target\wix\gtk4\bin\gspawn-win64-helper-console.exe' />
+                        </Component>
+
+                        <Component Id='gtk4_asprintf.dll' Guid='e04d8196-7642-498a-8240-5c538339a2b2'>
                             <File Id='asprintf.dll' Name='asprintf.dll' DiskId='1' Source='target\wix\gtk4\bin\asprintf.dll' />
+                        </Component>
+                        <Component Id='gtk4_cairo_2.dll' Guid='03389b1a-4b03-461d-8b3d-a16f0d092026'>
                             <File Id='cairo_2.dll' Name='cairo-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-2.dll' />
+                        </Component>
+                        <Component Id='gtk4_cairo_gobject_2.dll' Guid='feb6cf37-1aec-4ecf-8135-a93faf3abd2a'>
                             <File Id='cairo_gobject_2.dll' Name='cairo-gobject-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-gobject-2.dll' />
+                        </Component>
+                        <Component Id='gtk4_cairo_script_interpreter_2.dll' Guid='ba5fa782-a63a-44ff-b82f-7deae3973345'>
                             <File Id='cairo_script_interpreter_2.dll' Name='cairo-script-interpreter-2.dll' DiskId='1' Source='target\wix\gtk4\bin\cairo-script-interpreter-2.dll' />
+                        </Component>
+                        <Component Id='gtk4_epoxy_0.dll' Guid='6d23c93b-ac34-4d98-ad79-279147862cf0'>
                             <File Id='epoxy_0.dll' Name='epoxy-0.dll' DiskId='1' Source='target\wix\gtk4\bin\epoxy-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_ffi_8.dll' Guid='eb810a85-6565-42ac-a079-6015a21b3960'>
                             <File Id='ffi_8.dll' Name='ffi-8.dll' DiskId='1' Source='target\wix\gtk4\bin\ffi-8.dll' />
+                        </Component>
+                        <Component Id='gtk4_fontconfig_1.dll' Guid='3eb83238-af14-43da-aaf0-160b7b88eff9'>
                             <File Id='fontconfig_1.dll' Name='fontconfig-1.dll' DiskId='1' Source='target\wix\gtk4\bin\fontconfig-1.dll' />
+                        </Component>
+                        <Component Id='gtk4_freetype_6.dll' Guid='0c9779a7-9283-4740-8ea8-16a8a29826af'>
                             <File Id='freetype_6.dll' Name='freetype-6.dll' DiskId='1' Source='target\wix\gtk4\bin\freetype-6.dll' />
+                        </Component>
+                        <Component Id='gtk4_fribidi_0.dll' Guid='6046d8f5-c669-4051-8740-a9fc6cb5b439'>
                             <File Id='fribidi_0.dll' Name='fribidi-0.dll' DiskId='1' Source='target\wix\gtk4\bin\fribidi-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gdk_pixbuf_2.0_0.dll' Guid='979b54ea-88c6-4ec8-8f75-06efaaf7da11'>
                             <File Id='gdk_pixbuf_2.0_0.dll' Name='gdk_pixbuf-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gdk_pixbuf-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gettextlib_0.21.0.dll' Guid='cce0f572-7853-40e6-b4d1-02598450d2a7'>
                             <File Id='gettextlib_0.21.0.dll' Name='gettextlib-0.21.0.dll' DiskId='1' Source='target\wix\gtk4\bin\gettextlib-0.21.0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gettextpo.dll' Guid='b12d9e0d-aecf-4f09-8717-d991fc11838c'>
                             <File Id='gettextpo.dll' Name='gettextpo.dll' DiskId='1' Source='target\wix\gtk4\bin\gettextpo.dll' />
+                        </Component>
+                        <Component Id='gtk4_gettextsrc_0.21.0.dll' Guid='d20f51a9-3f60-4153-866c-b904e6229a1c'>
                             <File Id='gettextsrc_0.21.0.dll' Name='gettextsrc-0.21.0.dll' DiskId='1' Source='target\wix\gtk4\bin\gettextsrc-0.21.0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gio_2.0_0.dll' Guid='140c74dd-4c88-425a-8ac0-ee089530342e'>
                             <File Id='gio_2.0_0.dll' Name='gio-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gio-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_glib_2.0_0.dll' Guid='df08294d-fd9f-4e4c-a43b-7769d17812d6'>
                             <File Id='glib_2.0_0.dll' Name='glib-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\glib-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gmodule_2.0_0.dll' Guid='29a0f1bb-fbf7-4742-a639-69baf749f9f0'>
                             <File Id='gmodule_2.0_0.dll' Name='gmodule-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gmodule-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gobject_2.0_0.dll' Guid='c5644741-3596-41e0-b5c0-ec03b75f0692'>
                             <File Id='gobject_2.0_0.dll' Name='gobject-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gobject-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_graphene_1.0_0.dll' Guid='83983c11-25c9-41cc-9d90-26c12bb6f253'>
                             <File Id='graphene_1.0_0.dll' Name='graphene-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\graphene-1.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gthread_2.0_0.dll' Guid='726ee8db-a77d-4c07-8e58-61f56d20c897'>
                             <File Id='gthread_2.0_0.dll' Name='gthread-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gthread-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_gtk_4_1.dll' Guid='25b28ec3-36f6-4e50-8080-e83986aab3d9'>
                             <File Id='gtk_4_1.dll' Name='gtk-4-1.dll' DiskId='1' Source='target\wix\gtk4\bin\gtk-4-1.dll' />
+                        </Component>
+                        <Component Id='gtk4_harfbuzz_cairo.dll' Guid='4a8dfe3d-4071-4568-9f92-89b6bcb04cd7'>
                             <File Id='harfbuzz_cairo.dll' Name='harfbuzz-cairo.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz-cairo.dll' />
+                        </Component>
+                        <Component Id='gtk4_harfbuzz_gobject.dll' Guid='5f18a765-f0dc-486a-8943-f15a69ca5c0a'>
                             <File Id='harfbuzz_gobject.dll' Name='harfbuzz-gobject.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz-gobject.dll' />
+                        </Component>
+                        <Component Id='gtk4_harfbuzz_subset.dll' Guid='8b0c26a6-212c-4f71-a5c1-0079b0ecb043'>
                             <File Id='harfbuzz_subset.dll' Name='harfbuzz-subset.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz-subset.dll' />
+                        </Component>
+                        <Component Id='gtk4_harfbuzz.dll' Guid='14df96a7-c29b-4936-b15d-2e392c6ac87d'>
                             <File Id='harfbuzz.dll' Name='harfbuzz.dll' DiskId='1' Source='target\wix\gtk4\bin\harfbuzz.dll' />
+                        </Component>
+                        <Component Id='gtk4_iconv.dll' Guid='855c0e25-7633-4106-97f1-15d505808fb2'>
                             <File Id='iconv.dll' Name='iconv.dll' DiskId='1' Source='target\wix\gtk4\bin\iconv.dll' />
+                        </Component>
+                        <Component Id='gtk4_intl.dll' Guid='d3a04716-d0f0-4a66-8295-099105191ff2'>
                             <File Id='intl.dll' Name='intl.dll' DiskId='1' Source='target\wix\gtk4\bin\intl.dll' />
+                        </Component>
+                        <Component Id='gtk4_jpeg62.dll' Guid='42892585-e55f-4816-9747-e3287b303281'>
                             <File Id='jpeg62.dll' Name='jpeg62.dll' DiskId='1' Source='target\wix\gtk4\bin\jpeg62.dll' />
+                        </Component>
+                        <Component Id='gtk4_libexpat.dll' Guid='3244e682-acf8-43ef-84c1-422f7953323f'>
                             <File Id='libexpat.dll' Name='libexpat.dll' DiskId='1' Source='target\wix\gtk4\bin\libexpat.dll' />
+                        </Component>
+                        <Component Id='gtk4_libpng16.dll' Guid='f1eb894a-fd88-469d-81ea-640791560a1e'>
                             <File Id='libpng16.dll' Name='libpng16.dll' DiskId='1' Source='target\wix\gtk4\bin\libpng16.dll' />
+                        </Component>
+                        <Component Id='gtk4_libxml2.dll' Guid='dfb79114-fe77-480d-8118-050bd86c3aa5'>
                             <File Id='libxml2.dll' Name='libxml2.dll' DiskId='1' Source='target\wix\gtk4\bin\libxml2.dll' />
+                        </Component>
+                        <Component Id='gtk4_pango_1.0_0.dll' Guid='9f680fdc-42a1-4efa-a526-c04a4a9eb68f'>
                             <File Id='pango_1.0_0.dll' Name='pango-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pango-1.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pangocairo_1.0_0.dll' Guid='9f0d20f0-5267-4e40-a081-2d061774b9f9'>
                             <File Id='pangocairo_1.0_0.dll' Name='pangocairo-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangocairo-1.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pangowin32_1.0_0.dll' Guid='53e28e26-ab17-44da-a6d1-4b698716e4df'>
                             <File Id='pangowin32_1.0_0.dll' Name='pangowin32-1.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pangowin32-1.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pcre2_16_0.dll' Guid='f60be6c2-85e8-4914-afc0-725e6e8e4e81'>
                             <File Id='pcre2_16_0.dll' Name='pcre2-16-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-16-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pcre2_32_0.dll' Guid='05540f99-afaf-4b76-b512-ac444c0ae39a'>
                             <File Id='pcre2_32_0.dll' Name='pcre2-32-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-32-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pcre2_8_0.dll' Guid='9e298ed9-b0c8-4749-8f09-01aa28719a2b'>
                             <File Id='pcre2_8_0.dll' Name='pcre2-8-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-8-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pcre2_posix_3.dll' Guid='d6a3317b-6bf9-489f-a75d-b2f885ec1709'>
                             <File Id='pcre2_posix_3.dll' Name='pcre2-posix-3.dll' DiskId='1' Source='target\wix\gtk4\bin\pcre2-posix-3.dll' />
+                        </Component>
+                        <Component Id='gtk4_pixman_1_0.dll' Guid='9f6dff89-ea6e-4355-9863-f076e915697d'>
                             <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pixman-1-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_pkgconf_4.dll' Guid='d23880bf-56ba-4db2-b17b-b9f9188c864b'>
                             <File Id='pkgconf_4.dll' Name='pkgconf-4.dll' DiskId='1' Source='target\wix\gtk4\bin\pkgconf-4.dll' />
+                        </Component>
+                        <Component Id='gtk4_rsvg_2.0_vs17.dll' Guid='d8c7ebf9-5788-4be0-9cb5-1a3f79c4e569'>
                             <File Id='rsvg_2.0_vs17.dll' Name='rsvg-2.0-vs17.dll' DiskId='1' Source='target\wix\gtk4\bin\rsvg-2.0-vs17.dll' />
+                        </Component>
+                        <Component Id='gtk4_textstyle.dll' Guid='37e769bf-f10c-4e4d-891b-7c6ccacbe7bb'>
                             <File Id='textstyle.dll' Name='textstyle.dll' DiskId='1' Source='target\wix\gtk4\bin\textstyle.dll' />
+                        </Component>
+                        <Component Id='gtk4_tiff.dll' Guid='2df3388b-b7d4-444e-8fb6-68f00f0caba2'>
                             <File Id='tiff.dll' Name='tiff.dll' DiskId='1' Source='target\wix\gtk4\bin\tiff.dll' />
+                        </Component>
+                        <Component Id='gtk4_turbojpeg.dll' Guid='914f9fc2-a3e4-47a7-85b6-e63f2d901bcb'>
                             <File Id='turbojpeg.dll' Name='turbojpeg.dll' DiskId='1' Source='target\wix\gtk4\bin\turbojpeg.dll' />
+                        </Component>
+                        <Component Id='gtk4_zlib1.dll' Guid='b83feda4-4cc4-4ef1-9c95-ce74b785f6d9'>
                             <File Id='zlib1.dll' Name='zlib1.dll' DiskId='1' Source='target\wix\gtk4\bin\zlib1.dll' />
                         </Component>
                     </Directory>
@@ -272,7 +372,54 @@
             <!--<ComponentRef Id='License'/>-->
 
             <ComponentRef Id='binary0'/>
-            <ComponentRef Id='gtk4'/>
+            <ComponentRef Id='PcreCleanup'/>
+            <ComponentRef Id='gtk4_gdbus.exe'/>
+            <ComponentRef Id='gtk4_gspawn_win64_helper.exe'/>
+            <ComponentRef Id='gtk4_gspawn_win64_helper_console.exe'/>
+            <ComponentRef Id='gtk4_asprintf.dll'/>
+            <ComponentRef Id='gtk4_cairo_2.dll'/>
+            <ComponentRef Id='gtk4_cairo_gobject_2.dll'/>
+            <ComponentRef Id='gtk4_cairo_script_interpreter_2.dll'/>
+            <ComponentRef Id='gtk4_epoxy_0.dll'/>
+            <ComponentRef Id='gtk4_ffi_8.dll'/>
+            <ComponentRef Id='gtk4_fontconfig_1.dll'/>
+            <ComponentRef Id='gtk4_freetype_6.dll'/>
+            <ComponentRef Id='gtk4_fribidi_0.dll'/>
+            <ComponentRef Id='gtk4_gdk_pixbuf_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_gettextlib_0.21.0.dll'/>
+            <ComponentRef Id='gtk4_gettextpo.dll'/>
+            <ComponentRef Id='gtk4_gettextsrc_0.21.0.dll'/>
+            <ComponentRef Id='gtk4_gio_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_glib_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_gmodule_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_gobject_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_graphene_1.0_0.dll'/>
+            <ComponentRef Id='gtk4_gthread_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_gtk_4_1.dll'/>
+            <ComponentRef Id='gtk4_harfbuzz_cairo.dll'/>
+            <ComponentRef Id='gtk4_harfbuzz_gobject.dll'/>
+            <ComponentRef Id='gtk4_harfbuzz_subset.dll'/>
+            <ComponentRef Id='gtk4_harfbuzz.dll'/>
+            <ComponentRef Id='gtk4_iconv.dll'/>
+            <ComponentRef Id='gtk4_intl.dll'/>
+            <ComponentRef Id='gtk4_jpeg62.dll'/>
+            <ComponentRef Id='gtk4_libexpat.dll'/>
+            <ComponentRef Id='gtk4_libpng16.dll'/>
+            <ComponentRef Id='gtk4_libxml2.dll'/>
+            <ComponentRef Id='gtk4_pango_1.0_0.dll'/>
+            <ComponentRef Id='gtk4_pangocairo_1.0_0.dll'/>
+            <ComponentRef Id='gtk4_pangowin32_1.0_0.dll'/>
+            <ComponentRef Id='gtk4_pcre2_16_0.dll'/>
+            <ComponentRef Id='gtk4_pcre2_32_0.dll'/>
+            <ComponentRef Id='gtk4_pcre2_8_0.dll'/>
+            <ComponentRef Id='gtk4_pcre2_posix_3.dll'/>
+            <ComponentRef Id='gtk4_pixman_1_0.dll'/>
+            <ComponentRef Id='gtk4_pkgconf_4.dll'/>
+            <ComponentRef Id='gtk4_rsvg_2.0_vs17.dll'/>
+            <ComponentRef Id='gtk4_textstyle.dll'/>
+            <ComponentRef Id='gtk4_tiff.dll'/>
+            <ComponentRef Id='gtk4_turbojpeg.dll'/>
+            <ComponentRef Id='gtk4_zlib1.dll'/>
             <ComponentRef Id='gdk_pixbuf_loaders'/>
             <ComponentRef Id='glib_2.gdk_pixbuf_loaders.cache'/>
             <ComponentRef Id='glib_2.0_schemas'/>
