@@ -264,6 +264,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let (single_disk_farms, plotting_delay_senders, resized) = tokio::task::block_in_place(|| {
         let handle = Handle::current();
+        let faster_read_sector_record_chunks_mode_concurrency = &Semaphore::new(1);
         let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
@@ -313,6 +314,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
                             plotting_delay: Some(plotting_delay_receiver),
                             disable_farm_locking: false,
+                            faster_read_sector_record_chunks_mode_concurrency,
                         },
                         disk_farm_index,
                     );
