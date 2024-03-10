@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![feature(const_option, trait_alias, try_blocks)]
+#![feature(const_option, let_chains, trait_alias, try_blocks)]
 
 mod backend;
 mod frontend;
@@ -848,6 +848,8 @@ impl Cli {
     fn supervisor(mut self) -> io::Result<()> {
         let maybe_app_data_dir = Self::app_data_dir();
 
+        let program = Self::child_program()?;
+
         loop {
             let mut args = vec!["--child-process".to_string()];
             if self.startup {
@@ -863,9 +865,9 @@ impl Cli {
                 .then_some(maybe_app_data_dir.as_ref())
                 .flatten()
             {
-                let mut expression = cmd(env::current_exe()?, args)
+                let mut expression = cmd(&program, args)
                     .stderr_to_stdout()
-                    // We use non-zero status codes and they don't mean error necessarily
+                    // We use non-zero status codes, and they don't mean error necessarily
                     .unchecked()
                     .reader()?;
 
@@ -917,7 +919,7 @@ impl Cli {
                     }
                 }
             } else if WINDOWS_SUBSYSTEM_WINDOWS {
-                cmd(env::current_exe()?, args)
+                cmd(&program, args)
                     .stdin_null()
                     .stdout_null()
                     .stderr_null()
@@ -927,7 +929,7 @@ impl Cli {
                     .status
             } else {
                 eprintln!("App data directory doesn't exist, not creating log file");
-                cmd(env::current_exe()?, args)
+                cmd(&program, args)
                     // We use non-zero status codes and they don't mean error necessarily
                     .unchecked()
                     .run()?
@@ -987,6 +989,50 @@ impl Cli {
             #[cfg(unix)]
             Some(0o600),
         )
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    fn child_program() -> io::Result<PathBuf> {
+        let program = env::current_exe()?;
+
+        if !std::arch::is_x86_feature_detected!("xsavec") {
+            return Ok(program);
+        }
+
+        let mut maybe_extension = program.extension();
+        let Some(file_name) = program.file_stem() else {
+            return Ok(program);
+        };
+
+        let mut file_name = file_name.to_os_string();
+
+        if let Some(extension) = maybe_extension
+            && extension != "exe"
+        {
+            file_name = program
+                .file_name()
+                .expect("Checked above; qed")
+                .to_os_string();
+            maybe_extension = None;
+        }
+
+        file_name.push("-modern");
+        if let Some(extension) = maybe_extension {
+            file_name.push(".");
+            file_name.push(extension);
+        }
+        let mut modern_program = program.clone();
+        modern_program.set_file_name(file_name);
+        if modern_program.exists() {
+            Ok(modern_program)
+        } else {
+            Ok(program)
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    fn child_program() -> io::Result<PathBuf> {
+        env::current_exe()
     }
 }
 
