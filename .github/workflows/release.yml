@@ -21,7 +21,8 @@ jobs:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             suffix: ubuntu-x86_64-skylake-${{ github.ref_name }}
-            rustflags: "-C target-cpu=skylake"
+            modern-rustflags: "-C target-cpu=skylake"
+            rustflags: "-C target-cpu=x86-64-v2"
           # TODO: Package for more Linux distributions/packaging formats/architectures and macOS
           #- os: ubuntu-22.04
           #  target: aarch64-unknown-linux-gnu
@@ -38,10 +39,10 @@ jobs:
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             suffix: windows-x86_64-skylake-${{ github.ref_name }}
-            rustflags: "-C target-cpu=skylake"
+            modern-rustflags: "-C target-cpu=skylake"
+            rustflags: "-C target-cpu=x86-64-v2"
+      fail-fast: false
     runs-on: ${{ matrix.build.os }}
-    env:
-      RUSTFLAGS: ${{ matrix.build.rustflags }}
 
     steps:
       - name: Checkout
@@ -126,10 +127,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build app (Linux and Windows)
+      - name: Build app (Linux, modern)
+        env:
+          RUSTFLAGS: ${{ matrix.build.modern-rustflags }}
+        run: |
+          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+          mv target/${{ matrix.build.target }}/production/space-acres target/${{ matrix.build.target }}/production/space-acres-modern
+        if: runner.os == 'Linux' && matrix.build.modern-rustflags
+
+      - name: Build app (Windows, modern)
+        env:
+          RUSTFLAGS: ${{ matrix.build.modern-rustflags }}
+        run: |
+          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+          Move-Item -Path target\${{ matrix.build.target }}\production\space-acres.exe -Destination target\${{ matrix.build.target }}\production\space-acres-modern.exe
+        if: runner.os == 'Windows' && matrix.build.modern-rustflags
+
+      - name: Build app (Linux and Windows, normal)
+        env:
+          RUSTFLAGS: ${{ matrix.build.rustflags }}
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
         if: runner.os != 'macOS'
 
+      # TODO: Remove special case once `numa` feature of farmer works properly on macOS
       - name: Build app (macOS)
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --no-default-features
         if: runner.os == 'macOS'
@@ -206,7 +226,30 @@ jobs:
           tool: cargo-deb
         if: runner.os == 'Linux'
 
-      - name: Package (Linux)
+      - name: Package (Linux, with modern)
+        run: |
+          # Build Debian package
+          cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip --variant=modern
+          
+          # And build AppImage as well
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
+          NO_STRIP=1 ./linuxdeploy-x86_64.AppImage \
+              --appdir AppDir \
+              --plugin gtk \
+              --executable target/${{ matrix.build.target }}/production/space-acres \
+              --executable target/${{ matrix.build.target }}/production/space-acres-modern \
+              --desktop-file res/linux/space-acres.desktop \
+              --icon-file res/linux/space-acres.png \
+              --output appimage
+          
+          # Rename AppImage to be consistent with other files
+          version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          mv Space_Acres-x86_64.AppImage space-acres-$version-x86_64.AppImage
+        if: runner.os == 'Linux' && matrix.build.modern-rustflags
+
+      - name: Package (Linux, without modern)
         run: |
           # Build Debian package
           cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip
@@ -226,7 +269,7 @@ jobs:
           # Rename AppImage to be consistent with other files
           version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
           mv Space_Acres-x86_64.AppImage space-acres-$version-x86_64.AppImage
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.build.modern-rustflags
 
       - name: Upload installer to artifacts (Linux)
         uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # @v3.1.1
