@@ -137,6 +137,10 @@
                           <RemoveFile Id="pcre2_posix.dll" Name="pcre2-posix.dll" On="both" />
                         </Component>
 
+                        <Component Id='cleanup.bat' Guid='39B9B769-4AC2-4855-AE3E-9F4F0FD9066C'>
+                            <File Id='cleanup.bat' Name='cleanup.bat' DiskId='1' Source='res\windows\wix\cleanup.bat' />
+                        </Component>
+
                         <Component Id='gtk4_gdbus.exe' Guid='230b7624-23b4-4a74-91f5-d864032a058a'>
                             <File Id='gdbus.exe' Name='gdbus.exe' DiskId='1' Source='target\wix\gtk4\bin\gdbus.exe' />
                         </Component>
@@ -373,6 +377,7 @@
 
             <ComponentRef Id='binary0'/>
             <ComponentRef Id='PcreCleanup'/>
+            <ComponentRef Id='cleanup.bat'/>
             <ComponentRef Id='gtk4_gdbus.exe'/>
             <ComponentRef Id='gtk4_gspawn_win64_helper.exe'/>
             <ComponentRef Id='gtk4_gspawn_win64_helper_console.exe'/>
@@ -535,5 +540,10 @@
 
         <Property Id="WixShellExecTarget" Value="[#space_acres.exe]" />
         <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+		
+        <CustomAction Id='BeforeUninstallCleanup' Directory="Bin" ExeCommand="cleanup.bat" Return='ignore' />
+        <InstallExecuteSequence>
+            <Custom Action='BeforeUninstallCleanup' After='InstallInitialize'>REMOVE="ALL"</Custom>
+        </InstallExecuteSequence>
     </Product>
 </Wix>
