@@ -82,6 +82,7 @@ type PosTable = ChiaTable;
 enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
+    OpenLogFolder,
     OpenReconfiguration,
     ShowAboutDialog,
     InitialConfiguration,
@@ -166,6 +167,7 @@ impl StatusBarNotification {
 }
 
 struct AppInit {
+    app_data_dir: Option<PathBuf>,
     exit_status_code: Arc<Mutex<AppStatusCode>>,
     minimize_on_start: bool,
 }
@@ -182,6 +184,7 @@ struct App {
     running_view: Controller<RunningView>,
     menu_popover: gtk::Popover,
     about_dialog: gtk::AboutDialog,
+    app_data_dir: Option<PathBuf>,
     exit_status_code: Arc<Mutex<AppStatusCode>>,
     // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
     _background_tasks: Box<dyn Future<Output = ()>>,
@@ -222,6 +225,12 @@ impl AsyncComponent for App {
                                 gtk::Box {
                                     set_orientation: gtk::Orientation::Vertical,
                                     set_spacing: 5,
+
+                                    gtk::Button {
+                                        connect_clicked => AppInput::OpenLogFolder,
+                                        set_label: "Show logs in file manager",
+                                        set_visible: model.app_data_dir.is_some(),
+                                    },
 
                                     gtk::Button {
                                         connect_clicked => AppInput::OpenReconfiguration,
@@ -481,6 +490,7 @@ impl AsyncComponent for App {
             // Hack to initialize a field before this data structure is used
             menu_popover: gtk::Popover::default(),
             about_dialog,
+            app_data_dir: init.app_data_dir,
             exit_status_code: init.exit_status_code,
             _background_tasks: Box::new(async move {
                 // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
@@ -514,6 +524,9 @@ impl AsyncComponent for App {
         _root: &Self::Root,
     ) {
         match input {
+            AppInput::OpenLogFolder => {
+                self.open_log_folder();
+            }
             AppInput::BackendNotification(notification) => {
                 self.process_backend_notification(notification);
             }
@@ -564,6 +577,14 @@ impl AsyncComponent for App {
 }
 
 impl App {
+    fn open_log_folder(&mut self) {
+        let Some(app_data_dir) = &self.app_data_dir else {
+            return;
+        };
+        if let Err(error) = open::that_detached(app_data_dir) {
+            error!(%error, path = %app_data_dir.display(), "Failed to open logs folder");
+        }
+    }
     fn process_backend_notification(&mut self, notification: BackendNotification) {
         match notification {
             // TODO: Render progress
@@ -831,6 +852,7 @@ impl Cli {
         let exit_status_code = Arc::new(Mutex::new(AppStatusCode::Exit));
 
         app.run_async::<App>(AppInit {
+            app_data_dir: maybe_app_data_dir,
             exit_status_code: Arc::clone(&exit_status_code),
             minimize_on_start: self.startup,
         });

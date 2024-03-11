@@ -88,3 +88,8 @@ farm-sector.writing {
     animation-duration: 1s;
     animation-name: animate-writing;
 }
+
+.folder-button {
+    padding-right: 0px;
+    padding-left: 0px;
+}
