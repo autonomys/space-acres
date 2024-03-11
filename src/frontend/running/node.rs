@@ -1,6 +1,5 @@
 use crate::backend::node::{ChainInfo, SyncKind, SyncState};
 use crate::backend::NodeNotification;
-use crate::open_folder;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use parking_lot::Mutex;
@@ -69,7 +68,7 @@ impl Component for NodeView {
                 gtk::Button {
                     add_css_class: "heading",
                     add_css_class : "folder-button",
-                    set_tooltip: "Open Folders",
+                    set_tooltip: "Click to open in file manager",
                     set_has_frame: false,
                     set_use_underline: false,
                     set_halign: gtk::Align::Start,
@@ -312,7 +311,7 @@ impl NodeView {
             },
             NodeInput::OpenNodeFolder() => {
                 let node_path = self.node_path.lock().clone();
-                open_folder(node_path);
+                open::that_detached(node_path.as_os_str()).unwrap();
             }
         }
     }

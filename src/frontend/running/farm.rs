@@ -1,5 +1,4 @@
 use crate::backend::config::Farm;
-use crate::open_folder;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
@@ -122,17 +121,14 @@ impl FactoryComponent for FarmWidget {
 
             gtk::Box {
                 gtk::Button {
-                    set_tooltip: "Open Folders",
+                    set_tooltip: "Click to open in file manager",
                     set_use_underline: false,
                     set_has_frame: false,
                     add_css_class : "folder-button",
                     set_halign: gtk::Align::Start,
                     set_label: &format!("{} [{}]:", self.path.display(), self.size),
-                    connect_clicked[sender] => move |_| {
-                        sender.input(FarmWidgetInput::OpenFarmFolder());
-                    }
+                    connect_clicked => FarmWidgetInput::OpenFarmFolder(),
                 },
-
 
                 gtk::Box {
                     set_halign: gtk::Align::End,
@@ -420,8 +416,8 @@ impl FarmWidget {
                 }
             },
             FarmWidgetInput::OpenFarmFolder() => {
-                let path = self.path.clone();
-                open_folder(path);
+                let farm_path = self.path.clone();
+                open::that_detached(farm_path.as_os_str()).unwrap();
             }
             FarmWidgetInput::NodeSynced(synced) => {
                 self.is_node_synced = synced;

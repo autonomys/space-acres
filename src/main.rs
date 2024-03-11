@@ -3,7 +3,6 @@
 
 mod backend;
 mod frontend;
-mod shortcut;
 
 use crate::backend::config::RawConfig;
 use crate::backend::{wipe, BackendAction, BackendNotification};
@@ -11,7 +10,6 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInput, RunningView};
-use crate::shortcut::open_folder;
 use clap::Parser;
 use duct::cmd;
 use file_rotate::compression::Compression;
@@ -228,7 +226,7 @@ impl AsyncComponent for App {
 
                                     gtk::Button {
                                         connect_clicked => AppInput::OpenLogfolder,
-                                        set_label: "Logs folder",
+                                        set_label: "Show logs",
                                         #[watch]
                                         set_visible: model.current_raw_config.is_some(),
                                     },
@@ -578,9 +576,15 @@ impl AsyncComponent for App {
 
 impl App {
     fn open_log_folder(&mut self) {
-        let app_data_dir = dirs::data_local_dir().expect("data_local_dir not find");
-        let pkg_app_data_dir = app_data_dir.join(env!("CARGO_PKG_NAME"));
-        open_folder(pkg_app_data_dir);
+        let app_data_dir = Cli::app_data_dir().expect("app_data_dir is none");
+        match open::that_detached(app_data_dir.as_os_str()) {
+            Ok(()) => {}
+            Err(err) => error!(
+                "An error occurred when opening '{:?}': {}",
+                app_data_dir.to_str(),
+                err
+            ),
+        }
     }
     fn process_backend_notification(&mut self, notification: BackendNotification) {
         match notification {
