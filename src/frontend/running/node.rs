@@ -31,7 +31,7 @@ pub enum NodeInput {
         node_path: PathBuf,
     },
     NodeNotification(NodeNotification),
-    OpenNodeFolder(),
+    OpenNodeFolder,
 }
 
 #[derive(Debug)]
@@ -66,17 +66,14 @@ impl Component for NodeView {
 
             gtk::Box {
                 gtk::Button {
+                    connect_clicked => NodeInput::OpenNodeFolder,
+                    add_css_class: "folder-button",
                     add_css_class: "heading",
-                    add_css_class : "folder-button",
-                    set_tooltip: "Click to open in file manager",
-                    set_has_frame: false,
-                    set_use_underline: false,
                     set_halign: gtk::Align::Start,
+                    set_has_frame: false,
                     #[watch]
                     set_label: &model.chain_name,
-                    connect_clicked[sender] => move |_| {
-                        sender.input(NodeInput::OpenNodeFolder())
-                    }
+                    set_tooltip: "Click to open in file manager",
                 },
 
 
@@ -309,7 +306,7 @@ impl NodeView {
                     }
                 }
             },
-            NodeInput::OpenNodeFolder() => {
+            NodeInput::OpenNodeFolder => {
                 let node_path = self.node_path.lock().clone();
                 open::that_detached(node_path.as_os_str()).unwrap();
             }
