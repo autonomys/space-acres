@@ -71,25 +71,25 @@ sc-informant = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500
 sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8", default-features = false }
 sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8", default-features = false }
 sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8", default-features = false }
-sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
+sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
 semver = "1.0.21"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 simple_moving_average = "1.0.2"
 sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8", default-features = false }
-sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
+sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
 sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "d6b500960579d73c43fc4ef550b703acfa61c4c8", default-features = false }
-subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f", default-features = false }
-subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-networking = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-runtime = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
-subspace-service = { git = "https://github.com/subspace/subspace", rev = "916f772148ee9101a4767da2bd998ea6cec4f27f" }
+subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f", default-features = false }
+subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-networking = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-runtime = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
+subspace-service = { git = "https://github.com/subspace/subspace", rev = "1da9b625f03e12b2fbf59049bac22df8d74c713f" }
 supports-color = "2.1.0"
 thiserror = "1.0.56"
 thread-priority = "0.16.0"

@@ -35,7 +35,7 @@ use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
 use thread_priority::ThreadPriority;
 use tokio::runtime::Handle;
-use tokio::sync::Semaphore;
+use tokio::sync::{Barrier, Semaphore};
 use tracing::{error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
@@ -264,6 +264,8 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let (single_disk_farms, plotting_delay_senders, resized) = tokio::task::block_in_place(|| {
         let handle = Handle::current();
+        let global_mutex = Arc::default();
+        let faster_read_sector_record_chunks_mode_barrier = &Barrier::new(disk_farms.len());
         let faster_read_sector_record_chunks_mode_concurrency = &Semaphore::new(1);
         let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
             .map(|_| oneshot::channel())
@@ -313,7 +315,9 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             farming_thread_pool_size: recommended_number_of_farming_threads(),
                             plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
                             plotting_delay: Some(plotting_delay_receiver),
+                            global_mutex: Arc::clone(&global_mutex),
                             disable_farm_locking: false,
+                            faster_read_sector_record_chunks_mode_barrier,
                             faster_read_sector_record_chunks_mode_concurrency,
                         },
                         disk_farm_index,
