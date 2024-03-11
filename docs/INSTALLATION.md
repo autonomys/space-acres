@@ -8,8 +8,9 @@ Installation instructions common for all platforms.
 
 ### CPU/RAM
 
-Application is designed to run on relatively modern hardware, specifically **Intel Skylake (6th gen Core)/AMD Zen
-(Ryzen 1000) or newer processors**.
+Application is designed to run on relatively modern hardware. For best performance **Intel Skylake (6th gen Core)/AMD
+Zen (Ryzen 1000) or newer processors** are strongly recommended, but Space Acres will run on older CPUs as well and will
+automatically select suitable version of the software during start.
 
 At least **4 physical cores and 8 GiB of RAM** is necessary for application to function, more CPU will make application
 faster. If you have other software running at the same time, take that in consideration (it is not recommended to run on
