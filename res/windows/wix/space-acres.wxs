@@ -129,6 +129,14 @@
                                 Source='$(var.CargoTargetBinDir)\space-acres.exe'
                                 KeyPath='yes'/>
                         </Component>
+                        <Component Id='binary1' Guid='*'>
+                            <File
+                                Id='space_acres_modern.exe'
+                                Name='space-acres-modern.exe'
+                                DiskId='1'
+                                Source='$(var.CargoTargetBinDir)\space-acres-modern.exe'
+                                KeyPath='yes'/>
+                        </Component>
                         <!-- TODO: Next block is for cleanup after 0.1.5 -> 0.1.6 upgrade, remove once enough time has passed -->
                         <Component Id="PcreCleanup" Guid="64d35867-a002-4ac5-8704-ba15236c4ca1">
                           <RemoveFile Id="pcre2_16.dll" Name="pcre2-16.dll" On="both" />
@@ -372,6 +380,7 @@
             <!--<ComponentRef Id='License'/>-->
 
             <ComponentRef Id='binary0'/>
+            <ComponentRef Id='binary1'/>
             <ComponentRef Id='PcreCleanup'/>
             <ComponentRef Id='gtk4_gdbus.exe'/>
             <ComponentRef Id='gtk4_gspawn_win64_helper.exe'/>
