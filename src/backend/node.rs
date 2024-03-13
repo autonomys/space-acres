@@ -348,6 +348,7 @@ fn get_total_space_pledged(
     // let current_solution_range = sectors_to_solution_range(1);
 
     // Calculate the total space pledged
+    // TODO: optimize this snippet with checked arithmetics.
     let total_space_pledged: u128 = u128::from(u64::MAX)
         .saturating_mul(PIECE_SIZE as u128)
         .saturating_mul(u128::from(SLOT_PROBABILITY.0))
