@@ -286,6 +286,77 @@ fn get_total_account_balance(
     Some(account_data.free + account_data.reserved + account_data.frozen)
 }
 
+// defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L803
+const PIECE_SIZE: usize = 1048672/* the actual piece size from your runtime */;
+
+// defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/test/subspace-test-runtime/src/lib.rs#L152-L154
+const SLOT_PROBABILITY: (u64, u64) = (1, 1);
+
+// defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-runtime/src/lib.rs#L104
+const MAX_PIECES_IN_SECTOR: u16 = 1000;
+struct Record;
+impl Record {
+    // defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L385
+    pub const NUM_CHUNKS: usize = 32768;
+
+    // defined here:https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L389-L390
+    const NUM_S_BUCKETS: usize = 65536;
+}
+
+// defined type to match with that of runtime storage.
+type SolutionRange = u64;
+
+/// Computes the following:
+/// ```
+/// MAX * slot_probability / (pieces_in_sector * chunks / s_buckets) / sectors
+/// ```
+const fn sectors_to_solution_range(sectors: u64) -> SolutionRange {
+    let solution_range = SolutionRange::MAX
+        // Account for slot probability
+        / SLOT_PROBABILITY.1 * SLOT_PROBABILITY.0
+        // Now take sector size and probability of hitting occupied s-bucket in sector into account
+        / (MAX_PIECES_IN_SECTOR as u64 * Record::NUM_CHUNKS as u64 / Record::NUM_S_BUCKETS as u64);
+
+    // Take number of sectors into account
+    solution_range / sectors
+}
+
+/// Get the latest total space pledged
+fn get_total_space_pledged(
+    client: &FullClient<RuntimeApi>,
+    // TODO: may need to replace with None or something to indicate as latest block.
+    block_hash: H256,
+    solution_range_storage_key: &StorageKey,
+) -> Option<u128> {
+    // Method-1:
+    // Fetch the initial solution range from storage
+    let current_solution_range: SolutionRange =
+        match client.storage(block_hash, solution_range_storage_key) {
+            Ok(stored_value) => {
+                let data = stored_value.unwrap_or_default().0;
+                u64::decode(&mut &data[..]).expect("Decoding of u64 failed")
+            }
+            Err(error) => {
+                tracing::error!("Failed to query initial solution range: {}", error);
+                return None;
+            }
+        };
+
+    // Method-2:
+    // TODO: Get the solution range from sectors may be instead of the fetching from runtime storage
+    //      Also, sectors can be calculated based on my space pledged. E.g. if 2 GB, then 1 sector max.
+    // let current_solution_range = sectors_to_solution_range(1);
+
+    // Calculate the total space pledged
+    let total_space_pledged: u128 = u128::from(u64::MAX)
+        .saturating_mul(PIECE_SIZE as u128)
+        .saturating_mul(u128::from(SLOT_PROBABILITY.0))
+        / u128::from(current_solution_range)
+        / u128::from(SLOT_PROBABILITY.1);
+
+    Some(total_space_pledged)
+}
+
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
     GenericChainSpec::<()>::from_json_bytes(chain_spec)
         .map(|chain_spec| ChainSpec(Box::new(chain_spec)))
