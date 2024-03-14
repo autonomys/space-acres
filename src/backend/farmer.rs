@@ -684,3 +684,19 @@ where
         action_sender,
     })
 }
+
+/// the farmer can expect to get the next reward payment in this time units (sec/min/hr).
+fn calculate_expected_reward_duration_from_now(
+    total_space_pledged: u128,
+    space_pledged: u128,
+    last_reward_timestamp: Option<i64>,
+) -> i64 {
+    // Time elapsed since the last reward payment timestamp.
+    let time_previous = Utc::now().timestamp() - last_reward_timestamp.unwrap_or(0);
+
+    // Expected time duration for next reward payment since the last reward payment timestamp.
+    let expected_time_next = (total_space_pledged as i64 / space_pledged as i64) * time_previous;
+
+    // subtract the duration till now from the expected time duration to get the ETA duration.
+    expected_time_next - time_previous
+}

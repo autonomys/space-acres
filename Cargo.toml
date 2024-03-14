@@ -99,6 +99,7 @@ thread-priority = "1.1.0"
 tokio = { version = "1.37.0", features = ["fs", "time"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+chrono = "0.4.35"
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"
