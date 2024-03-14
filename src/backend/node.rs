@@ -349,6 +349,7 @@ async fn get_slot_probability(
 }
 
 /// Get the latest total space pledged
+#[allow(dead_code)]
 async fn get_total_space_pledged() -> anyhow::Result<u128> {
     let api = OnlineClient::<PolkadotConfig>::from_url(WS_URL)
         .await
