@@ -28,4 +28,27 @@ fn main() {
         res.set_icon("res\\windows\\space-acres.ico");
         res.compile().unwrap();
     }
+
+    relm4_icons_build::bundle_icons(
+        "icon_names.rs",
+        None,
+        None,
+        None::<&str>,
+        [
+            "ssd",
+            "size-horizontally",
+            "cross",
+            "checkmark",
+            "wallet2",
+            "warning",
+            "puzzle-piece",
+            "pause",
+            "menu-large",
+            "processor",
+            "speedometer2",
+            "speedometer3",
+            "speedometer4",
+            "grid-filled",
+        ],
+    );
 }

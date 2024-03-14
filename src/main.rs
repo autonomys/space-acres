@@ -10,6 +10,9 @@
 
 mod backend;
 mod frontend;
+mod icon_names {
+    include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
+}
 
 use crate::frontend::{App, AppInit, RunBackendResult, GLOBAL_CSS};
 use bytesize::ByteSize;
@@ -271,8 +274,9 @@ impl Cli {
             args
         });
 
-        app.set_global_css(GLOBAL_CSS);
-        relm4_icons::initialize_icons();
+        relm4::set_global_css(GLOBAL_CSS);
+
+        relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
 
         // Prefer dark theme in cross-platform way if environment is configured that way
         if let Some(settings) = gtk::Settings::default() {
