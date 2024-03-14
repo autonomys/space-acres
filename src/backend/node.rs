@@ -42,6 +42,8 @@ use subspace_service::config::{
 };
 use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
+use subxt::config::PolkadotConfig;
+use subxt::OnlineClient;
 use tokio::fs;
 use tokio::time::MissedTickBehavior;
 use tracing::error;
@@ -289,73 +291,87 @@ fn get_total_account_balance(
 // defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L803
 const PIECE_SIZE: usize = 1048672/* the actual piece size from your runtime */;
 
-// defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/test/subspace-test-runtime/src/lib.rs#L152-L154
-const SLOT_PROBABILITY: (u64, u64) = (1, 1);
+// set as default
+const WS_URL: &str = "ws://127.0.0.1:19944";
 
-// defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-runtime/src/lib.rs#L104
-const MAX_PIECES_IN_SECTOR: u16 = 1000;
-struct Record;
-impl Record {
-    // defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L385
-    pub const NUM_CHUNKS: usize = 32768;
+// Generate subspace node metadata by running node first.
+// And then note down the addr from the terminal log.
+// Finally, use the websocket url in this command:
+// ```sh
+// subxt metadata --url ws://127.0.0.1:19944 > metadata/subspace_metadata.scale
+// ```
+#[subxt::subxt(runtime_metadata_path = "metadata/subspace_metadata.scale")]
+pub mod subspace {}
 
-    // defined here:https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L389-L390
-    const NUM_S_BUCKETS: usize = 65536;
+// Subspace runtime API
+type SubspaceApi = subspace::runtime_apis::subspace_api::SubspaceApi;
+
+// Had to define separately as the inferred type differs from the original `sp_consensus_subspace::ChainConstants`.
+type RuntimeChainConstants = subspace::runtime_types::sp_consensus_subspace::ChainConstants;
+
+async fn get_current_solution_range(
+    api: &OnlineClient<PolkadotConfig>,
+    subspace_api: &SubspaceApi,
+) -> anyhow::Result<u64> {
+    let solution_ranges_runtime_api_call = subspace_api.solution_ranges();
+
+    // get the solution ranges from the latest block
+    let current_solution_range = api
+        .runtime_api()
+        .at_latest()
+        .await?
+        .call(solution_ranges_runtime_api_call)
+        .await?
+        .current;
+
+    Ok(current_solution_range)
 }
 
-// defined type to match with that of runtime storage.
-type SolutionRange = u64;
+async fn get_slot_probability(
+    api: &OnlineClient<PolkadotConfig>,
+    subspace_api: &SubspaceApi,
+) -> anyhow::Result<(u64, u64)> {
+    let chain_constants_runtime_api_call = subspace_api.chain_constants();
 
-/// Computes the following:
-/// ```
-/// MAX * slot_probability / (pieces_in_sector * chunks / s_buckets) / sectors
-/// ```
-const fn sectors_to_solution_range(sectors: u64) -> SolutionRange {
-    let solution_range = SolutionRange::MAX
-        // Account for slot probability
-        / SLOT_PROBABILITY.1 * SLOT_PROBABILITY.0
-        // Now take sector size and probability of hitting occupied s-bucket in sector into account
-        / (MAX_PIECES_IN_SECTOR as u64 * Record::NUM_CHUNKS as u64 / Record::NUM_S_BUCKETS as u64);
+    // get the chain constants from the latest block
+    let current_chain_constants = api
+        .runtime_api()
+        .at_latest()
+        .await?
+        .call(chain_constants_runtime_api_call)
+        .await?;
 
-    // Take number of sectors into account
-    solution_range / sectors
+    let RuntimeChainConstants::V0 {
+        slot_probability, ..
+    } = current_chain_constants;
+
+    Ok(slot_probability)
 }
 
 /// Get the latest total space pledged
-fn get_total_space_pledged(
-    client: &FullClient<RuntimeApi>,
-    // TODO: may need to replace with None or something to indicate as latest block.
-    block_hash: H256,
-    solution_range_storage_key: &StorageKey,
-) -> Option<u128> {
-    // Method-1:
-    // Fetch the initial solution range from storage
-    let current_solution_range: SolutionRange =
-        match client.storage(block_hash, solution_range_storage_key) {
-            Ok(stored_value) => {
-                let data = stored_value.unwrap_or_default().0;
-                u64::decode(&mut &data[..]).expect("Decoding of u64 failed")
-            }
-            Err(error) => {
-                tracing::error!("Failed to query initial solution range: {}", error);
-                return None;
-            }
-        };
+async fn get_total_space_pledged() -> anyhow::Result<u128> {
+    let api = OnlineClient::<PolkadotConfig>::from_url(WS_URL)
+        .await
+        .map_err(|e| anyhow::Error::new(e).context("Failed to create OnlineClient from WS_URL"))?;
 
-    // Method-2:
-    // TODO: Get the solution range from sectors may be instead of the fetching from runtime storage
-    //      Also, sectors can be calculated based on my space pledged. E.g. if 2 GB, then 1 sector max.
-    // let current_solution_range = sectors_to_solution_range(1);
+    let subspace_api: SubspaceApi = subspace::apis().subspace_api();
+
+    let current_solution_range = get_current_solution_range(&api, &subspace_api).await?;
+
+    let slot_probability = get_slot_probability(&api, &subspace_api).await?;
 
     // Calculate the total space pledged
-    // TODO: optimize this snippet with checked arithmetics.
     let total_space_pledged: u128 = u128::from(u64::MAX)
-        .saturating_mul(PIECE_SIZE as u128)
-        .saturating_mul(u128::from(SLOT_PROBABILITY.0))
-        / u128::from(current_solution_range)
-        / u128::from(SLOT_PROBABILITY.1);
+        .checked_mul(PIECE_SIZE as u128)
+        .expect("Multiplication with piece size works; qed")
+        .checked_mul(u128::from(slot_probability.0))
+        .expect("Multiplication with slot probability_0 works; qed")
+        .checked_div(u128::from(current_solution_range))
+        .expect("Division by current solution range works; qed")
+        .checked_div(u128::from(slot_probability.1))
+        .expect("Division by slot probability_1 works; qed");
 
-    Some(total_space_pledged)
+    Ok(total_space_pledged)
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
