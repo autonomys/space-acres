@@ -19,10 +19,12 @@ use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetC
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
+use sp_api::{ApiError, ProvideRuntimeApi};
+use sp_consensus_subspace::{FarmerPublicKey, SubspaceApi};
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
 use sp_core::H256;
-use sp_runtime::traits::Header;
+use sp_runtime::traits::{Block as BlockT, Header};
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
@@ -42,8 +44,6 @@ use subspace_service::config::{
 };
 use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
-use subxt::config::PolkadotConfig;
-use subxt::OnlineClient;
 use tokio::fs;
 use tokio::time::MissedTickBehavior;
 use tracing::error;
@@ -290,86 +290,34 @@ fn get_total_account_balance(
 
 // defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L803
 const PIECE_SIZE: usize = 1048672/* the actual piece size from your runtime */;
+// TODO: needs to be moved to runtime constants or somewhere else
+const SLOT_PROBABILITY: (u64, u64) = (1, 6);
 
-// set as default
-const WS_URL: &str = "ws://127.0.0.1:19944";
-
-// Generate subspace node metadata by running node first.
-// And then note down the addr from the terminal log.
-// Finally, use the websocket url in this command:
-// ```sh
-// subxt metadata --url ws://127.0.0.1:19944 > metadata/subspace_metadata.scale
-// ```
-#[subxt::subxt(runtime_metadata_path = "metadata/subspace_metadata.scale")]
-pub mod subspace {}
-
-// Subspace runtime API
-type SubspaceApi = subspace::runtime_apis::subspace_api::SubspaceApi;
-
-// Had to define separately as the inferred type differs from the original `sp_consensus_subspace::ChainConstants`.
-type RuntimeChainConstants = subspace::runtime_types::sp_consensus_subspace::ChainConstants;
-
-async fn get_current_solution_range(
-    api: &OnlineClient<PolkadotConfig>,
-    subspace_api: &SubspaceApi,
-) -> anyhow::Result<u64> {
-    let solution_ranges_runtime_api_call = subspace_api.solution_ranges();
-
-    // get the solution ranges from the latest block
-    let current_solution_range = api
-        .runtime_api()
-        .at_latest()
-        .await?
-        .call(solution_ranges_runtime_api_call)
-        .await?
-        .current;
-
-    Ok(current_solution_range)
-}
-
-async fn get_slot_probability(
-    api: &OnlineClient<PolkadotConfig>,
-    subspace_api: &SubspaceApi,
-) -> anyhow::Result<(u64, u64)> {
-    let chain_constants_runtime_api_call = subspace_api.chain_constants();
-
-    // get the chain constants from the latest block
-    let current_chain_constants = api
-        .runtime_api()
-        .at_latest()
-        .await?
-        .call(chain_constants_runtime_api_call)
-        .await?;
-
-    let RuntimeChainConstants::V0 {
-        slot_probability, ..
-    } = current_chain_constants;
-
-    Ok(slot_probability)
-}
-
-/// Get the latest total space pledged
 #[allow(dead_code)]
-async fn get_total_space_pledged() -> anyhow::Result<u128> {
-    let api = OnlineClient::<PolkadotConfig>::from_url(WS_URL)
-        .await
-        .map_err(|e| anyhow::Error::new(e).context("Failed to create OnlineClient from WS_URL"))?;
-
-    let subspace_api: SubspaceApi = subspace::apis().subspace_api();
-
-    let current_solution_range = get_current_solution_range(&api, &subspace_api).await?;
-
-    let slot_probability = get_slot_probability(&api, &subspace_api).await?;
+pub(crate) fn get_total_space_pledged<Block, Client>(
+    client: &Client,
+    block_hash: H256,
+) -> Result<u128, ApiError>
+where
+    Block: BlockT<Hash = H256> + sp_api::__private::BlockT,
+    Client: ProvideRuntimeApi<Block>,
+    Client::Api: SubspaceApi<Block, FarmerPublicKey>,
+{
+    let current_solution_range = client
+        .runtime_api()
+        .solution_ranges(block_hash)
+        .map(|solution_ranges| solution_ranges.current)
+        .expect("Failed to get current solution range");
 
     // Calculate the total space pledged
     let total_space_pledged: u128 = u128::from(u64::MAX)
         .checked_mul(PIECE_SIZE as u128)
         .expect("Multiplication with piece size works; qed")
-        .checked_mul(u128::from(slot_probability.0))
+        .checked_mul(u128::from(SLOT_PROBABILITY.0))
         .expect("Multiplication with slot probability_0 works; qed")
         .checked_div(u128::from(current_solution_range))
         .expect("Division by current solution range works; qed")
-        .checked_div(u128::from(slot_probability.1))
+        .checked_div(u128::from(SLOT_PROBABILITY.1))
         .expect("Division by slot probability_1 works; qed");
 
     Ok(total_space_pledged)
