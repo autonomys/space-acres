@@ -687,7 +687,7 @@ where
 
 /// the farmer can expect to get the next reward payment in this time units (sec/min/hr).
 #[allow(dead_code)]
-fn calculate_expected_reward_duration_from_now(
+pub(crate) fn calculate_expected_reward_duration_from_now(
     total_space_pledged: u128,
     space_pledged: u128,
     last_reward_timestamp: Option<i64>,

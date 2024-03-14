@@ -310,7 +310,7 @@ where
         .expect("Failed to get current solution range");
 
     // Calculate the total space pledged
-    let total_space_pledged: u128 = u128::from(u64::MAX)
+    let total_space_pledged = u128::from(u64::MAX)
         .checked_mul(PIECE_SIZE as u128)
         .expect("Multiplication with piece size works; qed")
         .checked_mul(u128::from(SLOT_PROBABILITY.0))
