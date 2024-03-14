@@ -5,13 +5,13 @@ use crate::backend::utils::{Handler, HandlerFn};
 use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
+use async_lock::Mutex as AsyncMutex;
 use event_listener_primitives::HandlerId;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt};
 use parking_lot::Mutex;
-use rayon::prelude::*;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -34,12 +34,14 @@ use subspace_farmer::utils::{
 use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
 use thread_priority::ThreadPriority;
-use tokio::runtime::Handle;
 use tokio::sync::{Barrier, Semaphore};
 use tracing::{error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
 const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
+/// NOTE: for large gaps between the plotted part and the end of the file plot cache will result in
+/// very long period of writing zeroes on Windows, see https://stackoverflow.com/q/78058306/3806795
+const MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS: u64 = 7 * 1024 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct InitialFarmState {
@@ -196,6 +198,13 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         }
     }
 
+    let plot_cache = !cfg!(windows)
+        || disk_farms
+            .iter()
+            .map(|farm| farm.allocated_plotting_space)
+            .sum::<u64>()
+            <= MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS;
+
     let farmer_app_info = node_client
         .farmer_app_info()
         .await
@@ -262,25 +271,38 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         Some(ThreadPriority::Min),
     )?;
 
-    let (single_disk_farms, plotting_delay_senders, resized) = tokio::task::block_in_place(|| {
-        let handle = Handle::current();
+    let (single_disk_farms, plotting_delay_senders, resized) = {
         let global_mutex = Arc::default();
-        let faster_read_sector_record_chunks_mode_barrier = &Barrier::new(disk_farms.len());
-        let faster_read_sector_record_chunks_mode_concurrency = &Semaphore::new(1);
+        let info_mutex = &AsyncMutex::new(());
+        let faster_read_sector_record_chunks_mode_barrier =
+            Arc::new(Barrier::new(disk_farms.len()));
+        let faster_read_sector_record_chunks_mode_concurrency = Arc::new(Semaphore::new(1));
         let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
-
         let resized = &AtomicBool::new(false);
 
-        let single_disk_farms = disk_farms
-            .into_par_iter()
+        let mut single_disk_farms = Vec::with_capacity(disk_farms.len());
+        let mut single_disk_farms_stream = disk_farms
+            .into_iter()
             .zip(plotting_delay_receivers)
             .enumerate()
-            .map(
-                move |(disk_farm_index, (disk_farm, plotting_delay_receiver))| {
-                    let _tokio_handle_guard = handle.enter();
+            .map(|(disk_farm_index, (disk_farm, plotting_delay_receiver))| {
+                let node_client = node_client.clone();
+                let farmer_app_info = farmer_app_info.clone();
+                let max_pieces_in_sector = farmer_app_info.protocol_info.max_pieces_in_sector;
+                let kzg = kzg.clone();
+                let erasure_coding = erasure_coding.clone();
+                let piece_getter = piece_getter.clone();
+                let downloading_semaphore = Arc::clone(&downloading_semaphore);
+                let plotting_thread_pool_manager = plotting_thread_pool_manager.clone();
+                let global_mutex = Arc::clone(&global_mutex);
+                let faster_read_sector_record_chunks_mode_barrier =
+                    Arc::clone(&faster_read_sector_record_chunks_mode_barrier);
+                let faster_read_sector_record_chunks_mode_concurrency =
+                    Arc::clone(&faster_read_sector_record_chunks_mode_concurrency);
 
+                async move {
                     let resized_local =
                         match SingleDiskFarm::collect_summary(disk_farm.directory.clone()) {
                             SingleDiskFarmSummary::Found { info, .. } => {
@@ -296,26 +318,22 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                     let single_disk_farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
                         SingleDiskFarmOptions {
                             directory: disk_farm.directory.clone(),
-                            farmer_app_info: farmer_app_info.clone(),
-                            // TODO: Check for allocated space change and show warning in UI that
-                            //  restart is needed on Windows
+                            farmer_app_info,
                             allocated_space: disk_farm.allocated_plotting_space,
-                            max_pieces_in_sector: farmer_app_info
-                                .protocol_info
-                                .max_pieces_in_sector,
-                            node_client: node_client.clone(),
+                            max_pieces_in_sector,
+                            node_client,
                             reward_address,
-                            kzg: kzg.clone(),
-                            erasure_coding: erasure_coding.clone(),
-                            piece_getter: piece_getter.clone(),
+                            kzg,
+                            erasure_coding,
+                            piece_getter,
                             cache_percentage: CACHE_PERCENTAGE,
-                            downloading_semaphore: Arc::clone(&downloading_semaphore),
+                            downloading_semaphore,
                             record_encoding_concurrency,
                             farm_during_initial_plotting,
                             farming_thread_pool_size: recommended_number_of_farming_threads(),
-                            plotting_thread_pool_manager: plotting_thread_pool_manager.clone(),
+                            plotting_thread_pool_manager,
                             plotting_delay: Some(plotting_delay_receiver),
-                            global_mutex: Arc::clone(&global_mutex),
+                            global_mutex,
                             disable_farm_locking: false,
                             faster_read_sector_record_chunks_mode_barrier,
                             faster_read_sector_record_chunks_mode_concurrency,
@@ -323,50 +341,67 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                         disk_farm_index,
                     );
 
-                    let single_disk_farm = match handle.block_on(single_disk_farm_fut) {
+                    let single_disk_farm = match single_disk_farm_fut.await {
                         Ok(single_disk_farm) => single_disk_farm,
                         Err(SingleDiskFarmError::InsufficientAllocatedSpace {
                             min_space,
                             allocated_space,
                         }) => {
-                            return Err(anyhow::anyhow!(
-                                "Allocated space {} ({}) is not enough, minimum is ~{} (~{}, \
-                                {} bytes to be exact)",
-                                bytesize::to_string(allocated_space, true),
-                                bytesize::to_string(allocated_space, false),
-                                bytesize::to_string(min_space, true),
-                                bytesize::to_string(min_space, false),
-                                min_space
-                            ));
+                            return (
+                                disk_farm_index,
+                                Err(anyhow::anyhow!(
+                                    "Allocated space {} ({}) is not enough, minimum is ~{} (~{}, \
+                                    {} bytes to be exact)",
+                                    bytesize::to_string(allocated_space, true),
+                                    bytesize::to_string(allocated_space, false),
+                                    bytesize::to_string(min_space, true),
+                                    bytesize::to_string(min_space, false),
+                                    min_space
+                                )),
+                            );
                         }
                         Err(error) => {
-                            return Err(error.into());
+                            return (disk_farm_index, Err(error.into()));
                         }
                     };
 
+                    let _info_guard = info_mutex.lock().await;
+
                     let info = single_disk_farm.info();
-                    println!("Single disk farm {disk_farm_index}:");
-                    println!("  ID: {}", info.id());
-                    println!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
-                    println!("  Public key: 0x{}", hex::encode(info.public_key()));
-                    println!(
+                    info!("Single disk farm {disk_farm_index}:");
+                    info!("  ID: {}", info.id());
+                    info!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
+                    info!("  Public key: 0x{}", hex::encode(info.public_key()));
+                    info!(
                         "  Allocated space: {} ({})",
                         bytesize::to_string(info.allocated_space(), true),
                         bytesize::to_string(info.allocated_space(), false)
                     );
-                    println!("  Directory: {}", disk_farm.directory.display());
+                    info!("  Directory: {}", disk_farm.directory.display());
 
-                    Ok(single_disk_farm)
-                },
-            )
-            .collect::<Result<Vec<_>, _>>()?;
+                    (disk_farm_index, Ok(single_disk_farm))
+                }
+                .instrument(info_span!("", %disk_farm_index))
+            })
+            .collect::<FuturesUnordered<_>>();
 
-        anyhow::Ok((
+        while let Some((disk_farm_index, single_disk_farm)) = single_disk_farms_stream.next().await
+        {
+            if let Err(error) = &single_disk_farm {
+                let span = info_span!("", %disk_farm_index);
+                let _span_guard = span.enter();
+
+                error!(%error, "Single disk creation failed");
+            }
+            single_disk_farms.push(single_disk_farm?);
+        }
+
+        (
             single_disk_farms,
             plotting_delay_senders,
             resized.load(Ordering::Acquire),
-        ))
-    })?;
+        )
+    };
 
     {
         let handler_id = Arc::new(Mutex::new(None));
@@ -395,10 +430,14 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 .iter()
                 .map(|single_disk_farm| single_disk_farm.piece_cache())
                 .collect(),
-            single_disk_farms
-                .iter()
-                .map(|single_disk_farm| single_disk_farm.plot_cache())
-                .collect(),
+            if plot_cache {
+                single_disk_farms
+                    .iter()
+                    .map(|single_disk_farm| single_disk_farm.plot_cache())
+                    .collect()
+            } else {
+                Vec::new()
+            },
         )
         .await;
 
