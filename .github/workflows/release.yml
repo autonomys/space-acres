@@ -143,11 +143,25 @@ jobs:
           Move-Item -Path target\${{ matrix.build.target }}\production\space-acres.exe -Destination target\${{ matrix.build.target }}\production\space-acres-modern.exe
         if: runner.os == 'Windows' && matrix.build.modern-rustflags
 
-      - name: Build app (Linux and Windows, normal)
+      - name: Build app (Linux, normal)
         env:
           RUSTFLAGS: ${{ matrix.build.rustflags }}
-        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
-        if: runner.os != 'macOS'
+        # TODO: Removing of `target` is a workaround for https://github.com/supranational/blst/issues/207
+        run: |
+          rm -rf target/${{ matrix.build.target }}/production/build
+          rm -rf target/${{ matrix.build.target }}/production/deps
+          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+        if: runner.os == 'Linux'
+
+      - name: Build app (Windows, normal)
+        env:
+          RUSTFLAGS: ${{ matrix.build.rustflags }}
+        # TODO: Removing of `target` is a workaround for https://github.com/supranational/blst/issues/207
+        run: |
+          Remove-Item target\${{ matrix.build.target }}\production\build -Recurse -Confirm:$false
+          Remove-Item target\${{ matrix.build.target }}\production\deps -Recurse -Confirm:$false
+          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+        if: runner.os == 'Windows'
 
       # TODO: Remove special case once `numa` feature of farmer works properly on macOS
       - name: Build app (macOS)
