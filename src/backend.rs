@@ -212,8 +212,6 @@ pub enum BackendNotification {
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
         farm_during_initial_plotting: bool,
-        /// Whether one of the farms was resized during initialization
-        resized: bool,
         chain_info: ChainInfo,
     },
     Node(NodeNotification),
@@ -488,7 +486,6 @@ async fn run(
             reward_address_balance: consensus_node.account_balance(&config.reward_address),
             initial_farm_states: farmer.initial_farm_states().to_vec(),
             farm_during_initial_plotting: farmer.farm_during_initial_plotting(),
-            resized: farmer.resized(),
             chain_info: consensus_node.chain_info().clone(),
         })
         .await?;
