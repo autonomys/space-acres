@@ -19,16 +19,16 @@ progressbar progress {
     color: #ff3800;
 }
 
-.free-disk-space > trough >  block.low {
+.free-disk-space > trough > block.low {
     background-color: #ff3800;
 }
 
-.free-disk-space > trough >  block.high {
+.free-disk-space > trough > block.high {
     background-color: #ffA400;
 }
 
-.auditing-performance > trough >  block.low,
-.proving-performance > trough >  block.low {
+.auditing-performance > trough > block.low,
+.proving-performance > trough > block.low {
     background-color: #ffA400;
 }
 
@@ -90,6 +90,5 @@ farm-sector.writing {
 }
 
 .folder-button {
-    padding-right: 0px;
-    padding-left: 0px;
+    padding: 0;
 }
