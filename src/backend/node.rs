@@ -2,7 +2,7 @@ mod utils;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::node::utils::account_storage_key;
-use crate::backend::utils::{Handler, HandlerFn};
+use crate::backend::utils::{solution_range_to_sectors, Handler, HandlerFn, MAX_PIECES_IN_SECTOR};
 use crate::PosTable;
 use event_listener_primitives::HandlerId;
 use frame_system::AccountInfo;
@@ -289,7 +289,7 @@ fn get_total_account_balance(
 }
 
 // TODO: needs to be moved to runtime constants or somewhere else
-const SLOT_PROBABILITY: (u64, u64) = (1, 6);
+pub(crate) const SLOT_PROBABILITY: (u64, u64) = (1, 6);
 
 #[allow(dead_code)]
 pub(crate) fn get_total_space_pledged<Block, Client>(
@@ -314,14 +314,13 @@ where
     //     .map(|chain_constants| chain_constants.slot_probability())
     //     .unwrap();
 
-    // Calculate the total space pledged
-    let total_space_pledged = u128::from(u64::MAX)
-        .saturating_mul(subspace_core_primitives::Piece::SIZE as u128)
-        .saturating_mul(u128::from(SLOT_PROBABILITY.0))
-        / u128::from(current_solution_range)
-        / u128::from(SLOT_PROBABILITY.1);
+    // calculate the sectors
+    let sectors = solution_range_to_sectors(current_solution_range);
 
-    Ok(total_space_pledged)
+    // Calculate the total space pledged
+    Ok(sectors as u128
+        * MAX_PIECES_IN_SECTOR as u128
+        * subspace_core_primitives::Piece::SIZE as u128)
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
