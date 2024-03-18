@@ -6,7 +6,7 @@ pub(super) type HandlerFn<A> = Arc<dyn Fn(&A) + Send + Sync + 'static>;
 pub(super) type Handler<A> = Bag<HandlerFn<A>, A>;
 
 // TODO: pointing to source code: https://github.com/subspace/subspace/blob/df8d33b65fff6a88d77fa8090533879199bcb422/crates/subspace-runtime/src/lib.rs#L222-L235
-//      Needs to de-duplicate
+//      Needs to be de-duplicated
 /// Computes the following: https://github.com/subspace/subspace/blob/df8d33b65fff6a88d77fa8090533879199bcb422/crates/subspace-runtime/src/lib.rs#L222-L235
 /// ```
 /// MAX * slot_probability / (pieces_in_sector * chunks / s_buckets) / solution_range
