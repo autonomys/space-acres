@@ -288,8 +288,6 @@ fn get_total_account_balance(
     Some(account_data.free + account_data.reserved + account_data.frozen)
 }
 
-// defined here: https://github.com/subspace/subspace/blob/5d8b65740ff054b01ebcbaf5a905e74274c1a5d0/crates/subspace-core-primitives/src/pieces.rs#L803
-const PIECE_SIZE: usize = 1048672/* the actual piece size from your runtime */;
 // TODO: needs to be moved to runtime constants or somewhere else
 const SLOT_PROBABILITY: (u64, u64) = (1, 6);
 
@@ -309,16 +307,19 @@ where
         .map(|solution_ranges| solution_ranges.current)
         .expect("Failed to get current solution range");
 
+    // TODO: Uncomment later.
+    // let slot_probability = client
+    //     .runtime_api()
+    //     .chain_constants(block_hash)
+    //     .map(|chain_constants| chain_constants.slot_probability())
+    //     .unwrap();
+
     // Calculate the total space pledged
     let total_space_pledged = u128::from(u64::MAX)
-        .checked_mul(PIECE_SIZE as u128)
-        .expect("Multiplication with piece size works; qed")
-        .checked_mul(u128::from(SLOT_PROBABILITY.0))
-        .expect("Multiplication with slot probability_0 works; qed")
-        .checked_div(u128::from(current_solution_range))
-        .expect("Division by current solution range works; qed")
-        .checked_div(u128::from(SLOT_PROBABILITY.1))
-        .expect("Division by slot probability_1 works; qed");
+        .saturating_mul(subspace_core_primitives::Piece::SIZE as u128)
+        .saturating_mul(u128::from(SLOT_PROBABILITY.0))
+        / u128::from(current_solution_range)
+        / u128::from(SLOT_PROBABILITY.1);
 
     Ok(total_space_pledged)
 }
