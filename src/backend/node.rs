@@ -298,17 +298,11 @@ where
     Client: ProvideRuntimeApi<Block>,
     Client::Api: SubspaceApi<Block, FarmerPublicKey>,
 {
-    let current_solution_range = client
-        .runtime_api()
-        .solution_ranges(block_hash)
-        .map(|solution_ranges| solution_ranges.current)?;
+    let runtime_api = client.runtime_api();
 
-    let slot_probability = client
-        .runtime_api()
-        .chain_constants(block_hash)
-        .map(|chain_constants| chain_constants.slot_probability())?;
-
-    let max_pieces_in_sector = client.runtime_api().max_pieces_in_sector(block_hash)?;
+    let current_solution_range = runtime_api.solution_ranges(block_hash)?.current;
+    let slot_probability = runtime_api.chain_constants(block_hash)?.slot_probability();
+    let max_pieces_in_sector = runtime_api.max_pieces_in_sector(block_hash)?;
 
     // calculate the sectors
     let sectors = solution_range_to_sectors(
