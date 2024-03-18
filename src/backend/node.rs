@@ -2,7 +2,7 @@ mod utils;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::node::utils::account_storage_key;
-use crate::backend::utils::{solution_range_to_sectors, Handler, HandlerFn, MAX_PIECES_IN_SECTOR};
+use crate::backend::utils::{solution_range_to_sectors, Handler, HandlerFn};
 use crate::PosTable;
 use event_listener_primitives::HandlerId;
 use frame_system::AccountInfo;
@@ -288,9 +288,6 @@ fn get_total_account_balance(
     Some(account_data.free + account_data.reserved + account_data.frozen)
 }
 
-// TODO: needs to be moved to runtime constants or somewhere else
-pub(crate) const SLOT_PROBABILITY: (u64, u64) = (1, 6);
-
 #[allow(dead_code)]
 pub(crate) fn get_total_space_pledged<Block, Client>(
     client: &Client,
@@ -304,22 +301,25 @@ where
     let current_solution_range = client
         .runtime_api()
         .solution_ranges(block_hash)
-        .map(|solution_ranges| solution_ranges.current)
-        .expect("Failed to get current solution range");
+        .map(|solution_ranges| solution_ranges.current)?;
 
-    // TODO: Uncomment later.
-    // let slot_probability = client
-    //     .runtime_api()
-    //     .chain_constants(block_hash)
-    //     .map(|chain_constants| chain_constants.slot_probability())
-    //     .unwrap();
+    let slot_probability = client
+        .runtime_api()
+        .chain_constants(block_hash)
+        .map(|chain_constants| chain_constants.slot_probability())?;
+
+    let max_pieces_in_sector = client.runtime_api().max_pieces_in_sector(block_hash)?;
 
     // calculate the sectors
-    let sectors = solution_range_to_sectors(current_solution_range);
+    let sectors = solution_range_to_sectors(
+        current_solution_range,
+        slot_probability,
+        max_pieces_in_sector,
+    );
 
     // Calculate the total space pledged
     Ok(sectors as u128
-        * MAX_PIECES_IN_SECTOR as u128
+        * max_pieces_in_sector as u128
         * subspace_core_primitives::Piece::SIZE as u128)
 }
 
