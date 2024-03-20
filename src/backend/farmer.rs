@@ -10,7 +10,7 @@ use event_listener_primitives::HandlerId;
 use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
-use futures::{select, FutureExt, StreamExt};
+use futures::{select, FutureExt, StreamExt, TryStreamExt};
 use parking_lot::Mutex;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
@@ -19,10 +19,10 @@ use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
+use subspace_farmer::farm::{Farm, FarmingNotification, SectorPlottingDetails, SectorUpdate};
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
-use subspace_farmer::single_disk_farm::farming::FarmingNotification;
 use subspace_farmer::single_disk_farm::{
-    SectorPlottingDetails, SectorUpdate, SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
+    SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
@@ -262,7 +262,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         Some(ThreadPriority::Min),
     )?;
 
-    let (single_disk_farms, plotting_delay_senders) = {
+    let (farms, plotting_delay_senders) = {
         let global_mutex = Arc::default();
         let info_mutex = &AsyncMutex::new(());
         let faster_read_sector_record_chunks_mode_barrier =
@@ -272,12 +272,12 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
 
-        let mut single_disk_farms = Vec::with_capacity(disk_farms.len());
-        let mut single_disk_farms_stream = disk_farms
+        let mut farms = Vec::with_capacity(disk_farms.len());
+        let mut farms_stream = disk_farms
             .into_iter()
             .zip(plotting_delay_receivers)
             .enumerate()
-            .map(|(disk_farm_index, (disk_farm, plotting_delay_receiver))| {
+            .map(|(farm_index, (disk_farm, plotting_delay_receiver))| {
                 let node_client = node_client.clone();
                 let farmer_app_info = farmer_app_info.clone();
                 let max_pieces_in_sector = farmer_app_info.protocol_info.max_pieces_in_sector;
@@ -293,7 +293,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                     Arc::clone(&faster_read_sector_record_chunks_mode_concurrency);
 
                 async move {
-                    let single_disk_farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
+                    let farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
                         SingleDiskFarmOptions {
                             directory: disk_farm.directory.clone(),
                             farmer_app_info,
@@ -316,17 +316,17 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             faster_read_sector_record_chunks_mode_barrier,
                             faster_read_sector_record_chunks_mode_concurrency,
                         },
-                        disk_farm_index,
+                        farm_index,
                     );
 
-                    let single_disk_farm = match single_disk_farm_fut.await {
-                        Ok(single_disk_farm) => single_disk_farm,
+                    let farm = match farm_fut.await {
+                        Ok(farm) => farm,
                         Err(SingleDiskFarmError::InsufficientAllocatedSpace {
                             min_space,
                             allocated_space,
                         }) => {
                             return (
-                                disk_farm_index,
+                                farm_index,
                                 Err(anyhow::anyhow!(
                                     "Allocated space {} ({}) is not enough, minimum is ~{} (~{}, \
                                     {} bytes to be exact)",
@@ -339,14 +339,14 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             );
                         }
                         Err(error) => {
-                            return (disk_farm_index, Err(error.into()));
+                            return (farm_index, Err(error.into()));
                         }
                     };
 
                     let _info_guard = info_mutex.lock().await;
 
-                    let info = single_disk_farm.info();
-                    info!("Single disk farm {disk_farm_index}:");
+                    let info = farm.info();
+                    info!("Farm {farm_index}:");
                     info!("  ID: {}", info.id());
                     info!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
                     info!("  Public key: 0x{}", hex::encode(info.public_key()));
@@ -357,33 +357,31 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                     );
                     info!("  Directory: {}", disk_farm.directory.display());
 
-                    (disk_farm_index, Ok(single_disk_farm))
+                    (farm_index, Ok(Box::new(farm) as Box<dyn Farm>))
                 }
-                .instrument(info_span!("", %disk_farm_index))
+                .instrument(info_span!("", %farm_index))
             })
             .collect::<FuturesUnordered<_>>();
 
-        while let Some((disk_farm_index, single_disk_farm)) = single_disk_farms_stream.next().await
-        {
-            if let Err(error) = &single_disk_farm {
-                let span = info_span!("", %disk_farm_index);
+        while let Some((farm_index, farm)) = farms_stream.next().await {
+            if let Err(error) = &farm {
+                let span = info_span!("", %farm_index);
                 let _span_guard = span.enter();
 
                 error!(%error, "Single disk creation failed");
             }
-            single_disk_farms.push((disk_farm_index, single_disk_farm?));
+            farms.push((farm_index, farm?));
         }
 
         // Restore order after unordered initialization
-        single_disk_farms
-            .sort_unstable_by_key(|(disk_farm_index, _single_disk_farm)| *disk_farm_index);
+        farms.sort_unstable_by_key(|(farm_index, _farm)| *farm_index);
 
-        let single_disk_farms = single_disk_farms
+        let farms = farms
             .into_iter()
-            .map(|(_disk_farm_index, single_disk_farm)| single_disk_farm)
+            .map(|(_farm_index, farm)| farm)
             .collect::<Vec<_>>();
 
-        (single_disk_farms, plotting_delay_senders)
+        (farms, plotting_delay_senders)
     };
 
     {
@@ -409,15 +407,9 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     }
     farmer_cache
         .replace_backing_caches(
-            single_disk_farms
-                .iter()
-                .map(|single_disk_farm| single_disk_farm.piece_cache())
-                .collect(),
+            farms.iter().map(|farm| farm.piece_cache()).collect(),
             if plot_cache {
-                single_disk_farms
-                    .iter()
-                    .map(|single_disk_farm| single_disk_farm.plot_cache())
-                    .collect()
+                farms.iter().map(|farm| farm.plot_cache()).collect()
             } else {
                 Vec::new()
             },
@@ -425,9 +417,9 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         .await;
 
     // Store piece readers so we can reference them later
-    let piece_readers = single_disk_farms
+    let piece_readers = farms
         .iter()
-        .map(|single_disk_farm| single_disk_farm.piece_reader())
+        .map(|farm| farm.piece_reader())
         .collect::<Vec<_>>();
 
     info!("Collecting already plotted pieces (this will take some time)...");
@@ -436,31 +428,33 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     {
         let mut future_plotted_pieces = PlottedPieces::new(piece_readers);
 
-        for (disk_farm_index, single_disk_farm) in single_disk_farms.iter().enumerate() {
-            let disk_farm_index = disk_farm_index.try_into().map_err(|_error| {
+        for (farm_index, farm) in farms.iter().enumerate() {
+            let farm_index = farm_index.try_into().map_err(|_error| {
                 anyhow!(
                     "More than 256 plots are not supported, consider running multiple farmer \
                     instances"
                 )
             })?;
 
-            (0 as SectorIndex..)
-                .zip(single_disk_farm.plotted_sectors().await)
-                .for_each(
-                    |(sector_index, plotted_sector_result)| match plotted_sector_result {
+            for (sector_index, mut plotted_sectors) in
+                (0 as SectorIndex..).zip(farm.plotted_sectors().await)
+            {
+                while let Some(plotted_sector_result) = plotted_sectors.next().await {
+                    match plotted_sector_result {
                         Ok(plotted_sector) => {
-                            future_plotted_pieces.add_sector(disk_farm_index, &plotted_sector);
+                            future_plotted_pieces.add_sector(farm_index, &plotted_sector);
                         }
                         Err(error) => {
                             error!(
                                 %error,
-                                %disk_farm_index,
+                                %farm_index,
                                 %sector_index,
                                 "Failed reading plotted sector on startup, skipping"
                             );
                         }
-                    },
-                );
+                    }
+                }
+            }
         }
 
         plotted_pieces.lock().replace(future_plotted_pieces);
@@ -482,53 +476,57 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         }))
         .detach();
 
-    let initial_farm_states = single_disk_farms
+    let initial_farm_states = farms
         .iter()
-        .map(|single_disk_farm| async {
-            InitialFarmState {
-                total_sectors_count: single_disk_farm.total_sectors_count(),
-                plotted_sectors_count: single_disk_farm.plotted_sectors_count().await,
-            }
+        .enumerate()
+        .map(|(farm_index, farm)| async move {
+            anyhow::Ok(InitialFarmState {
+                total_sectors_count: farm.total_sectors_count(),
+                plotted_sectors_count: farm.plotted_sectors_count().await.map_err(|error| {
+                    anyhow!(
+                        "Failed to get plotted sectors count from from index {farm_index}: \
+                        {error}"
+                    )
+                })?,
+            })
         })
         .collect::<FuturesOrdered<_>>()
-        .collect()
-        .await;
+        .try_collect::<Vec<_>>()
+        .await?;
 
-    let mut single_disk_farms_stream = single_disk_farms
+    let mut farms_stream = farms
         .into_iter()
         .enumerate()
-        .map(|(disk_farm_index, single_disk_farm)| {
-            let disk_farm_index = u8::try_from(disk_farm_index).expect(
+        .map(|(farm_index, farm)| {
+            let farm_index = u8::try_from(farm_index).expect(
                 "More than 256 plots are not supported, this is checked above already; qed",
             );
             let plotted_pieces = Arc::clone(&plotted_pieces);
-            let span = info_span!("farm", %disk_farm_index);
+            let span = info_span!("farm", %farm_index);
 
-            single_disk_farm
-                .on_sector_update(Arc::new({
-                    let notifications = Arc::clone(&notifications);
+            farm.on_sector_update(Arc::new({
+                let notifications = Arc::clone(&notifications);
 
-                    move |(sector_index, sector_update)| {
-                        notifications.call_simple(&FarmerNotification::SectorUpdate {
-                            farm_index: disk_farm_index,
-                            sector_index: *sector_index,
-                            update: sector_update.clone(),
-                        });
-                    }
-                }))
-                .detach();
-            single_disk_farm
-                .on_farming_notification(Arc::new({
-                    let notifications = Arc::clone(&notifications);
+                move |(sector_index, sector_update)| {
+                    notifications.call_simple(&FarmerNotification::SectorUpdate {
+                        farm_index,
+                        sector_index: *sector_index,
+                        update: sector_update.clone(),
+                    });
+                }
+            }))
+            .detach();
+            farm.on_farming_notification(Arc::new({
+                let notifications = Arc::clone(&notifications);
 
-                    move |notification| {
-                        notifications.call_simple(&FarmerNotification::FarmingNotification {
-                            farm_index: disk_farm_index,
-                            notification: notification.clone(),
-                        });
-                    }
-                }))
-                .detach();
+                move |notification| {
+                    notifications.call_simple(&FarmerNotification::FarmingNotification {
+                        farm_index,
+                        notification: notification.clone(),
+                    });
+                }
+            }))
+            .detach();
 
             // Collect newly plotted pieces
             let on_plotted_sector_callback =
@@ -543,25 +541,24 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             .expect("Initial value was populated above; qed");
 
                         if let Some(old_plotted_sector) = &maybe_old_plotted_sector {
-                            plotted_pieces.delete_sector(disk_farm_index, old_plotted_sector);
+                            plotted_pieces.delete_sector(farm_index, old_plotted_sector);
                         }
-                        plotted_pieces.add_sector(disk_farm_index, plotted_sector);
+                        plotted_pieces.add_sector(farm_index, plotted_sector);
                     }
                 };
-            single_disk_farm
-                .on_sector_update(Arc::new(move |(_sector_index, sector_state)| {
-                    if let SectorUpdate::Plotting(SectorPlottingDetails::Finished {
-                        plotted_sector,
-                        old_plotted_sector,
-                        ..
-                    }) = sector_state
-                    {
-                        on_plotted_sector_callback(plotted_sector, old_plotted_sector);
-                    }
-                }))
-                .detach();
+            farm.on_sector_update(Arc::new(move |(_sector_index, sector_state)| {
+                if let SectorUpdate::Plotting(SectorPlottingDetails::Finished {
+                    plotted_sector,
+                    old_plotted_sector,
+                    ..
+                }) = sector_state
+                {
+                    on_plotted_sector_callback(plotted_sector, old_plotted_sector);
+                }
+            }))
+            .detach();
 
-            single_disk_farm.run()
+            farm.run()
         })
         .collect::<FuturesUnordered<_>>()
         .boxed();
@@ -572,7 +569,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let farm_fut = Box::pin(
         async move {
-            while let Some(result) = single_disk_farms_stream.next().await {
+            while let Some(result) = farms_stream.next().await {
                 match result {
                     Ok(id) => {
                         info!(%id, "Farm exited successfully");
