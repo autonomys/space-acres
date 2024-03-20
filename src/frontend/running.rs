@@ -10,6 +10,7 @@ use crate::frontend::running::node::{NodeInput, NodeView};
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
+use relm4_icons::icon_name;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 
@@ -25,6 +26,7 @@ pub enum RunningInput {
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification),
+    ToggleFarmDetails,
 }
 
 #[derive(Debug, Default)]
@@ -67,10 +69,18 @@ impl Component for RunningView {
                 set_spacing: 10,
 
                 gtk::Box {
+                    set_spacing: 10,
+
                     gtk::Label {
                         add_css_class: "heading",
                         set_halign: gtk::Align::Start,
                         set_label: "Farmer",
+                    },
+                    gtk::ToggleButton {
+                        connect_clicked => RunningInput::ToggleFarmDetails,
+                        set_has_frame: false,
+                        set_icon_name: icon_name::GRID_FILLED,
+                        set_tooltip: "Expand details about each farm",
                     },
                     gtk::Box {
                         set_halign: gtk::Align::End,
@@ -296,6 +306,9 @@ impl RunningView {
                     self.farmer_state.piece_cache_sync_progress = progress;
                 }
             },
+            RunningInput::ToggleFarmDetails => {
+                self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
+            }
         }
     }
 }

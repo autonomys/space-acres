@@ -87,6 +87,7 @@ pub(super) enum FarmWidgetInput {
     FarmingNotification(FarmingNotification),
     OpenFarmFolder,
     NodeSynced(bool),
+    ToggleFarmDetails,
 }
 
 #[derive(Debug)]
@@ -103,6 +104,7 @@ pub(super) struct FarmWidget {
     sector_rows: gtk::Box,
     sectors: HashMap<SectorIndex, gtk::Box>,
     non_fatal_farming_error: Option<Arc<FarmingError>>,
+    farm_details: bool,
 }
 
 #[relm4::factory(pub(super))]
@@ -288,7 +290,12 @@ impl FactoryComponent for FarmWidget {
                 },
             },
 
-            self.sector_rows.clone(),
+            gtk::Box {
+                #[watch]
+                set_visible: self.farm_details,
+
+                self.sector_rows.clone(),
+            },
         },
     }
 
@@ -328,6 +335,7 @@ impl FactoryComponent for FarmWidget {
             sector_rows,
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
             non_fatal_farming_error: None,
+            farm_details: false,
         }
     }
 
@@ -422,6 +430,9 @@ impl FarmWidget {
             }
             FarmWidgetInput::NodeSynced(synced) => {
                 self.is_node_synced = synced;
+            }
+            FarmWidgetInput::ToggleFarmDetails => {
+                self.farm_details = !self.farm_details;
             }
         }
     }
