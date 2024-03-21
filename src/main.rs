@@ -5,11 +5,12 @@ mod backend;
 mod frontend;
 
 use crate::backend::config::RawConfig;
+use crate::backend::farmer::FarmerAction;
 use crate::backend::{wipe, BackendAction, BackendNotification};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
-use crate::frontend::running::{RunningInput, RunningView};
+use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use clap::Parser;
 use duct::cmd;
 use file_rotate::compression::Compression;
@@ -82,6 +83,7 @@ type PosTable = ChiaTable;
 enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
+    Running(RunningOutput),
     OpenLogFolder,
     OpenReconfiguration,
     ShowAboutDialog,
@@ -432,7 +434,12 @@ impl AsyncComponent for App {
             .launch(root.clone())
             .forward(sender.input_sender(), AppInput::Configuration);
 
-        let running_view = RunningView::builder().launch(()).detach();
+        let running_view = RunningView::builder()
+            .launch(RunningInit {
+                // Not paused on start
+                plotting_paused: false,
+            })
+            .forward(sender.input_sender(), AppInput::Running);
 
         let about_dialog = gtk::AboutDialog::builder()
             .title("About")
@@ -533,6 +540,9 @@ impl AsyncComponent for App {
             AppInput::Configuration(configuration_output) => {
                 self.process_configuration_output(configuration_output)
                     .await;
+            }
+            AppInput::Running(running_output) => {
+                self.process_running_output(running_output).await;
             }
             AppInput::OpenReconfiguration => {
                 self.menu_popover.hide();
@@ -693,6 +703,24 @@ impl App {
             ConfigurationOutput::Close => {
                 // Configuration view is closed when application is already running, switch to corresponding screen
                 self.current_view = View::Running;
+            }
+        }
+    }
+
+    async fn process_running_output(&mut self, running_output: RunningOutput) {
+        match running_output {
+            RunningOutput::PausePlotting(pause_plotting) => {
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::Farmer(FarmerAction::PausePlotting(
+                        pause_plotting,
+                    )))
+                    .await
+                {
+                    self.current_view = View::Error(anyhow::anyhow!(
+                        "Failed to send pause plotting to backend: {error}"
+                    ));
+                }
             }
         }
     }

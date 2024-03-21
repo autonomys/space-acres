@@ -8,7 +8,7 @@ mod utils;
 use crate::backend::config::{Config, ConfigError, RawConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::farmer::{
-    DiskFarm, Farmer, FarmerNotification, FarmerOptions, InitialFarmState,
+    DiskFarm, Farmer, FarmerAction, FarmerNotification, FarmerOptions, InitialFarmState,
 };
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
@@ -231,6 +231,8 @@ pub enum BackendNotification {
 pub enum BackendAction {
     /// Config was created or updated
     NewConfig { raw_config: RawConfig },
+    /// Farmer action
+    Farmer(FarmerAction),
 }
 
 struct LoadedBackend {
@@ -298,6 +300,12 @@ pub async fn create(
 
                         // Try to load config and start again
                         continue 'load;
+                    }
+                    BackendAction::Farmer(farmer_action) => {
+                        warn!(
+                            ?farmer_action,
+                            "Farmer action is not expected before initialization, ignored"
+                        );
                     }
                 }
             }
@@ -550,6 +558,8 @@ async fn run(
         })
     });
 
+    let mut farmer_action_sender = farmer.action_sender();
+
     // Order is important here, we want to destroy dependents first and only then corresponding
     // dependencies to avoid unnecessary errors and warnings in logs
     let networking_fut = networking_fut;
@@ -562,6 +572,7 @@ async fn run(
             process_backend_actions(
                 &config_file_path,
                 backend_action_receiver,
+                &mut farmer_action_sender,
                 &mut notifications_sender,
             )
             .await
@@ -991,6 +1002,7 @@ async fn create_farmer(
 async fn process_backend_actions(
     config_file_path: &Path,
     backend_action_receiver: &mut mpsc::Receiver<BackendAction>,
+    farmer_action_sender: &mut mpsc::Sender<FarmerAction>,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) {
     while let Some(action) = backend_action_receiver.next().await {
@@ -1011,6 +1023,11 @@ async fn process_backend_actions(
                     .await
                 {
                     error!(%error, "Failed to send config save result notification");
+                }
+            }
+            BackendAction::Farmer(farmer_action) => {
+                if let Err(error) = farmer_action_sender.send(farmer_action).await {
+                    error!(%error, "Failed to forward farmer action");
                 }
             }
         }
