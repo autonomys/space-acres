@@ -7,7 +7,7 @@ use crate::PosTable;
 use anyhow::anyhow;
 use async_lock::Mutex as AsyncMutex;
 use event_listener_primitives::HandlerId;
-use futures::channel::oneshot;
+use futures::channel::{mpsc, oneshot};
 use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt, TryStreamExt};
@@ -32,8 +32,8 @@ use subspace_farmer::utils::{
 use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
 use thread_priority::ThreadPriority;
-use tokio::sync::{Barrier, Semaphore};
-use tracing::{error, info, info_span, Instrument};
+use tokio::sync::{watch, Barrier, Semaphore};
+use tracing::{debug, error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
 const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
@@ -64,20 +64,42 @@ pub enum FarmerNotification {
     },
 }
 
+#[derive(Debug, Clone)]
+pub enum FarmerAction {
+    /// Pause (or resume) plotting
+    PausePlotting(bool),
+}
+
 type Notifications = Handler<FarmerNotification>;
 
 pub(super) struct Farmer {
-    farm_fut: BoxFuture<'static, anyhow::Result<()>>,
+    farmer_fut: BoxFuture<'static, anyhow::Result<()>>,
     farmer_cache_worker_fut: BoxFuture<'static, ()>,
     initial_farm_states: Vec<InitialFarmState>,
     farm_during_initial_plotting: bool,
     notifications: Arc<Notifications>,
+    action_sender: mpsc::Sender<FarmerAction>,
 }
 
 impl Farmer {
     pub(super) async fn run(self) -> anyhow::Result<()> {
+        let Farmer {
+            farmer_fut,
+            farmer_cache_worker_fut,
+            initial_farm_states,
+            farm_during_initial_plotting: _,
+            notifications,
+            action_sender,
+        } = self;
+
+        // Explicitly drop unnecessary things, especially senders to make sure farmer can exit
+        // gracefully when `fn run()`'s future is dropped
+        drop(initial_farm_states);
+        drop(notifications);
+        drop(action_sender);
+
         let farmer_cache_worker_fut = match run_future_in_dedicated_thread(
-            move || self.farmer_cache_worker_fut,
+            move || farmer_cache_worker_fut,
             "farmer-cache-worker".to_string(),
         ) {
             Ok(farmer_cache_worker_fut) => farmer_cache_worker_fut,
@@ -88,17 +110,15 @@ impl Farmer {
             }
         };
 
-        let farm_fut = match run_future_in_dedicated_thread(
-            move || self.farm_fut,
-            "farmer-farm".to_string(),
-        ) {
-            Ok(farmer_cache_worker_fut) => farmer_cache_worker_fut,
-            Err(error) => {
-                return Err(anyhow::anyhow!(
-                    "Failed to spawn farm future in background thread: {error}"
-                ));
-            }
-        };
+        let farm_fut =
+            match run_future_in_dedicated_thread(move || farmer_fut, "farmer-farmer".to_string()) {
+                Ok(farmer_cache_worker_fut) => farmer_cache_worker_fut,
+                Err(error) => {
+                    return Err(anyhow::anyhow!(
+                        "Failed to spawn farm future in background thread: {error}"
+                    ));
+                }
+            };
 
         select! {
             _ = farmer_cache_worker_fut.fuse() => {
@@ -118,6 +138,10 @@ impl Farmer {
 
     pub(super) fn farm_during_initial_plotting(&self) -> bool {
         self.farm_during_initial_plotting
+    }
+
+    pub(super) fn action_sender(&self) -> mpsc::Sender<FarmerAction> {
+        self.action_sender.clone()
     }
 
     pub(super) fn on_notification(&self, callback: HandlerFn<FarmerNotification>) -> HandlerId {
@@ -242,6 +266,8 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             );
         }
     }
+
+    let plotting_thread_pools_count = plotting_thread_pool_core_indices.len();
 
     let downloading_semaphore =
         Arc::new(Semaphore::new(plotting_thread_pool_core_indices.len() + 1));
@@ -567,28 +593,81 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
     // event handlers
     drop(plotted_pieces);
 
-    let farm_fut = Box::pin(
-        async move {
-            while let Some(result) = farms_stream.next().await {
-                match result {
-                    Ok(id) => {
-                        info!(%id, "Farm exited successfully");
-                    }
-                    Err(error) => {
-                        return Err(error);
+    let (action_sender, mut action_receiver) = mpsc::channel(1);
+    let (pause_plotting_sender, mut pause_plotting_receiver) = watch::channel(false);
+
+    let pause_plotting_actions_fut = async move {
+        let mut thread_pools = Vec::with_capacity(plotting_thread_pools_count);
+
+        loop {
+            if *pause_plotting_receiver.borrow_and_update() {
+                // Collect all managers so that plotting will be effectively paused
+                if thread_pools.len() < plotting_thread_pools_count {
+                    thread_pools.push(plotting_thread_pool_manager.get_thread_pools().await);
+                    // Allow to un-pause plotting quickly if user requests it
+                    continue;
+                }
+            } else {
+                // Returns all thread pools back to the manager
+                thread_pools.clear();
+            }
+
+            if pause_plotting_receiver.changed().await.is_err() {
+                break;
+            }
+        }
+    };
+
+    let process_actions_fut = async move {
+        while let Some(action) = action_receiver.next().await {
+            match action {
+                FarmerAction::PausePlotting(pause_plotting) => {
+                    if let Err(error) = pause_plotting_sender.send(pause_plotting) {
+                        debug!(%error, "Failed to forward pause plotting");
                     }
                 }
             }
-            anyhow::Ok(())
+        }
+        anyhow::Ok(())
+    };
+
+    let farms_fut = async move {
+        while let Some(result) = farms_stream.next().await {
+            match result {
+                Ok(id) => {
+                    info!(%id, "Farm exited successfully");
+                }
+                Err(error) => {
+                    return Err(error);
+                }
+            }
+        }
+        anyhow::Ok(())
+    };
+
+    let farmer_fut = Box::pin(
+        async move {
+            select! {
+                _ = pause_plotting_actions_fut.fuse() => {
+                    Ok(())
+                }
+                _ = process_actions_fut.fuse() => {
+                    Ok(())
+                }
+                result = farms_fut.fuse() => {
+                    result
+                }
+            }
         }
         .in_current_span(),
     );
 
     anyhow::Ok(Farmer {
-        farm_fut,
+        farmer_fut,
         farmer_cache_worker_fut,
         initial_farm_states,
         farm_during_initial_plotting,
         notifications,
+        action_sender,
     })
 }

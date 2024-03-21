@@ -76,6 +76,7 @@ pub(super) struct FarmWidgetInit {
     pub(super) total_sectors: SectorIndex,
     pub(super) plotted_total_sectors: SectorIndex,
     pub(super) farm_during_initial_plotting: bool,
+    pub(super) plotting_paused: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +86,7 @@ pub(super) enum FarmWidgetInput {
         update: SectorUpdate,
     },
     FarmingNotification(FarmingNotification),
+    PausePlotting(bool),
     OpenFarmFolder,
     NodeSynced(bool),
     ToggleFarmDetails,
@@ -105,6 +107,8 @@ pub(super) struct FarmWidget {
     sectors: HashMap<SectorIndex, gtk::Box>,
     non_fatal_farming_error: Option<Arc<FarmingError>>,
     farm_details: bool,
+    encoding_sectors: usize,
+    plotting_paused: bool,
 }
 
 #[relm4::factory(pub(super))]
@@ -239,31 +243,51 @@ impl FactoryComponent for FarmWidget {
 
                                 match kind {
                                     PlottingKind::Initial => {
-                                        if self.farm_during_initial_plotting {
-                                            let farming = if self.is_node_synced {
-                                                "farming"
+                                        let initial_plotting = if self.plotting_paused {
+                                            if self.encoding_sectors > 0 {
+                                                "Pausing initial plotting"
                                             } else {
-                                                "not farming"
-                                            };
-                                            format!(
-                                                "Initial plotting {:.2}%{}, {}",
-                                                progress,
-                                                plotting_speed,
-                                                farming
-                                            )
+                                                "Paused initial plotting"
+                                            }
                                         } else {
-                                            format!(
-                                                "Initial plotting {:.2}%{}, not farming",
-                                                progress,
-                                                plotting_speed,
-                                            )
-                                        }
+                                            "Initial plotting"
+                                        };
+                                        let farming = if self.is_node_synced && self.farm_during_initial_plotting {
+                                            "farming"
+                                        } else {
+                                            "not farming"
+                                        };
+                                        format!(
+                                            "{} {:.2}%{}, {}",
+                                            initial_plotting,
+                                            progress,
+                                            plotting_speed,
+                                            farming,
+                                        )
                                     },
-                                    PlottingKind::Replotting => format!(
-                                        "Replotting {:.2}%{}, farming",
-                                        progress,
-                                        plotting_speed,
-                                    ),
+                                    PlottingKind::Replotting => {
+                                        let replotting = if self.plotting_paused {
+                                            if self.encoding_sectors > 0 {
+                                                "Pausing replotting"
+                                            } else {
+                                                "Paused replotting"
+                                            }
+                                        } else {
+                                            "Replotting"
+                                        };
+                                        let farming = if self.is_node_synced {
+                                            "farming"
+                                        } else {
+                                            "not farming"
+                                        };
+                                        format!(
+                                            "{} {:.2}%{}, {}",
+                                            replotting,
+                                            progress,
+                                            plotting_speed,
+                                            farming,
+                                        )
+                                    },
                                 }
                             },
                         },
@@ -336,6 +360,8 @@ impl FactoryComponent for FarmWidget {
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
             non_fatal_farming_error: None,
             farm_details: false,
+            encoding_sectors: 0,
+            plotting_paused: init.plotting_paused,
         }
     }
 
@@ -377,9 +403,11 @@ impl FarmWidget {
                         self.remove_sector_state(sector_index, SectorState::Downloading);
                     }
                     SectorPlottingDetails::Encoding => {
+                        self.encoding_sectors += 1;
                         self.update_sector_state(sector_index, SectorState::Encoding);
                     }
                     SectorPlottingDetails::Encoded(_) => {
+                        self.encoding_sectors -= 1;
                         self.remove_sector_state(sector_index, SectorState::Encoding);
                     }
                     SectorPlottingDetails::Writing => {
@@ -423,6 +451,9 @@ impl FarmWidget {
                     self.non_fatal_farming_error.replace(error);
                 }
             },
+            FarmWidgetInput::PausePlotting(plotting_paused) => {
+                self.plotting_paused = plotting_paused;
+            }
             FarmWidgetInput::OpenFarmFolder => {
                 if let Err(error) = open::that_detached(&self.path) {
                     error!(%error, path = %self.path.display(), "Failed to open farm folder");
