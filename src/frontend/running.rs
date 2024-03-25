@@ -89,18 +89,20 @@ impl Component for RunningView {
                         set_halign: gtk::Align::Start,
                         set_label: "Farmer",
                     },
-                    gtk::ToggleButton {
-                        connect_clicked => RunningInput::ToggleFarmDetails,
-                        set_has_frame: false,
-                        set_icon_name: icon_name::GRID_FILLED,
-                        set_tooltip: "Expand details about each farm",
-                    },
-                    gtk::ToggleButton {
-                        connect_clicked => RunningInput::TogglePausePlotting,
-                        set_active: model.plotting_paused,
-                        set_has_frame: false,
-                        set_icon_name: icon_name::PAUSE,
-                        set_tooltip: "Pause plotting/replotting, note that currently encoding sectors will not be interrupted",
+                    gtk::Box {
+                        gtk::ToggleButton {
+                            connect_clicked => RunningInput::ToggleFarmDetails,
+                            set_has_frame: false,
+                            set_icon_name: icon_name::GRID_FILLED,
+                            set_tooltip: "Expand details about each farm",
+                        },
+                        gtk::ToggleButton {
+                            connect_clicked => RunningInput::TogglePausePlotting,
+                            set_active: model.plotting_paused,
+                            set_has_frame: false,
+                            set_icon_name: icon_name::PAUSE,
+                            set_tooltip: "Pause plotting/replotting, note that currently encoding sectors will not be interrupted",
+                        },
                     },
                     gtk::Box {
                         set_halign: gtk::Align::End,
@@ -326,6 +328,10 @@ impl RunningView {
                 }
                 FarmerNotification::FarmerCacheSyncProgress { progress } => {
                     self.farmer_state.piece_cache_sync_progress = progress;
+                }
+                FarmerNotification::FarmError { farm_index, error } => {
+                    self.farms
+                        .send(&farm_index, FarmWidgetInput::Error { error });
                 }
             },
             RunningInput::ToggleFarmDetails => {

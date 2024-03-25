@@ -12,9 +12,11 @@ use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt, TryStreamExt};
 use parking_lot::Mutex;
+use std::future::pending;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
@@ -27,7 +29,7 @@ use subspace_farmer::single_disk_farm::{
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
     all_cpu_cores, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
-    run_future_in_dedicated_thread, thread_pool_core_indices, CpuCoreSet,
+    run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop, CpuCoreSet,
 };
 use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
@@ -40,6 +42,7 @@ const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
 /// NOTE: for large gaps between the plotted part and the end of the file plot cache will result in
 /// very long period of writing zeroes on Windows, see https://stackoverflow.com/q/78058306/3806795
 const MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS: u64 = 7 * 1024 * 1024 * 1024 * 1024;
+const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct InitialFarmState {
@@ -61,6 +64,10 @@ pub enum FarmerNotification {
     FarmerCacheSyncProgress {
         /// Progress so far in %
         progress: f32,
+    },
+    FarmError {
+        farm_index: u8,
+        error: Arc<anyhow::Error>,
     },
 }
 
@@ -584,10 +591,9 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             }))
             .detach();
 
-            farm.run()
+            farm.run().map(move |result| (farm_index, result))
         })
-        .collect::<FuturesUnordered<_>>()
-        .boxed();
+        .collect::<FuturesUnordered<_>>();
 
     // Drop original instance such that the only remaining instances are in `SingleDiskFarm`
     // event handlers
@@ -631,18 +637,49 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         anyhow::Ok(())
     };
 
-    let farms_fut = async move {
-        while let Some(result) = farms_stream.next().await {
-            match result {
-                Ok(id) => {
-                    info!(%id, "Farm exited successfully");
-                }
-                Err(error) => {
-                    return Err(error);
+    let mut farm_errors = Vec::new();
+
+    let farms_fut = {
+        let notifications = Arc::clone(&notifications);
+
+        async move {
+            while let Some((farm_index, result)) = farms_stream.next().await {
+                match result {
+                    Ok(()) => {
+                        info!(%farm_index, "Farm exited successfully");
+                    }
+                    Err(error) => {
+                        error!(%farm_index, %error, "Farm exited with error");
+
+                        let error = Arc::new(error);
+
+                        farm_errors.push(AsyncJoinOnDrop::new(
+                            tokio::spawn({
+                                let error = Arc::clone(&error);
+
+                                async move {
+                                    loop {
+                                        tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
+
+                                        error!(
+                                            %farm_index,
+                                            %error,
+                                            "Farm errored and stopped"
+                                        );
+                                    }
+                                }
+                            }),
+                            true,
+                        ));
+
+                        notifications
+                            .call_simple(&FarmerNotification::FarmError { farm_index, error });
+                    }
                 }
             }
+
+            pending::<()>().await;
         }
-        anyhow::Ok(())
     };
 
     let farmer_fut = Box::pin(
@@ -654,8 +691,8 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 _ = process_actions_fut.fuse() => {
                     Ok(())
                 }
-                result = farms_fut.fuse() => {
-                    result
+                _ = farms_fut.fuse() => {
+                    Ok(())
                 }
             }
         }
