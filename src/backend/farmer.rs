@@ -12,6 +12,7 @@ use futures::future::BoxFuture;
 use futures::stream::{FuturesOrdered, FuturesUnordered};
 use futures::{select, FutureExt, StreamExt, TryStreamExt};
 use parking_lot::Mutex;
+use std::future::pending;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -63,6 +64,10 @@ pub enum FarmerNotification {
     FarmerCacheSyncProgress {
         /// Progress so far in %
         progress: f32,
+    },
+    FarmError {
+        farm_index: u8,
+        error: Arc<anyhow::Error>,
     },
 }
 
@@ -634,38 +639,47 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
 
     let mut farm_errors = Vec::new();
 
-    let farms_fut = async move {
-        while let Some((farm_index, result)) = farms_stream.next().await {
-            match result {
-                Ok(()) => {
-                    info!(%farm_index, "Farm exited successfully");
-                }
-                Err(error) => {
-                    error!(%farm_index, %error, "Farm exited with error");
+    let farms_fut = {
+        let notifications = Arc::clone(&notifications);
 
-                    if farms_stream.is_empty() {
-                        return Err(error);
-                    } else {
+        async move {
+            while let Some((farm_index, result)) = farms_stream.next().await {
+                match result {
+                    Ok(()) => {
+                        info!(%farm_index, "Farm exited successfully");
+                    }
+                    Err(error) => {
+                        error!(%farm_index, %error, "Farm exited with error");
+
+                        let error = Arc::new(error);
+
                         farm_errors.push(AsyncJoinOnDrop::new(
-                            tokio::spawn(async move {
-                                loop {
-                                    tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
+                            tokio::spawn({
+                                let error = Arc::clone(&error);
 
-                                    error!(
-                                        %farm_index,
-                                        %error,
-                                        "Farm errored and stopped"
-                                    );
+                                async move {
+                                    loop {
+                                        tokio::time::sleep(FARM_ERROR_PRINT_INTERVAL).await;
+
+                                        error!(
+                                            %farm_index,
+                                            %error,
+                                            "Farm errored and stopped"
+                                        );
+                                    }
                                 }
                             }),
                             true,
-                        ))
+                        ));
+
+                        notifications
+                            .call_simple(&FarmerNotification::FarmError { farm_index, error });
                     }
                 }
             }
-        }
 
-        anyhow::Ok(())
+            pending::<()>().await;
+        }
     };
 
     let farmer_fut = Box::pin(
@@ -677,8 +691,8 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                 _ = process_actions_fut.fuse() => {
                     Ok(())
                 }
-                result = farms_fut.fuse() => {
-                    result
+                _ = farms_fut.fuse() => {
+                    Ok(())
                 }
             }
         }

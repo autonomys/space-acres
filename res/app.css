@@ -32,6 +32,10 @@ progressbar progress {
     background-color: #ffA400;
 }
 
+.farm-error {
+    color: #ff3800;
+}
+
 farm-sector {
     animation-iteration-count: infinite;
     animation-direction: alternate;

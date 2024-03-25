@@ -90,6 +90,9 @@ pub(super) enum FarmWidgetInput {
     OpenFarmFolder,
     NodeSynced(bool),
     ToggleFarmDetails,
+    Error {
+        error: Arc<anyhow::Error>,
+    },
 }
 
 #[derive(Debug)]
@@ -109,6 +112,7 @@ pub(super) struct FarmWidget {
     farm_details: bool,
     encoding_sectors: usize,
     plotting_paused: bool,
+    error: Option<Arc<anyhow::Error>>,
 }
 
 #[relm4::factory(pub(super))]
@@ -124,97 +128,127 @@ impl FactoryComponent for FarmWidget {
         #[root]
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
-            set_spacing: 10,
 
             gtk::Box {
                 gtk::Button {
-                    add_css_class : "folder-button",
+                    add_css_class: "folder-button",
                     connect_clicked => FarmWidgetInput::OpenFarmFolder,
                     set_halign: gtk::Align::Start,
                     set_has_frame: false,
-                    set_label: &format!("{} [{}]:", self.path.display(), self.size),
                     set_tooltip: "Click to open in file manager",
+
+                    gtk::Label {
+                        #[watch]
+                        set_css_classes: if self.error.is_some() {
+                            &["farm-error"]
+                        } else {
+                            &[]
+                        },
+                        set_label: &format!("{} [{}]:", self.path.display(), self.size),
+                    },
                 },
 
-                gtk::Box {
-                    set_halign: gtk::Align::End,
-                    set_hexpand: true,
-                    set_spacing: 10,
-
-                    gtk::Box {
-                        set_spacing: 10,
-                        #[watch]
-                        set_tooltip: &format!(
-                            "Auditing performance: average time {:.2}s, time limit {:.2}s",
-                            self.auditing_time.get_average().as_secs_f32(),
-                            MAX_AUDITING_TIME.as_secs_f32()
-                        ),
-                        #[watch]
-                        set_visible: self.auditing_time.get_num_samples() > 0,
+                match &self.error {
+                    Some(_error) => gtk::Box {
+                        add_css_class: "farm-error",
+                        set_halign: gtk::Align::End,
+                        set_hexpand: true,
 
                         gtk::Image {
-                            set_icon_name: Some(icon_name::PUZZLE_PIECE),
-                        },
-
-                        gtk::LevelBar {
-                            add_css_class: "auditing-performance",
-                            #[watch]
-                            set_value: {
-                                let average_time = self.auditing_time.get_average();
-                                let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
-                                let excellent_time_fraction_remaining = 1.0 - EXCELLENT_AUDITING_TIME.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
-                                (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
-                            },
-                            set_width_request: 70,
-                        },
+                            set_icon_name: Some(icon_name::WARNING),
+                        }
                     },
+                    None => {
+                        gtk::Box {
+                            set_halign: gtk::Align::End,
+                            set_hexpand: true,
+                            set_margin_top: 5,
+                            set_spacing: 10,
 
-                    gtk::Box {
-                        set_spacing: 10,
-                        #[watch]
-                        set_tooltip: &format!(
-                            "Proving performance: average time {:.2}s, time limit {:.2}s",
-                            self.proving_time.get_average().as_secs_f32(),
-                            BLOCK_AUTHORING_DELAY.as_secs_f32()
-                        ),
-                        #[watch]
-                        set_visible: self.proving_time.get_num_samples() > 0,
+                            gtk::Box {
+                                set_spacing: 5,
+                                #[watch]
+                                set_tooltip: &format!(
+                                    "Auditing performance: average time {:.2}s, time limit {:.2}s",
+                                    self.auditing_time.get_average().as_secs_f32(),
+                                    MAX_AUDITING_TIME.as_secs_f32()
+                                ),
+                                #[watch]
+                                set_visible: self.auditing_time.get_num_samples() > 0,
 
-                        gtk::Image {
-                            set_icon_name: Some(icon_name::PROCESSOR),
-                        },
+                                gtk::Image {
+                                    set_icon_name: Some(icon_name::PUZZLE_PIECE),
+                                },
 
-                        gtk::LevelBar {
-                            add_css_class: "proving-performance",
-                            #[watch]
-                            set_value: {
-                                let average_time = self.proving_time.get_average();
-                                let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
-                                let excellent_time_fraction_remaining = 1.0 - EXCELLENT_PROVING_TIME.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
-                                (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
+                                gtk::LevelBar {
+                                    add_css_class: "auditing-performance",
+                                    #[watch]
+                                    set_value: {
+                                        let average_time = self.auditing_time.get_average();
+                                        let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                                        let excellent_time_fraction_remaining = 1.0 - EXCELLENT_AUDITING_TIME.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                                        (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
+                                    },
+                                    set_width_request: 70,
+                                },
                             },
-                            set_width_request: 70,
-                        },
-                    },
 
-                    gtk::Image {
-                        set_icon_name: Some(icon_name::WARNING),
-                        set_tooltip: &{
-                            let last_error = self.non_fatal_farming_error
-                                .as_ref()
-                                .map(|error| error.to_string())
-                                .unwrap_or_default();
+                            gtk::Box {
+                                set_spacing: 5,
+                                #[watch]
+                                set_tooltip: &format!(
+                                    "Proving performance: average time {:.2}s, time limit {:.2}s",
+                                    self.proving_time.get_average().as_secs_f32(),
+                                    BLOCK_AUTHORING_DELAY.as_secs_f32()
+                                ),
+                                #[watch]
+                                set_visible: self.proving_time.get_num_samples() > 0,
 
-                            format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
-                        },
-                        set_visible: self.non_fatal_farming_error.is_some(),
+                                gtk::Image {
+                                    set_icon_name: Some(icon_name::PROCESSOR),
+                                },
+
+                                gtk::LevelBar {
+                                    add_css_class: "proving-performance",
+                                    #[watch]
+                                    set_value: {
+                                        let average_time = self.proving_time.get_average();
+                                        let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                                        let excellent_time_fraction_remaining = 1.0 - EXCELLENT_PROVING_TIME.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                                        (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
+                                    },
+                                    set_width_request: 70,
+                                },
+                            },
+
+                            gtk::Image {
+                                set_icon_name: Some(icon_name::WARNING),
+                                set_tooltip: &{
+                                    let last_error = self.non_fatal_farming_error
+                                        .as_ref()
+                                        .map(|error| error.to_string())
+                                        .unwrap_or_default();
+
+                                    format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
+                                },
+                                set_visible: self.non_fatal_farming_error.is_some(),
+                            },
+                        }
                     },
                 },
             },
 
             #[transition = "SlideUpDown"]
-            match self.plotting_state {
-                PlottingState::Plotting { kind, progress } => gtk::Box {
+            match (&self.error, self.plotting_state) {
+                (Some(error), _) => gtk::Box {
+                    gtk::Label {
+                        add_css_class: "farm-error",
+                        set_halign: gtk::Align::Start,
+                        #[watch]
+                        set_label: &format!("Farm crashed: {error}"),
+                    }
+                },
+                (_, PlottingState::Plotting { kind, progress }) => gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 10,
 
@@ -302,7 +336,7 @@ impl FactoryComponent for FarmWidget {
                         set_fraction: progress as f64 / 100.0,
                     },
                 },
-                PlottingState::Idle => gtk::Box {
+                (_, PlottingState::Idle) => gtk::Box {
                     gtk::Label {
                         #[watch]
                         set_label: if self.is_node_synced {
@@ -316,7 +350,7 @@ impl FactoryComponent for FarmWidget {
 
             gtk::Box {
                 #[watch]
-                set_visible: self.farm_details,
+                set_visible: self.farm_details && self.error.is_none(),
 
                 self.sector_rows.clone(),
             },
@@ -362,6 +396,7 @@ impl FactoryComponent for FarmWidget {
             farm_details: false,
             encoding_sectors: 0,
             plotting_paused: init.plotting_paused,
+            error: None,
         }
     }
 
@@ -464,6 +499,9 @@ impl FarmWidget {
             }
             FarmWidgetInput::ToggleFarmDetails => {
                 self.farm_details = !self.farm_details;
+            }
+            FarmWidgetInput::Error { error } => {
+                self.error.replace(error);
             }
         }
     }
