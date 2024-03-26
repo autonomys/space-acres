@@ -10,8 +10,15 @@ use crate::frontend::running::node::{NodeInput, NodeView};
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
+use relm4_icons::icon_name;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
+use tracing::debug;
+
+#[derive(Debug)]
+pub struct RunningInit {
+    pub plotting_paused: bool,
+}
 
 #[derive(Debug)]
 pub enum RunningInput {
@@ -25,6 +32,13 @@ pub enum RunningInput {
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification),
+    ToggleFarmDetails,
+    TogglePausePlotting,
+}
+
+#[derive(Debug)]
+pub enum RunningOutput {
+    PausePlotting(bool),
 }
 
 #[derive(Debug, Default)]
@@ -42,13 +56,14 @@ pub struct RunningView {
     node_synced: bool,
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
+    plotting_paused: bool,
 }
 
 #[relm4::component(pub)]
 impl Component for RunningView {
-    type Init = ();
+    type Init = RunningInit;
     type Input = RunningInput;
-    type Output = ();
+    type Output = RunningOutput;
     type CommandOutput = ();
 
     view! {
@@ -67,10 +82,27 @@ impl Component for RunningView {
                 set_spacing: 10,
 
                 gtk::Box {
+                    set_spacing: 10,
+
                     gtk::Label {
                         add_css_class: "heading",
                         set_halign: gtk::Align::Start,
                         set_label: "Farmer",
+                    },
+                    gtk::Box {
+                        gtk::ToggleButton {
+                            connect_clicked => RunningInput::ToggleFarmDetails,
+                            set_has_frame: false,
+                            set_icon_name: icon_name::GRID_FILLED,
+                            set_tooltip: "Expand details about each farm",
+                        },
+                        gtk::ToggleButton {
+                            connect_clicked => RunningInput::TogglePausePlotting,
+                            set_active: model.plotting_paused,
+                            set_has_frame: false,
+                            set_icon_name: icon_name::PAUSE,
+                            set_tooltip: "Pause plotting/replotting, note that currently encoding sectors will not be interrupted",
+                        },
                     },
                     gtk::Box {
                         set_halign: gtk::Align::End,
@@ -153,7 +185,7 @@ impl Component for RunningView {
     }
 
     fn init(
-        _init: Self::Init,
+        init: Self::Init,
         _root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
@@ -167,6 +199,7 @@ impl Component for RunningView {
             node_synced: false,
             farmer_state: FarmerState::default(),
             farms,
+            plotting_paused: init.plotting_paused,
         };
 
         let farms_box = model.farms.widget();
@@ -175,13 +208,13 @@ impl Component for RunningView {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
-        self.process_input(input);
+    fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
+        self.process_input(input, sender);
     }
 }
 
 impl RunningView {
-    fn process_input(&mut self, input: RunningInput) {
+    fn process_input(&mut self, input: RunningInput, sender: ComponentSender<Self>) {
         match input {
             RunningInput::Initialize {
                 best_block_number,
@@ -207,6 +240,7 @@ impl RunningView {
                             total_sectors: initial_farm_state.total_sectors_count,
                             plotted_total_sectors: initial_farm_state.plotted_sectors_count,
                             farm_during_initial_plotting,
+                            plotting_paused: self.plotting_paused,
                         },
                     );
                 }
@@ -295,7 +329,25 @@ impl RunningView {
                 FarmerNotification::FarmerCacheSyncProgress { progress } => {
                     self.farmer_state.piece_cache_sync_progress = progress;
                 }
+                FarmerNotification::FarmError { farm_index, error } => {
+                    self.farms
+                        .send(&farm_index, FarmWidgetInput::Error { error });
+                }
             },
+            RunningInput::ToggleFarmDetails => {
+                self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
+            }
+            RunningInput::TogglePausePlotting => {
+                self.plotting_paused = !self.plotting_paused;
+                self.farms
+                    .broadcast(FarmWidgetInput::PausePlotting(self.plotting_paused));
+                if sender
+                    .output(RunningOutput::PausePlotting(self.plotting_paused))
+                    .is_err()
+                {
+                    debug!("Failed to send RunningOutput::TogglePausePlotting");
+                }
+            }
         }
     }
 }

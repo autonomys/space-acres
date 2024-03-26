@@ -351,10 +351,10 @@ impl Component for ConfigurationView {
 
                                                 gtk::glib::Propagation::Proceed
                                             },
+                                            #[watch]
+                                            set_active: model.network_configuration.faster_networking,
                                             set_tooltip:
                                                 "By default networking is optimized for consumer routers, but if you have more powerful setup, faster networking may improve sync speed and other processes",
-                                            #[watch]
-                                            set_state: model.network_configuration.faster_networking,
                                         },
                                     },
                                 },
