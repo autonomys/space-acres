@@ -804,12 +804,16 @@ impl Cli {
             {
                 if let Some(system_drive) = std::env::var_os("SystemDrive") {
                     // Workaround for https://github.com/rust-lang/rust-clippy/issues/12244
-                    #[allow(clippy::all)]
+                    #[allow(clippy::join_absolute_paths)]
                     let users_dir = std::path::PathBuf::from(system_drive).join("\\Users");
                     if let Ok(entries) = fs::read_dir(users_dir) {
                         for entry in entries.flatten() {
                             let _ = fs::remove_dir_all(
-                                entry.path().join("AppData").join("Local).join(env!("CARGO_PKG_NAME")),
+                                entry
+                                    .path()
+                                    .join("AppData")
+                                    .join("Local")
+                                    .join(env!("CARGO_PKG_NAME")),
                             );
                         }
                     }

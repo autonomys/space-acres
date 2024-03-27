@@ -547,7 +547,7 @@
 		
         <CustomAction Id='RemoveConfigsAndLogs' Directory="Bin" ExeCommand="space-acres.exe --uninstall" Return='ignore' />
         <InstallExecuteSequence>
-            <Custom Action='RemoveConfigsAndLogs' After='InstallInitialize'>REMOVE="ALL"</Custom>
+            <Custom Action='RemoveConfigsAndLogs' After='InstallInitialize'>(REMOVE = "ALL") AND NOT UPGRADINGPRODUCTCODE</Custom>
         </InstallExecuteSequence>
     </Product>
 </Wix>
