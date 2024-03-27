@@ -19,6 +19,7 @@ use file_rotate::{ContentLimit, FileRotate};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
+use native_dialog::{MessageDialog, MessageType};
 use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver, RELM_THREADS};
@@ -782,6 +783,9 @@ struct Cli {
     /// Used by child process such that supervisor parent process can control it
     #[arg(long)]
     child_process: bool,
+    /// Show uninstall dialog and delete configuration and logs
+    #[arg(long)]
+    uninstall: bool,
     /// The rest of the arguments that will be sent to GTK4 as is
     #[arg(raw = true)]
     gtk_arguments: Vec<String>,
@@ -789,7 +793,28 @@ struct Cli {
 
 impl Cli {
     fn run(self) -> ExitCode {
-        if self.child_process {
+        if self.uninstall {
+            if cfg!(windows)
+                && MessageDialog::new()
+                    .set_type(MessageType::Info)
+                    .set_title("Uninstall")
+                    .set_text("Delete Space Acres configuration and logs for all users?")
+                    .show_confirm()
+                    .is_ok_and(|x| x)
+            {
+                if let Some(system_drive) = std::env::var_os("SystemDrive") {
+                    let users_dir = std::path::PathBuf::from(system_drive).join("\\Users");
+                    for entry in fs::read_dir(users_dir).unwrap() {
+                        if let Ok(entry) = entry {
+                            let _ = fs::remove_dir_all(
+                                entry.path().join("AppData\\Local\\space-acres"),
+                            );
+                        }
+                    }
+                }
+            }
+            ExitCode::SUCCESS
+        } else if self.child_process {
             ExitCode::from(self.app().into_status_code() as u8)
         } else {
             self.supervisor().report()
