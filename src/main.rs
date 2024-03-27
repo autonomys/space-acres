@@ -800,7 +800,7 @@ impl Cli {
                     .set_title("Uninstall")
                     .set_text("Delete Space Acres configuration and logs for all users?")
                     .show_confirm()
-                    .is_ok_and(|x| x)
+                    .unwrap_or_default()
             {
                 if let Some(system_drive) = std::env::var_os("SystemDrive") {
                     // Workaround for https://github.com/rust-lang/rust-clippy/issues/12244
