@@ -809,7 +809,7 @@ impl Cli {
                     if let Ok(entries) = fs::read_dir(users_dir) {
                         for entry in entries.flatten() {
                             let _ = fs::remove_dir_all(
-                                entry.path().join("AppData\\Local\\space-acres"),
+                                entry.path().join("AppData").join("Local).join(env!("CARGO_PKG_NAME")),
                             );
                         }
                     }
