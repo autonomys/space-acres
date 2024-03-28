@@ -782,6 +782,11 @@ struct Cli {
     /// Used by child process such that supervisor parent process can control it
     #[arg(long)]
     child_process: bool,
+    /// Show uninstall dialog to delete configuration and logs, typically called from installer
+    /// during package uninstallation
+    #[arg(long)]
+    #[doc(hidden)]
+    uninstall: bool,
     /// The rest of the arguments that will be sent to GTK4 as is
     #[arg(raw = true)]
     gtk_arguments: Vec<String>,
@@ -789,7 +794,47 @@ struct Cli {
 
 impl Cli {
     fn run(self) -> ExitCode {
-        if self.child_process {
+        if self.uninstall {
+            #[cfg(windows)]
+            {
+                let dirs_to_remove = env::var_os("SystemDrive")
+                    .and_then(|system_drive| {
+                        let system_drive = system_drive.into_string().ok()?;
+                        Some(
+                            fs::read_dir(format!("{system_drive}\\Users"))
+                                .ok()?
+                                .flatten()
+                                .map(|user_dir| {
+                                    user_dir
+                                        .path()
+                                        .join("AppData")
+                                        .join("Local")
+                                        .join(env!("CARGO_PKG_NAME"))
+                                })
+                                .filter(|path| path.exists())
+                                .collect::<Vec<_>>(),
+                        )
+                    })
+                    .unwrap_or_default();
+                if dirs_to_remove.is_empty() {
+                    return ExitCode::SUCCESS;
+                }
+
+                if native_dialog::MessageDialog::new()
+                    .set_type(native_dialog::MessageType::Info)
+                    .set_title("Space Acres Uninstallation")
+                    .set_text("Delete Space Acres configuration and logs for all users?")
+                    .show_confirm()
+                    .unwrap_or_default()
+                {
+                    for dir in dirs_to_remove {
+                        let _ = fs::remove_dir_all(dir);
+                    }
+                }
+            }
+
+            ExitCode::SUCCESS
+        } else if self.child_process {
             ExitCode::from(self.app().into_status_code() as u8)
         } else {
             self.supervisor().report()

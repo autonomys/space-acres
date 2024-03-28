@@ -544,5 +544,10 @@
 
         <Property Id="WixShellExecTarget" Value="[#space_acres.exe]" />
         <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
+        <CustomAction Id='RemoveConfigsAndLogs' Directory="Bin" ExeCommand="[APPLICATIONFOLDER]bin\space-acres.exe --uninstall" Return='ignore' />
+        <InstallExecuteSequence>
+            <Custom Action='RemoveConfigsAndLogs' After='InstallInitialize'>(REMOVE = "ALL") AND NOT UPGRADINGPRODUCTCODE</Custom>
+        </InstallExecuteSequence>
     </Product>
 </Wix>
