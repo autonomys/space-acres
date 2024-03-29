@@ -281,7 +281,7 @@ impl Component for ConfigurationView {
                                         set_spacing: 10,
 
                                         gtk::Label {
-                                            set_label: "Substrate (blockchain) P2P port (TCP/UDP):"
+                                            set_label: "Substrate (blockchain) P2P port (TCP):"
                                         },
                                         gtk::SpinButton {
                                             connect_value_changed[sender] => move |entry| {
@@ -311,7 +311,7 @@ impl Component for ConfigurationView {
                                         set_spacing: 10,
 
                                         gtk::Label {
-                                            set_label: "Subspace (DSN) P2P port (TCP/UDP):"
+                                            set_label: "Subspace (DSN) P2P port (TCP):"
                                         },
                                         gtk::SpinButton {
                                             connect_value_changed[sender] => move |entry| {

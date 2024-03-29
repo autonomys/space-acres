@@ -855,12 +855,6 @@ async fn create_networking_stack(
         bootstrap_nodes,
         listen_on: vec![
             Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-                .with(Protocol::Udp(config.network.subspace_port))
-                .with(Protocol::QuicV1),
-            Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
-                .with(Protocol::Udp(config.network.subspace_port))
-                .with(Protocol::QuicV1),
-            Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
                 .with(Protocol::Tcp(config.network.subspace_port)),
             Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
                 .with(Protocol::Tcp(config.network.subspace_port)),
