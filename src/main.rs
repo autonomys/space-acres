@@ -1119,10 +1119,5 @@ impl Cli {
 }
 
 fn main() -> ExitCode {
-    // TODO: This is a hack to work around https://github.com/quinn-rs/quinn/issues/1750, should be
-    //  removed once fixed upstream
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info,quinn_udp=error");
-    }
     Cli::parse().run()
 }
