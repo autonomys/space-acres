@@ -4,7 +4,6 @@ cairo-gobject-2.dll
 cairo-script-interpreter-2.dll
 epoxy-0.dll
 ffi-8.dll
-fontconfig-1.dll
 freetype-6.dll
 fribidi-0.dll
 gdk_pixbuf-2.0-0.dll
@@ -12,6 +11,7 @@ gettextlib-0.21.0.dll
 gettextpo.dll
 gettextsrc-0.21.0.dll
 gio-2.0-0.dll
+girepository-2.0-0.dll
 glib-2.0-0.dll
 gmodule-2.0-0.dll
 gobject-2.0-0.dll
@@ -25,7 +25,6 @@ harfbuzz.dll
 iconv.dll
 intl.dll
 jpeg62.dll
-libexpat.dll
 libpng16.dll
 libxml2.dll
 pango-1.0-0.dll
@@ -36,7 +35,7 @@ pcre2-32-0.dll
 pcre2-8-0.dll
 pcre2-posix-3.dll
 pixman-1-0.dll
-pkgconf-4.dll
+pkgconf-5.dll
 rsvg-2.0-vs17.dll
 textstyle.dll
 tiff.dll

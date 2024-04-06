@@ -173,9 +173,6 @@
                         <Component Id='gtk4_ffi_8.dll' Guid='eb810a85-6565-42ac-a079-6015a21b3960'>
                             <File Id='ffi_8.dll' Name='ffi-8.dll' DiskId='1' Source='target\wix\gtk4\bin\ffi-8.dll' />
                         </Component>
-                        <Component Id='gtk4_fontconfig_1.dll' Guid='3eb83238-af14-43da-aaf0-160b7b88eff9'>
-                            <File Id='fontconfig_1.dll' Name='fontconfig-1.dll' DiskId='1' Source='target\wix\gtk4\bin\fontconfig-1.dll' />
-                        </Component>
                         <Component Id='gtk4_freetype_6.dll' Guid='0c9779a7-9283-4740-8ea8-16a8a29826af'>
                             <File Id='freetype_6.dll' Name='freetype-6.dll' DiskId='1' Source='target\wix\gtk4\bin\freetype-6.dll' />
                         </Component>
@@ -196,6 +193,9 @@
                         </Component>
                         <Component Id='gtk4_gio_2.0_0.dll' Guid='140c74dd-4c88-425a-8ac0-ee089530342e'>
                             <File Id='gio_2.0_0.dll' Name='gio-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\gio-2.0-0.dll' />
+                        </Component>
+                        <Component Id='gtk4_girepository_2.0_0.dll' Guid='d3fe898d-e04f-4b35-a5cc-ad36f2a9386a'>
+                            <File Id='girepository_2.0_0.dll' Name='girepository-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\girepository-2.0-0.dll' />
                         </Component>
                         <Component Id='gtk4_glib_2.0_0.dll' Guid='df08294d-fd9f-4e4c-a43b-7769d17812d6'>
                             <File Id='glib_2.0_0.dll' Name='glib-2.0-0.dll' DiskId='1' Source='target\wix\gtk4\bin\glib-2.0-0.dll' />
@@ -236,9 +236,6 @@
                         <Component Id='gtk4_jpeg62.dll' Guid='42892585-e55f-4816-9747-e3287b303281'>
                             <File Id='jpeg62.dll' Name='jpeg62.dll' DiskId='1' Source='target\wix\gtk4\bin\jpeg62.dll' />
                         </Component>
-                        <Component Id='gtk4_libexpat.dll' Guid='3244e682-acf8-43ef-84c1-422f7953323f'>
-                            <File Id='libexpat.dll' Name='libexpat.dll' DiskId='1' Source='target\wix\gtk4\bin\libexpat.dll' />
-                        </Component>
                         <Component Id='gtk4_libpng16.dll' Guid='f1eb894a-fd88-469d-81ea-640791560a1e'>
                             <File Id='libpng16.dll' Name='libpng16.dll' DiskId='1' Source='target\wix\gtk4\bin\libpng16.dll' />
                         </Component>
@@ -269,8 +266,8 @@
                         <Component Id='gtk4_pixman_1_0.dll' Guid='9f6dff89-ea6e-4355-9863-f076e915697d'>
                             <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='target\wix\gtk4\bin\pixman-1-0.dll' />
                         </Component>
-                        <Component Id='gtk4_pkgconf_4.dll' Guid='d23880bf-56ba-4db2-b17b-b9f9188c864b'>
-                            <File Id='pkgconf_4.dll' Name='pkgconf-4.dll' DiskId='1' Source='target\wix\gtk4\bin\pkgconf-4.dll' />
+                        <Component Id='gtk4_pkgconf_5.dll' Guid='9c5ef299-8a73-4c79-8cc5-a48b9833c5a9'>
+                            <File Id='pkgconf_5.dll' Name='pkgconf-5.dll' DiskId='1' Source='target\wix\gtk4\bin\pkgconf-5.dll' />
                         </Component>
                         <Component Id='gtk4_rsvg_2.0_vs17.dll' Guid='d8c7ebf9-5788-4be0-9cb5-1a3f79c4e569'>
                             <File Id='rsvg_2.0_vs17.dll' Name='rsvg-2.0-vs17.dll' DiskId='1' Source='target\wix\gtk4\bin\rsvg-2.0-vs17.dll' />
@@ -391,7 +388,6 @@
             <ComponentRef Id='gtk4_cairo_script_interpreter_2.dll'/>
             <ComponentRef Id='gtk4_epoxy_0.dll'/>
             <ComponentRef Id='gtk4_ffi_8.dll'/>
-            <ComponentRef Id='gtk4_fontconfig_1.dll'/>
             <ComponentRef Id='gtk4_freetype_6.dll'/>
             <ComponentRef Id='gtk4_fribidi_0.dll'/>
             <ComponentRef Id='gtk4_gdk_pixbuf_2.0_0.dll'/>
@@ -399,6 +395,7 @@
             <ComponentRef Id='gtk4_gettextpo.dll'/>
             <ComponentRef Id='gtk4_gettextsrc_0.21.0.dll'/>
             <ComponentRef Id='gtk4_gio_2.0_0.dll'/>
+            <ComponentRef Id='gtk4_girepository_2.0_0.dll'/>
             <ComponentRef Id='gtk4_glib_2.0_0.dll'/>
             <ComponentRef Id='gtk4_gmodule_2.0_0.dll'/>
             <ComponentRef Id='gtk4_gobject_2.0_0.dll'/>
@@ -412,7 +409,6 @@
             <ComponentRef Id='gtk4_iconv.dll'/>
             <ComponentRef Id='gtk4_intl.dll'/>
             <ComponentRef Id='gtk4_jpeg62.dll'/>
-            <ComponentRef Id='gtk4_libexpat.dll'/>
             <ComponentRef Id='gtk4_libpng16.dll'/>
             <ComponentRef Id='gtk4_libxml2.dll'/>
             <ComponentRef Id='gtk4_pango_1.0_0.dll'/>
@@ -423,7 +419,7 @@
             <ComponentRef Id='gtk4_pcre2_8_0.dll'/>
             <ComponentRef Id='gtk4_pcre2_posix_3.dll'/>
             <ComponentRef Id='gtk4_pixman_1_0.dll'/>
-            <ComponentRef Id='gtk4_pkgconf_4.dll'/>
+            <ComponentRef Id='gtk4_pkgconf_5.dll'/>
             <ComponentRef Id='gtk4_rsvg_2.0_vs17.dll'/>
             <ComponentRef Id='gtk4_textstyle.dll'/>
             <ComponentRef Id='gtk4_tiff.dll'/>
