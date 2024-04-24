@@ -408,7 +408,11 @@ fn create_consensus_chain_config(
             ]),
             methods: Default::default(),
             // Substrate's default
+            rate_limit: None,
             max_subscriptions_per_connection: 1024,
+            message_buffer_capacity_per_connection: 64,
+            disable_batch_requests: false,
+            max_batch_request_len: None,
         },
         prometheus_listen_on: None,
         telemetry_endpoints,

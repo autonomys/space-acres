@@ -695,7 +695,6 @@ impl App {
                 }
             },
             BackendNotification::Running {
-                config: _,
                 raw_config,
                 best_block_number,
                 reward_address_balance,

@@ -92,7 +92,18 @@ jobs:
       - name: Install LLVM and Clang for macOS
         uses: KyleMayes/install-llvm-action@dec985c8d7b46a2f363ea1a78f660c946a3349ea # v2.0.1
         with:
+          env: true
           version: 17
+        if: runner.os == 'macOS'
+
+      # Because macOS, see https://andreasfertig.blog/2021/02/clang-and-gcc-on-macos-catalina-finding-the-include-paths/
+      - name: Configure C compiler macOS
+        run: |
+          echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+        if: runner.os == 'macOS'
+
+      - name: Install glibtoolize (macOS)
+        run: brew install libtool
         if: runner.os == 'macOS'
 
       - name: Install Protoc
@@ -126,13 +137,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build app (Linux, modern)
+      - name: Build app (Linux or macOS, modern)
         env:
           RUSTFLAGS: ${{ matrix.build.modern-rustflags }}
         run: |
           cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
           mv target/${{ matrix.build.target }}/production/space-acres target/${{ matrix.build.target }}/production/space-acres-modern
-        if: runner.os == 'Linux' && matrix.build.modern-rustflags
+        if: (runner.os == 'Linux' || runner.os == 'macOS') && matrix.build.modern-rustflags
 
       - name: Build app (Windows, modern)
         env:
@@ -142,30 +153,10 @@ jobs:
           Move-Item -Path target\${{ matrix.build.target }}\production\space-acres.exe -Destination target\${{ matrix.build.target }}\production\space-acres-modern.exe
         if: runner.os == 'Windows' && matrix.build.modern-rustflags
 
-      - name: Build app (Linux, normal)
+      - name: Build app (normal)
         env:
           RUSTFLAGS: ${{ matrix.build.rustflags }}
-        # TODO: Removing of `target` is a workaround for https://github.com/supranational/blst/issues/207
-        run: |
-          rm -rf target/${{ matrix.build.target }}/production/build
-          rm -rf target/${{ matrix.build.target }}/production/deps
-          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
-        if: runner.os == 'Linux'
-
-      - name: Build app (Windows, normal)
-        env:
-          RUSTFLAGS: ${{ matrix.build.rustflags }}
-        # TODO: Removing of `target` is a workaround for https://github.com/supranational/blst/issues/207
-        run: |
-          Remove-Item target\${{ matrix.build.target }}\production\build -Recurse -Confirm:$false
-          Remove-Item target\${{ matrix.build.target }}\production\deps -Recurse -Confirm:$false
-          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
-        if: runner.os == 'Windows'
-
-      # TODO: Remove special case once `numa` feature of farmer works properly on macOS
-      - name: Build app (macOS)
-        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --no-default-features
-        if: runner.os == 'macOS'
+        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
 
       # TODO: Package macOS
 
