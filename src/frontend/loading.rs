@@ -65,8 +65,17 @@ impl LoadingView {
                 self.message = match step {
                     LoadingStep::LoadingConfiguration => "Loading configuration...".to_string(),
                     LoadingStep::ReadingConfiguration => "Reading configuration...".to_string(),
-                    LoadingStep::ConfigurationReadSuccessfully { .. } => {
-                        "Configuration read successfully".to_string()
+                    LoadingStep::ConfigurationReadSuccessfully {
+                        configuration_exists,
+                    } => {
+                        format!(
+                            "Configuration {}",
+                            if configuration_exists {
+                                "found"
+                            } else {
+                                "not found"
+                            }
+                        )
                     }
                     LoadingStep::CheckingConfiguration => "Checking configuration...".to_string(),
                     LoadingStep::ConfigurationIsValid => "Configuration is valid".to_string(),

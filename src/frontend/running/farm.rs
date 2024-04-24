@@ -461,6 +461,11 @@ impl FarmWidget {
                         self.update_sector_state(sector_index, SectorState::Plotted);
                         self.sector_plotting_time.add_sample(time);
                     }
+                    SectorPlottingDetails::Error(_error) => {
+                        // TODO: treat sector as expired for now, in future with plotting retries
+                        //  this might need to change
+                        self.update_sector_state(sector_index, SectorState::Expired);
+                    }
                 },
                 SectorUpdate::Expiration(expiration_update) => match expiration_update {
                     SectorExpirationDetails::Determined { .. } => {

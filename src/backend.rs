@@ -190,7 +190,8 @@ pub enum BackendNotification {
     Loading {
         /// Major loading step
         step: LoadingStep,
-        // TODO: Set this to non-zero where it is used
+        // TODO: Set this to non-zero where it is used and remove suppression
+        #[allow(dead_code)]
         /// Progress in %: 0.0..=100.0
         progress: f32,
     },
@@ -201,12 +202,13 @@ pub enum BackendNotification {
     NotConfigured,
     // TODO: Indicate what is invalid so that UI can render it properly
     ConfigurationIsInvalid {
+        // TODO: Remove suppression once used
+        #[allow(dead_code)]
         config: RawConfig,
         error: ConfigError,
     },
     ConfigSaveResult(anyhow::Result<()>),
     Running {
-        config: Config,
         raw_config: RawConfig,
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
@@ -488,7 +490,6 @@ async fn run(
 
     notifications_sender
         .send(BackendNotification::Running {
-            config: config.clone(),
             raw_config,
             best_block_number: consensus_node.best_block_number(),
             reward_address_balance: consensus_node.account_balance(&config.reward_address),

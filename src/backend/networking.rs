@@ -223,7 +223,6 @@ where
         kademlia_mode: KademliaMode::Dynamic,
         external_addresses,
         metrics: None,
-        disable_bootstrap_on_start: false,
         ..default_config
     };
 
