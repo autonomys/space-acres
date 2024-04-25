@@ -273,8 +273,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             .first()
             .expect("Guaranteed to have some CPU cores; qed");
 
-        NonZeroUsize::new((cpu_cores.cpu_cores().len() / 2).min(8))
-            .expect("Guaranteed to have some CPU cores; qed")
+        NonZeroUsize::new((cpu_cores.cpu_cores().len() / 2).min(8)).unwrap_or(NonZeroUsize::MIN)
     };
 
     info!(
