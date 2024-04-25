@@ -75,7 +75,6 @@ pub(super) struct FarmWidgetInit {
     pub(super) farm: Farm,
     pub(super) total_sectors: SectorIndex,
     pub(super) plotted_total_sectors: SectorIndex,
-    pub(super) farm_during_initial_plotting: bool,
     pub(super) plotting_paused: bool,
 }
 
@@ -105,7 +104,6 @@ pub(super) struct FarmWidget {
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_node_synced: bool,
-    farm_during_initial_plotting: bool,
     sector_rows: gtk::Box,
     sectors: HashMap<SectorIndex, gtk::Box>,
     non_fatal_farming_error: Option<Arc<FarmingError>>,
@@ -254,11 +252,6 @@ impl FactoryComponent for FarmWidget {
 
                     gtk::Box {
                         set_spacing: 5,
-                        set_tooltip: if self.farm_during_initial_plotting {
-                            "Farming runs in parallel to plotting on CPUs with more than 8 logical cores"
-                        } else {
-                            "Farming starts after initial plotting is complete on CPUs with 8 or less logical cores"
-                        },
 
                         gtk::Label {
                             set_halign: gtk::Align::Start,
@@ -286,7 +279,7 @@ impl FactoryComponent for FarmWidget {
                                         } else {
                                             "Initial plotting"
                                         };
-                                        let farming = if self.is_node_synced && self.farm_during_initial_plotting {
+                                        let farming = if self.is_node_synced {
                                             "farming"
                                         } else {
                                             "not farming"
@@ -389,7 +382,6 @@ impl FactoryComponent for FarmWidget {
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
             is_node_synced: false,
-            farm_during_initial_plotting: init.farm_during_initial_plotting,
             sector_rows,
             sectors: HashMap::from_iter((SectorIndex::MIN..).zip(sectors)),
             non_fatal_farming_error: None,
