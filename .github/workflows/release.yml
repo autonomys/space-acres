@@ -143,6 +143,9 @@ jobs:
         run: |
           cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
           mv target/${{ matrix.build.target }}/production/space-acres target/${{ matrix.build.target }}/production/space-acres-modern
+          # TODO: Removing of `target` is a workaround for GTK not running properly after recompilation below
+          rm -rf target/${{ matrix.build.target }}/production/build
+          rm -rf target/${{ matrix.build.target }}/production/deps
         if: (runner.os == 'Linux' || runner.os == 'macOS') && matrix.build.modern-rustflags
 
       - name: Build app (Windows, modern)
@@ -151,6 +154,9 @@ jobs:
         run: |
           cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
           Move-Item -Path target\${{ matrix.build.target }}\production\space-acres.exe -Destination target\${{ matrix.build.target }}\production\space-acres-modern.exe
+          # TODO: Removing of `target` is a workaround for GTK not running properly after recompilation below
+          Remove-Item target\${{ matrix.build.target }}\production\build -Recurse -Confirm:$false
+          Remove-Item target\${{ matrix.build.target }}\production\deps -Recurse -Confirm:$false
         if: runner.os == 'Windows' && matrix.build.modern-rustflags
 
       - name: Build app (normal)
