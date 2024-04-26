@@ -29,7 +29,7 @@ use subspace_farmer::single_disk_farm::{
 };
 use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
-    all_cpu_cores, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
+    create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
 };
 use subspace_farmer::NodeClient;
@@ -84,7 +84,6 @@ pub(super) struct Farmer {
     farmer_fut: BoxFuture<'static, anyhow::Result<()>>,
     farmer_cache_worker_fut: BoxFuture<'static, ()>,
     initial_farm_states: Vec<InitialFarmState>,
-    farm_during_initial_plotting: bool,
     notifications: Arc<Notifications>,
     action_sender: mpsc::Sender<FarmerAction>,
 }
@@ -95,7 +94,6 @@ impl Farmer {
             farmer_fut,
             farmer_cache_worker_fut,
             initial_farm_states,
-            farm_during_initial_plotting: _,
             notifications,
             action_sender,
         } = self;
@@ -144,10 +142,6 @@ impl Farmer {
         &self.initial_farm_states
     }
 
-    pub(super) fn farm_during_initial_plotting(&self) -> bool {
-        self.farm_during_initial_plotting
-    }
-
     pub(super) fn action_sender(&self) -> mpsc::Sender<FarmerAction> {
         self.action_sender.clone()
     }
@@ -161,14 +155,6 @@ impl fmt::Debug for Farmer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Farmer").finish_non_exhaustive()
     }
-}
-
-fn should_farm_during_initial_plotting() -> bool {
-    let total_cpu_cores = all_cpu_cores()
-        .iter()
-        .flat_map(|set| set.cpu_cores())
-        .count();
-    total_cpu_cores > 8
 }
 
 #[derive(Debug, Clone)]
@@ -245,7 +231,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
             .in_current_span(),
     );
 
-    let farm_during_initial_plotting = should_farm_during_initial_plotting();
     let plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
     let replotting_thread_pool_core_indices = {
         let mut replotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
@@ -338,8 +323,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                             reward_address,
                             kzg,
                             erasure_coding,
-                            cache_percentage: CACHE_PERCENTAGE,
-                            farm_during_initial_plotting,
+                            cache_percentage: CACHE_PERCENTAGE.get(),
                             farming_thread_pool_size: recommended_number_of_farming_threads(),
                             plotting_delay: Some(plotting_delay_receiver),
                             global_mutex,
@@ -702,7 +686,6 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         farmer_fut,
         farmer_cache_worker_fut,
         initial_farm_states,
-        farm_during_initial_plotting,
         notifications,
         action_sender,
     })

@@ -26,7 +26,6 @@ pub enum RunningInput {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
-        farm_during_initial_plotting: bool,
         raw_config: RawConfig,
         chain_info: ChainInfo,
     },
@@ -220,7 +219,6 @@ impl RunningView {
                 best_block_number,
                 reward_address_balance,
                 initial_farm_states,
-                farm_during_initial_plotting,
                 raw_config,
                 chain_info,
             } => {
@@ -239,7 +237,6 @@ impl RunningView {
                             farm,
                             total_sectors: initial_farm_state.total_sectors_count,
                             plotted_total_sectors: initial_farm_state.plotted_sectors_count,
-                            farm_during_initial_plotting,
                             plotting_paused: self.plotting_paused,
                         },
                     );

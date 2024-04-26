@@ -699,7 +699,6 @@ impl App {
                 best_block_number,
                 reward_address_balance,
                 initial_farm_states,
-                farm_during_initial_plotting,
                 chain_info,
             } => {
                 self.current_raw_config.replace(raw_config.clone());
@@ -708,7 +707,6 @@ impl App {
                     best_block_number,
                     reward_address_balance,
                     initial_farm_states,
-                    farm_during_initial_plotting,
                     raw_config,
                     chain_info,
                 });
