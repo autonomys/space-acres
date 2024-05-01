@@ -4,7 +4,7 @@ mod node;
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::{FarmerNotification, InitialFarmState};
 use crate::backend::node::ChainInfo;
-use crate::backend::NodeNotification;
+use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
 use gtk::prelude::*;
@@ -30,7 +30,7 @@ pub enum RunningInput {
         chain_info: ChainInfo,
     },
     NodeNotification(NodeNotification),
-    FarmerNotification(FarmerNotification),
+    FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
 }

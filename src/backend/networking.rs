@@ -1,5 +1,7 @@
-use parking_lot::Mutex;
+use async_lock::RwLock as AsyncRwLock;
 use std::collections::HashSet;
+use std::fmt;
+use std::hash::Hash;
 use std::path::Path;
 use std::sync::{Arc, Weak};
 use subspace_farmer::farmer_cache::FarmerCache;
@@ -70,7 +72,7 @@ impl Default for NetworkOptions {
 }
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn create_network<NC>(
+pub fn create_network<FarmIndex, NC>(
     protocol_prefix: String,
     base_path: &Path,
     NetworkOptions {
@@ -85,11 +87,13 @@ pub fn create_network<NC>(
         pending_out_connections,
         external_addresses,
     }: NetworkOptions,
-    weak_plotted_pieces: Weak<Mutex<Option<PlottedPieces>>>,
+    weak_plotted_pieces: Weak<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     node_client: NC,
     farmer_cache: FarmerCache,
 ) -> Result<(Node, NodeRunner<FarmerCache>), anyhow::Error>
 where
+    FarmIndex: Hash + Eq + Copy + fmt::Debug + Send + Sync + 'static,
+    usize: From<FarmIndex>,
     NC: NodeClientExt,
 {
     let span = info_span!("Network");
@@ -132,26 +136,16 @@ where
                         );
 
                         let read_piece_fut = {
-                            let plotted_pieces = match weak_plotted_pieces.upgrade() {
-                                Some(plotted_pieces) => plotted_pieces,
+                            match weak_plotted_pieces.upgrade() {
+                                Some(plotted_pieces) => plotted_pieces
+                                    .try_read()?
+                                    .read_piece(piece_index)?
+                                    .in_current_span(),
                                 None => {
                                     debug!("A readers and pieces are already dropped");
                                     return None;
                                 }
-                            };
-                            let plotted_pieces = plotted_pieces.lock();
-                            let plotted_pieces = match plotted_pieces.as_ref() {
-                                Some(plotted_pieces) => plotted_pieces,
-                                None => {
-                                    debug!(
-                                        ?piece_index,
-                                        "Readers and pieces are not initialized yet"
-                                    );
-                                    return None;
-                                }
-                            };
-
-                            plotted_pieces.read_piece(piece_index)?.in_current_span()
+                            }
                         };
 
                         let piece = read_piece_fut.await;
