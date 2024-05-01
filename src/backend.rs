@@ -15,11 +15,11 @@ use crate::backend::node::{
     dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode,
     ConsensusNodeCreationError, SyncState, GENESIS_HASH,
 };
+use async_lock::RwLock as AsyncRwLock;
 use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
-use parking_lot::Mutex;
 use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -52,6 +52,8 @@ use tokio::runtime::Handle;
 use tokio::sync::Semaphore;
 use tracing::{error, info_span, warn, Instrument};
 
+pub type FarmIndex = u8;
+
 /// Get piece retry attempts number.
 const PIECE_GETTER_MAX_RETRIES: u16 = 7;
 /// Global limit on combined piece getter, a nice number that should result in enough pieces
@@ -64,8 +66,11 @@ const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Clone)]
 struct PieceGetterWrapper {
-    farmer_piece_getter:
-        FarmerPieceGetter<SegmentCommitmentPieceValidator<MaybeNodeRpcClient>, MaybeNodeRpcClient>,
+    farmer_piece_getter: FarmerPieceGetter<
+        FarmIndex,
+        SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
+        MaybeNodeRpcClient,
+    >,
     semaphore: Arc<Semaphore>,
 }
 
@@ -94,6 +99,7 @@ impl PieceGetter for PieceGetterWrapper {
 impl PieceGetterWrapper {
     fn new(
         farmer_piece_getter: FarmerPieceGetter<
+            FarmIndex,
             SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
             MaybeNodeRpcClient,
         >,
@@ -116,6 +122,7 @@ impl PieceGetterWrapper {
 #[derive(Debug, Clone)]
 struct WeakPieceGetterWrapper {
     farmer_piece_getter: WeakFarmerPieceGetter<
+        FarmIndex,
         SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
         MaybeNodeRpcClient,
     >,
@@ -216,7 +223,7 @@ pub enum BackendNotification {
         chain_info: ChainInfo,
     },
     Node(NodeNotification),
-    Farmer(FarmerNotification),
+    Farmer(FarmerNotification<FarmIndex>),
     Stopped {
         /// Error in case stopped due to error
         error: Option<anyhow::Error>,
@@ -241,7 +248,7 @@ struct LoadedBackend {
     raw_config: RawConfig,
     config_file_path: PathBuf,
     consensus_node: ConsensusNode,
-    farmer: Farmer,
+    farmer: Farmer<FarmIndex>,
     node_runner: NodeRunner<FarmerCache>,
 }
 
@@ -377,21 +384,17 @@ async fn load(
 
     preparing_node_path(&config.node_path, notifications_sender).await?;
 
-    let (
-        maybe_node_client,
-        node,
-        node_runner,
-        network_keypair,
-        plotted_pieces,
-        farmer_cache,
-        farmer_cache_worker,
-    ) = create_networking_stack(
-        &config,
-        GENESIS_HASH.to_string(),
-        &chain_spec,
-        notifications_sender,
-    )
-    .await?;
+    let plotted_pieces = Arc::new(AsyncRwLock::new(PlottedPieces::default()));
+
+    let (maybe_node_client, node, node_runner, network_keypair, farmer_cache, farmer_cache_worker) =
+        create_networking_stack(
+            &config,
+            GENESIS_HASH.to_string(),
+            &chain_spec,
+            Arc::downgrade(&plotted_pieces),
+            notifications_sender,
+        )
+        .await?;
 
     let kzg = Kzg::new(embedded_kzg_settings());
     let piece_provider = PieceProvider::new(
@@ -747,13 +750,13 @@ async fn create_networking_stack(
     config: &Config,
     protocol_prefix: String,
     chain_spec: &ChainSpec,
+    weak_plotted_pieces: Weak<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<(
     MaybeNodeRpcClient,
     Node,
     NodeRunner<FarmerCache>,
     Keypair,
-    Arc<Mutex<Option<PlottedPieces>>>,
     FarmerCache,
     FarmerCacheWorker<MaybeNodeRpcClient>,
 )> {
@@ -866,10 +869,8 @@ async fn create_networking_stack(
         network_options.pending_in_connections = 500;
         network_options.pending_out_connections = 500;
     }
-    let plotted_pieces = Arc::<Mutex<Option<PlottedPieces>>>::default();
     let maybe_node_client = MaybeNodeRpcClient::default();
 
-    let weak_plotted_pieces = Arc::downgrade(&plotted_pieces);
     let (farmer_cache, farmer_cache_worker) = FarmerCache::new(
         maybe_node_client.clone(),
         subspace_networking::libp2p::identity::PublicKey::from(network_keypair.public())
@@ -897,7 +898,6 @@ async fn create_networking_stack(
         node,
         node_runner,
         network_keypair,
-        plotted_pieces,
         farmer_cache,
         farmer_cache_worker,
     ))
@@ -954,14 +954,14 @@ async fn create_consensus_node(
 async fn create_farmer(
     reward_address: PublicKey,
     disk_farms: Vec<DiskFarm>,
-    plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
+    plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     farmer_cache: FarmerCache,
     farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
     node_client: MaybeNodeRpcClient,
     kzg: Kzg,
     piece_getter: PieceGetterWrapper,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
-) -> anyhow::Result<Farmer> {
+) -> anyhow::Result<Farmer<FarmIndex>> {
     notifications_sender
         .send(BackendNotification::Loading {
             step: LoadingStep::CreatingFarmer,

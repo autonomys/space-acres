@@ -5,14 +5,15 @@ use crate::backend::utils::{Handler, HandlerFn};
 use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
-use async_lock::Mutex as AsyncMutex;
+use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use event_listener_primitives::HandlerId;
 use futures::channel::{mpsc, oneshot};
 use futures::future::BoxFuture;
-use futures::stream::{FuturesOrdered, FuturesUnordered};
-use futures::{select, FutureExt, StreamExt, TryStreamExt};
+use futures::stream::FuturesUnordered;
+use futures::{select, FutureExt, StreamExt};
 use parking_lot::Mutex;
 use std::future::pending;
+use std::hash::Hash;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -52,14 +53,14 @@ pub struct InitialFarmState {
 }
 
 #[derive(Debug, Clone)]
-pub enum FarmerNotification {
+pub enum FarmerNotification<FarmIndex> {
     SectorUpdate {
-        farm_index: u8,
+        farm_index: FarmIndex,
         sector_index: SectorIndex,
         update: SectorUpdate,
     },
     FarmingNotification {
-        farm_index: u8,
+        farm_index: FarmIndex,
         notification: FarmingNotification,
     },
     FarmerCacheSyncProgress {
@@ -67,7 +68,7 @@ pub enum FarmerNotification {
         progress: f32,
     },
     FarmError {
-        farm_index: u8,
+        farm_index: FarmIndex,
         error: Arc<anyhow::Error>,
     },
 }
@@ -78,17 +79,23 @@ pub enum FarmerAction {
     PausePlotting(bool),
 }
 
-type Notifications = Handler<FarmerNotification>;
+type Notifications<FarmIndex> = Handler<FarmerNotification<FarmIndex>>;
 
-pub(super) struct Farmer {
+pub(super) struct Farmer<FarmIndex>
+where
+    FarmIndex: 'static,
+{
     farmer_fut: BoxFuture<'static, anyhow::Result<()>>,
     farmer_cache_worker_fut: BoxFuture<'static, ()>,
     initial_farm_states: Vec<InitialFarmState>,
-    notifications: Arc<Notifications>,
+    notifications: Arc<Notifications<FarmIndex>>,
     action_sender: mpsc::Sender<FarmerAction>,
 }
 
-impl Farmer {
+impl<FarmIndex> Farmer<FarmIndex>
+where
+    FarmIndex: 'static,
+{
     pub(super) async fn run(self) -> anyhow::Result<()> {
         let Farmer {
             farmer_fut,
@@ -146,12 +153,15 @@ impl Farmer {
         self.action_sender.clone()
     }
 
-    pub(super) fn on_notification(&self, callback: HandlerFn<FarmerNotification>) -> HandlerId {
+    pub(super) fn on_notification(
+        &self,
+        callback: HandlerFn<FarmerNotification<FarmIndex>>,
+    ) -> HandlerId {
         self.notifications.add(callback)
     }
 }
 
-impl fmt::Debug for Farmer {
+impl<FarmIndex> fmt::Debug for Farmer<FarmIndex> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Farmer").finish_non_exhaustive()
     }
@@ -165,18 +175,25 @@ pub struct DiskFarm {
 
 /// Arguments for farmer
 #[derive(Debug)]
-pub(super) struct FarmerOptions {
+pub(super) struct FarmerOptions<FarmIndex> {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
     pub(super) node_client: MaybeNodeRpcClient,
     pub(super) piece_getter: PieceGetterWrapper,
-    pub(super) plotted_pieces: Arc<Mutex<Option<PlottedPieces>>>,
+    pub(super) plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     pub(super) farmer_cache: FarmerCache,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
     pub(super) kzg: Kzg,
 }
 
-pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Result<Farmer> {
+pub(super) async fn create_farmer<FarmIndex>(
+    farmer_options: FarmerOptions<FarmIndex>,
+) -> anyhow::Result<Farmer<FarmIndex>>
+where
+    FarmIndex:
+        Hash + Eq + Copy + fmt::Display + fmt::Debug + TryFrom<usize> + Send + Sync + 'static,
+    usize: From<FarmIndex>,
+{
     let span = info_span!("Farmer");
     let _enter = span.enter();
 
@@ -432,48 +449,42 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         )
         .await;
 
-    // Store piece readers so we can reference them later
-    let piece_readers = farms
-        .iter()
-        .map(|farm| farm.piece_reader())
-        .collect::<Vec<_>>();
-
     info!("Collecting already plotted pieces (this will take some time)...");
 
     // Collect already plotted pieces
-    {
-        let mut future_plotted_pieces = PlottedPieces::new(piece_readers);
+    let mut initial_farm_states = Vec::with_capacity(farms.len());
 
-        for (farm_index, farm) in farms.iter().enumerate() {
-            let farm_index = farm_index.try_into().map_err(|_error| {
-                anyhow!(
-                    "More than 256 plots are not supported, consider running multiple farmer \
-                    instances"
-                )
-            })?;
+    for (farm_index, farm) in farms.iter().enumerate() {
+        let mut plotted_pieces = plotted_pieces.write().await;
+        let farm_index = farm_index
+            .try_into()
+            .map_err(|_error| anyhow!("More than 256 plots are not supported by Space Acres"))?;
 
-            for (sector_index, mut plotted_sectors) in
-                (0 as SectorIndex..).zip(farm.plotted_sectors().await)
-            {
-                while let Some(plotted_sector_result) = plotted_sectors.next().await {
-                    match plotted_sector_result {
-                        Ok(plotted_sector) => {
-                            future_plotted_pieces.add_sector(farm_index, &plotted_sector);
-                        }
-                        Err(error) => {
-                            error!(
-                                %error,
-                                %farm_index,
-                                %sector_index,
-                                "Failed reading plotted sector on startup, skipping"
-                            );
-                        }
-                    }
-                }
-            }
+        plotted_pieces.add_farm(farm_index, farm.piece_reader());
+
+        let total_sectors_count = farm.total_sectors_count();
+        let mut plotted_sectors_count = 0;
+        let plotted_sectors = farm.plotted_sectors();
+        let mut plotted_sectors = plotted_sectors.get().await.map_err(|error| {
+            anyhow!("Failed to get plotted sectors for farm {farm_index}: {error}")
+        })?;
+
+        while let Some(plotted_sector_result) = plotted_sectors.next().await {
+            plotted_sectors_count += 1;
+            plotted_pieces.add_sector(
+                farm_index,
+                &plotted_sector_result.map_err(|error| {
+                    anyhow!(
+                        "Failed reading plotted sector on startup for farm {farm_index}: {error}"
+                    )
+                })?,
+            )
         }
 
-        plotted_pieces.lock().replace(future_plotted_pieces);
+        initial_farm_states.push(InitialFarmState {
+            total_sectors_count,
+            plotted_sectors_count,
+        });
     }
 
     info!("Finished collecting already plotted pieces successfully");
@@ -492,31 +503,15 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
         }))
         .detach();
 
-    let initial_farm_states = farms
-        .iter()
-        .enumerate()
-        .map(|(farm_index, farm)| async move {
-            anyhow::Ok(InitialFarmState {
-                total_sectors_count: farm.total_sectors_count(),
-                plotted_sectors_count: farm.plotted_sectors_count().await.map_err(|error| {
-                    anyhow!(
-                        "Failed to get plotted sectors count from from index {farm_index}: \
-                        {error}"
-                    )
-                })?,
-            })
-        })
-        .collect::<FuturesOrdered<_>>()
-        .try_collect::<Vec<_>>()
-        .await?;
-
     let mut farms_stream = farms
         .into_iter()
         .enumerate()
         .map(|(farm_index, farm)| {
-            let farm_index = u8::try_from(farm_index).expect(
-                "More than 256 plots are not supported, this is checked above already; qed",
-            );
+            let Ok(farm_index) = FarmIndex::try_from(farm_index) else {
+                unreachable!(
+                    "More than 256 plots are not supported, this is checked above already; qed"
+                );
+            };
             let plotted_pieces = Arc::clone(&plotted_pieces);
             let span = info_span!("farm", %farm_index);
 
@@ -551,10 +546,7 @@ pub(super) async fn create_farmer(farmer_options: FarmerOptions) -> anyhow::Resu
                     let _span_guard = span.enter();
 
                     {
-                        let mut plotted_pieces = plotted_pieces.lock();
-                        let plotted_pieces = plotted_pieces
-                            .as_mut()
-                            .expect("Initial value was populated above; qed");
+                        let mut plotted_pieces = plotted_pieces.write_blocking();
 
                         if let Some(old_plotted_sector) = &maybe_old_plotted_sector {
                             plotted_pieces.delete_sector(farm_index, old_plotted_sector);
