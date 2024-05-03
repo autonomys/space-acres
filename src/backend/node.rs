@@ -30,11 +30,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_fake_runtime_api::RuntimeApi;
 use subspace_farmer::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
-use subspace_runtime::{RuntimeApi, RuntimeGenesisConfig};
 use subspace_runtime_primitives::{Balance, Nonce};
 use subspace_service::config::{
     SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
@@ -64,7 +64,13 @@ pub(super) enum ConsensusNodeCreationError {
     IncompatibleChain { compatible_chain: String },
 }
 
-pub(super) struct ChainSpec(GenericChainSpec<RuntimeGenesisConfig>);
+pub(super) struct ChainSpec(Box<dyn sc_service::ChainSpec>);
+
+impl From<ChainSpec> for Box<dyn sc_service::ChainSpec> {
+    fn from(value: ChainSpec) -> Self {
+        value.0
+    }
+}
 
 impl fmt::Debug for ChainSpec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -281,7 +287,8 @@ fn get_total_account_balance(
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
-    GenericChainSpec::from_json_bytes(chain_spec).map(ChainSpec)
+    GenericChainSpec::<()>::from_json_bytes(chain_spec)
+        .map(|chain_spec| ChainSpec(Box::new(chain_spec)))
 }
 
 fn set_default_ss58_version(chain_spec: &ChainSpec) {
@@ -417,7 +424,7 @@ fn create_consensus_chain_config(
         prometheus_listen_on: None,
         telemetry_endpoints,
         force_authoring: false,
-        chain_spec: Box::new(chain_spec.0),
+        chain_spec: chain_spec.into(),
         informant_output_format: OutputFormat {
             enable_color: false,
         },
