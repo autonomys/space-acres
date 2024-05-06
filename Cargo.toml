@@ -37,8 +37,7 @@ product-name = "Space Acres"
 [dependencies]
 anyhow = "1.0.82"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
-# TODO: Switch to stable release once https://github.com/sidit77/betrayer/pull/5 is published
-betrayer = { git = "https://github.com/sidit77/betrayer.git", rev = "5f5c4bc07dd97ecc8f8a5f384aede4acf1e4e50d" }
+betrayer = { version = "0.2.0" }
 arc-swap = "1.7.1"
 async-lock = "3.3.0"
 async-trait = "0.1.80"
