@@ -345,9 +345,11 @@ where
                             plotting_delay: Some(plotting_delay_receiver),
                             global_mutex,
                             disable_farm_locking: false,
+                            read_sector_record_chunks_mode: None,
                             faster_read_sector_record_chunks_mode_barrier,
                             faster_read_sector_record_chunks_mode_concurrency,
                             plotter,
+                            create: true,
                         },
                         farm_index,
                     );
