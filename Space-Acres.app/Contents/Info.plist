@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>space-acres</string>
     <key>CFBundleIdentifier</key>
-    <string>com.subspace.spaceacres</string>
+    <string>org.subspace.spaceacres</string>
     <key>CFBundleName</key>
     <string>Space Acres</string>
     <key>CFBundleVersion</key>
