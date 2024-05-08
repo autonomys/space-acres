@@ -79,6 +79,7 @@ semver = "1.0.22"
 serde = { version = "1.0.199", features = ["derive"] }
 serde_json = "1.0.116"
 simple_moving_average = "1.0.2"
+sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "44d742b90e7852aed1f08ab5299d5d88cfa1c6ed", default-features = false }
 sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "44d742b90e7852aed1f08ab5299d5d88cfa1c6ed", default-features = false }
 sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "d0aaf1039764f1271c2c79f266ea7f64f984cd16" }
 sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "d0aaf1039764f1271c2c79f266ea7f64f984cd16" }
