@@ -204,7 +204,7 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
-            circular_progress_bar: create_circular_progress_bar(),
+            circular_progress_bar: create_circular_progress_bar(20.0),
         };
 
         let farms_box = model.farms.widget();

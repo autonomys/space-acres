@@ -5,9 +5,7 @@ use std::f64::consts::PI;
 use std::rc::Rc;
 
 /// @diameter diameter for a progress circle
-pub fn create_circular_progress_bar() -> DrawingArea {
-    let diameter = 20.0;
-
+pub fn create_circular_progress_bar(diameter: f64) -> DrawingArea {
     let drawing_area = Rc::new(RefCell::new(
         DrawingArea::builder()
             .content_width((diameter + 1.0) as i32)
