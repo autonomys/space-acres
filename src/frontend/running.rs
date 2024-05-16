@@ -5,6 +5,7 @@ use crate::backend::config::RawConfig;
 use crate::backend::farmer::{FarmerNotification, InitialFarmState};
 use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
+use crate::frontend::progress_bar::create_circular_progress_bar;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
 use gtk::prelude::*;
@@ -56,6 +57,7 @@ pub struct RunningView {
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
+    circular_progress_bar: gtk::DrawingArea,
 }
 
 #[relm4::component(pub)]
@@ -71,6 +73,7 @@ impl Component for RunningView {
             set_orientation: gtk::Orientation::Vertical,
 
             model.node_view.widget().clone(),
+
 
             gtk::Separator {
                 set_margin_all: 10,
@@ -106,6 +109,8 @@ impl Component for RunningView {
                     gtk::Box {
                         set_halign: gtk::Align::End,
                         set_hexpand: true,
+
+                        model.circular_progress_bar.clone(),
 
                         gtk::LinkButton {
                             remove_css_class: "link",
@@ -199,6 +204,7 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
+            circular_progress_bar: create_circular_progress_bar(),
         };
 
         let farms_box = model.farms.widget();

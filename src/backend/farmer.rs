@@ -17,7 +17,7 @@ use std::hash::Hash;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
@@ -693,8 +693,8 @@ pub(crate) fn calculate_expected_reward_duration_from_now(
     last_reward_timestamp: Option<i64>,
 ) -> i64 {
     // Time elapsed since the last reward payment timestamp.
-    let time_previous = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let time_previous = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64
         - last_reward_timestamp.unwrap_or(0);
