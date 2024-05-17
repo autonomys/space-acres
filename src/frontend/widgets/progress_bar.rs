@@ -4,22 +4,30 @@ use std::cell::RefCell;
 use std::f64::consts::PI;
 use std::rc::Rc;
 
-/// @diameter diameter for a progress circle
-pub fn create_circular_progress_bar(diameter: f64) -> DrawingArea {
+/// props for drawing a circular progress bar
+pub fn create_circular_progress_bar(
+    diameter: f64,
+    margin_top: i32,
+    margin_bottom: i32,
+    margin_start: i32,
+    margin_end: i32,
+    tooltip_text: &str,
+) -> DrawingArea {
+    // Create a shared state for the progress
+    let progress = Rc::new(RefCell::new(1.0)); // Start fully "unwiped"
+
     let drawing_area = Rc::new(RefCell::new(
         DrawingArea::builder()
             .content_width((diameter + 1.0) as i32)
             .content_height((diameter + 1.0) as i32)
-            .margin_top(10)
-            .margin_bottom(10)
-            .margin_start(10)
-            .margin_end(10)
-            .tooltip_text("ETA for next reward payment")
+            .margin_top(margin_top)
+            .margin_bottom(margin_bottom)
+            .margin_start(margin_start)
+            .margin_end(margin_end)
+            .tooltip_text(tooltip_text)
             .build(),
     ));
 
-    // Create a shared state for the progress
-    let progress = Rc::new(RefCell::new(1.0)); // Start fully "unwiped"
     drawing_area.borrow().set_draw_func({
         let progress = progress.clone();
         move |_, cr, width, height| {
@@ -38,7 +46,7 @@ pub fn create_circular_progress_bar(diameter: f64) -> DrawingArea {
                 cr.set_source_rgb(1.0, 1.0, 1.0); // White for full circle
             }
             cr.arc(center_x, center_y, diameter / 2.0, 0.0, 2.0 * PI);
-            // let _ = cr.fill();       // w/o border color
+            // let _ = cr.fill();       // NOTE: Fill w/o border color
             let _ = cr.fill_preserve(); // Preserve the path for stroking
             cr.set_source_rgb(0.0, 0.0, 0.0); // Black for the border
             cr.set_line_width(0.5); // Set the border width
@@ -57,7 +65,7 @@ pub fn create_circular_progress_bar(diameter: f64) -> DrawingArea {
                 center_y,
                 diameter / 2.0,
                 -PI / 2.0,
-                -PI / 2.0 + 2.0 * PI * (1.0 - percentage),
+                -PI / 2.0 + 2.0 * PI * percentage,
             );
             cr.line_to(center_x, center_y);
             let _ = cr.fill();
@@ -70,7 +78,7 @@ pub fn create_circular_progress_bar(diameter: f64) -> DrawingArea {
         let drawing_area = drawing_area.clone();
         move || {
             let mut percentage = progress.borrow_mut();
-            if *percentage <= 0.0 {
+            if (*percentage - 0.1) <= 0.0 {
                 *percentage = 1.0; // Reset to full when it reaches 0
             } else {
                 *percentage -= 0.1; // Decrease by 10%

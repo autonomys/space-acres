@@ -204,7 +204,14 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
-            circular_progress_bar: create_circular_progress_bar(20.0),
+            circular_progress_bar: create_circular_progress_bar(
+                20.0,
+                10,
+                10,
+                10,
+                10,
+                "ETA for next reward payment",
+            ),
         };
 
         let farms_box = model.farms.widget();
