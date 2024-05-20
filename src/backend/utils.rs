@@ -11,7 +11,8 @@ pub(super) type Handler<A> = Bag<HandlerFn<A>, A>;
 /// ```
 /// MAX * slot_probability / (pieces_in_sector * chunks / s_buckets) / solution_range
 /// ```
-pub(crate) const fn solution_range_to_sectors(
+#[warn(dead_code)]
+pub(super) const fn solution_range_to_sectors(
     solution_range: SolutionRange,
     slot_probability: (u64, u64),
     max_pieces_in_sector: u16,

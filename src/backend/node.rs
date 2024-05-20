@@ -19,12 +19,12 @@ use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetC
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
-use sp_api::{ApiError, ProvideRuntimeApi};
-use sp_consensus_subspace::{FarmerPublicKey, SubspaceApi};
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_subspace::SubspaceApi;
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
 use sp_core::H256;
-use sp_runtime::traits::{Block as BlockT, Header};
+use sp_runtime::traits::Header;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
@@ -237,6 +237,28 @@ impl ConsensusNode {
         self.full_node.client.info().best_number
     }
 
+    #[warn(dead_code)]
+    pub(super) fn total_space_pledged(&self) -> anyhow::Result<u128> {
+        let runtime_api = self.full_node.client.runtime_api();
+        let block_hash = self.full_node.client.info().best_hash;
+
+        let current_solution_range = runtime_api.solution_ranges(block_hash)?.current;
+        let slot_probability = runtime_api.chain_constants(block_hash)?.slot_probability();
+        let max_pieces_in_sector = runtime_api.max_pieces_in_sector(block_hash)?;
+
+        // calculate the sectors
+        let sectors = solution_range_to_sectors(
+            current_solution_range,
+            slot_probability,
+            max_pieces_in_sector,
+        );
+
+        // Calculate the total space pledged
+        Ok(sectors as u128
+            * max_pieces_in_sector as u128
+            * subspace_core_primitives::Piece::SIZE as u128)
+    }
+
     pub(super) fn account_balance(&self, account: &PublicKey) -> Balance {
         let reward_address_storage_key = account_storage_key(account);
 
@@ -286,35 +308,6 @@ fn get_total_account_balance(
 
     let account_data = account_info.data;
     Some(account_data.free + account_data.reserved + account_data.frozen)
-}
-
-#[allow(dead_code)]
-pub(crate) fn get_total_space_pledged<Block, Client>(
-    client: &Client,
-    block_hash: H256,
-) -> Result<u128, ApiError>
-where
-    Block: BlockT<Hash = H256> + sp_api::__private::BlockT,
-    Client: ProvideRuntimeApi<Block>,
-    Client::Api: SubspaceApi<Block, FarmerPublicKey>,
-{
-    let runtime_api = client.runtime_api();
-
-    let current_solution_range = runtime_api.solution_ranges(block_hash)?.current;
-    let slot_probability = runtime_api.chain_constants(block_hash)?.slot_probability();
-    let max_pieces_in_sector = runtime_api.max_pieces_in_sector(block_hash)?;
-
-    // calculate the sectors
-    let sectors = solution_range_to_sectors(
-        current_solution_range,
-        slot_probability,
-        max_pieces_in_sector,
-    );
-
-    // Calculate the total space pledged
-    Ok(sectors as u128
-        * max_pieces_in_sector as u128
-        * subspace_core_primitives::Piece::SIZE as u128)
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
