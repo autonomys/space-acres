@@ -237,7 +237,7 @@ impl ConsensusNode {
         self.full_node.client.info().best_number
     }
 
-    #[warn(dead_code)]
+    #[allow(dead_code)]
     pub(super) fn total_space_pledged(&self) -> anyhow::Result<u128> {
         let runtime_api = self.full_node.client.runtime_api();
         let block_hash = self.full_node.client.info().best_hash;
