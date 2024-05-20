@@ -13,7 +13,7 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use clap::Parser;
-use duct::cmd;
+use duct::{cmd, Expression};
 use file_rotate::compression::Compression;
 use file_rotate::suffix::AppendCount;
 use file_rotate::{ContentLimit, FileRotate};
@@ -1004,7 +1004,7 @@ impl Cli {
                 .then_some(maybe_app_data_dir.as_ref())
                 .flatten()
             {
-                let mut expression = cmd(&program, args)
+                let mut expression = Self::maybe_force_renderer(cmd(&program, args))
                     .stderr_to_stdout()
                     // We use non-zero status codes, and they don't mean error necessarily
                     .unchecked()
@@ -1058,7 +1058,7 @@ impl Cli {
                     }
                 }
             } else if WINDOWS_SUBSYSTEM_WINDOWS {
-                cmd(&program, args)
+                Self::maybe_force_renderer(cmd(&program, args))
                     .stdin_null()
                     .stdout_null()
                     .stderr_null()
@@ -1068,7 +1068,7 @@ impl Cli {
                     .status
             } else {
                 eprintln!("App data directory doesn't exist, not creating log file");
-                cmd(&program, args)
+                Self::maybe_force_renderer(cmd(&program, args))
                     // We use non-zero status codes and they don't mean error necessarily
                     .unchecked()
                     .run()?
@@ -1172,6 +1172,22 @@ impl Cli {
     #[cfg(not(target_arch = "x86_64"))]
     fn child_program() -> io::Result<PathBuf> {
         env::current_exe()
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    fn maybe_force_renderer(expression: Expression) -> Expression {
+        if cfg!(windows) && !std::arch::is_x86_feature_detected!("xsavec") {
+            // Force old GL renderer on Windows with old CPUs
+            // TODO: This is a workaround for https://gitlab.gnome.org/GNOME/gtk/-/issues/6721
+            expression.env("GSK_RENDERER", "gl")
+        } else {
+            expression
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    fn maybe_force_renderer(expression: Expression) -> Expression {
+        expression
     }
 }
 
