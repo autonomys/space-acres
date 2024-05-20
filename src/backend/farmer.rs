@@ -24,6 +24,7 @@ use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farm::{Farm, FarmingNotification, SectorPlottingDetails, SectorUpdate};
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
+use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::plotter::cpu::CpuPlotter;
 use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
@@ -33,7 +34,6 @@ use subspace_farmer::utils::{
     create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
 };
-use subspace_farmer::NodeClient;
 use subspace_farmer_components::plotting::PlottedSector;
 use thread_priority::ThreadPriority;
 use tokio::sync::{watch, Barrier, Semaphore};

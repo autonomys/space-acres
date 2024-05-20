@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_fake_runtime_api::RuntimeApi;
-use subspace_farmer::NodeRpcClient;
+use subspace_farmer::node_client::node_rpc_client::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;

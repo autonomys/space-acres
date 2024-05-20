@@ -3,8 +3,8 @@ use futures::Stream;
 use std::pin::Pin;
 use std::sync::Arc;
 use subspace_core_primitives::SegmentHeader;
-use subspace_farmer::node_client::{Error, NodeClientExt};
-use subspace_farmer::{NodeClient, NodeRpcClient};
+use subspace_farmer::node_client::node_rpc_client::NodeRpcClient;
+use subspace_farmer::node_client::{Error, NodeClient, NodeClientExt};
 use subspace_rpc_primitives::{
     FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
 };
