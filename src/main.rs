@@ -95,6 +95,7 @@ enum AppInput {
     Running(RunningOutput),
     OpenLogFolder,
     OpenReconfiguration,
+    OpenFeedbackLink,
     ShowAboutDialog,
     InitialConfiguration,
     StartUpgrade,
@@ -251,6 +252,11 @@ impl AsyncComponent for App {
                                         set_label: "Update configuration",
                                         #[watch]
                                         set_visible: model.current_raw_config.is_some(),
+                                    },
+
+                                    gtk::Button {
+                                        connect_clicked => AppInput::OpenFeedbackLink,
+                                        set_label: "Feedback",
                                     },
 
                                     gtk::Button {
@@ -605,6 +611,10 @@ impl AsyncComponent for App {
                         .emit(ConfigurationInput::Reconfigure(raw_config));
                     self.current_view = View::Reconfiguration;
                 }
+            }
+            AppInput::OpenFeedbackLink => {
+                self.menu_popover.hide();
+                gtk::show_uri(Some(root), "https://subspace.typeform.com/to/tRe4Z0uI", 0);
             }
             AppInput::ShowAboutDialog => {
                 self.menu_popover.hide();
