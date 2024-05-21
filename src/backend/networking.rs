@@ -94,7 +94,7 @@ pub fn create_network<FarmIndex, NC>(
 where
     FarmIndex: Hash + Eq + Copy + fmt::Debug + Send + Sync + 'static,
     usize: From<FarmIndex>,
-    NC: NodeClientExt,
+    NC: NodeClientExt + Clone,
 {
     let span = info_span!("Network");
     let _enter = span.enter();

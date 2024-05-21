@@ -1,6 +1,6 @@
 pub(super) mod maybe_node_client;
 
-use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
+use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
@@ -178,11 +178,11 @@ pub struct DiskFarm {
 pub(super) struct FarmerOptions<FarmIndex> {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
-    pub(super) node_client: MaybeNodeRpcClient,
+    pub(super) node_client: MaybeNodeClient,
     pub(super) piece_getter: PieceGetterWrapper,
     pub(super) plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     pub(super) farmer_cache: FarmerCache,
-    pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
+    pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
     pub(super) kzg: Kzg,
 }
 

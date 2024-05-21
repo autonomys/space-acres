@@ -1,6 +1,6 @@
 mod utils;
 
-use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
+use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::node::utils::account_storage_key;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
@@ -440,7 +440,7 @@ pub(super) async fn create_consensus_node(
     chain_spec: ChainSpec,
     piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
     node: Node,
-    maybe_node_rpc_client: &MaybeNodeRpcClient,
+    maybe_node_client: &MaybeNodeClient,
 ) -> Result<ConsensusNode, ConsensusNodeCreationError> {
     set_default_ss58_version(&chain_spec);
 
@@ -542,7 +542,7 @@ pub(super) async fn create_consensus_node(
 
     // Inject working node client into wrapper we have created before such that networking can
     // respond to incoming requests properly
-    maybe_node_rpc_client.inject(node_client);
+    maybe_node_client.inject(Box::new(node_client));
 
     Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
 }
