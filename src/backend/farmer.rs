@@ -1,3 +1,4 @@
+pub(super) mod direct_node_client;
 pub(super) mod maybe_node_client;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;

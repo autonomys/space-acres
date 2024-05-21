@@ -90,6 +90,7 @@ sp-consensus = { git = "https://github.com/subspace/polkadot-sdk", rev = "9b8cdb
 sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "5f6132956dc93dce079f66d8a3319627ae20a2f9" }
 sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "9b8cdb87de8f1c0e6b48c468b6196d1d99eeabee", default-features = false }
 sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "5f6132956dc93dce079f66d8a3319627ae20a2f9" }
+sp-objects = { git = "https://github.com/subspace/subspace", rev = "5f6132956dc93dce079f66d8a3319627ae20a2f9" }
 sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "9b8cdb87de8f1c0e6b48c468b6196d1d99eeabee", default-features = false }
 subspace-archiving = { git = "https://github.com/subspace/subspace", rev = "5f6132956dc93dce079f66d8a3319627ae20a2f9" }
 subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "5f6132956dc93dce079f66d8a3319627ae20a2f9" }
