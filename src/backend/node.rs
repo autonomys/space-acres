@@ -2,7 +2,7 @@ mod utils;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
 use crate::backend::node::utils::account_storage_key;
-use crate::backend::utils::{solution_range_to_sectors, Handler, HandlerFn};
+use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
 use event_listener_primitives::HandlerId;
 use frame_system::AccountInfo;
@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::{solution_range_to_sectors, BlockNumber, PublicKey};
 use subspace_fake_runtime_api::RuntimeApi;
 use subspace_farmer::node_client::node_rpc_client::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
