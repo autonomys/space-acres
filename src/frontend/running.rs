@@ -426,6 +426,7 @@ impl RunningView {
                     self.farms
                         .send(&farm_index, FarmWidgetInput::Error { error });
                 }
+                _ => {}
             },
             RunningInput::ToggleFarmDetails => {
                 self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);

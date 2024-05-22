@@ -66,6 +66,10 @@ pub enum FarmerNotification<FarmIndex> {
         farm_index: FarmIndex,
         notification: FarmingNotification,
     },
+    FarmingLog {
+        farm_index: FarmIndex,
+        message: String,
+    },
     FarmerCacheSyncProgress {
         /// Progress so far in %
         progress: f32,
@@ -82,7 +86,7 @@ pub enum FarmerAction {
     PausePlotting(bool),
 }
 
-type Notifications<FarmIndex> = Handler<FarmerNotification<FarmIndex>>;
+pub(super) type Notifications<FarmIndex> = Handler<FarmerNotification<FarmIndex>>;
 
 pub(super) struct Farmer<FarmIndex>
 where
@@ -178,7 +182,10 @@ pub struct DiskFarm {
 
 /// Arguments for farmer
 #[derive(Debug)]
-pub(super) struct FarmerOptions<FarmIndex> {
+pub(super) struct FarmerOptions<FarmIndex>
+where
+    FarmIndex: 'static,
+{
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
     pub(super) node_client: MaybeNodeClient,
@@ -187,6 +194,7 @@ pub(super) struct FarmerOptions<FarmIndex> {
     pub(super) farmer_cache: FarmerCache,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
     pub(super) kzg: Kzg,
+    pub(super) notifications: Arc<Notifications<FarmIndex>>,
 }
 
 pub(super) async fn create_farmer<FarmIndex>(
@@ -209,6 +217,7 @@ where
         farmer_cache,
         farmer_cache_worker,
         kzg,
+        notifications,
     } = farmer_options;
 
     if disk_farms.is_empty() {
@@ -335,6 +344,7 @@ where
                 let farmer_app_info = farmer_app_info.clone();
                 let max_pieces_in_sector = farmer_app_info.protocol_info.max_pieces_in_sector;
                 let kzg = kzg.clone();
+                let notifications = notifications.clone();
                 let erasure_coding = erasure_coding.clone();
                 let plotter_legacy = Arc::clone(&legacy_cpu_plotter);
                 let plotter = Arc::clone(&modern_cpu_plotter);
@@ -409,6 +419,15 @@ where
                     );
                     info!("  Directory: {}", disk_farm.directory.display());
 
+                    if let Ok(farm_index_generic) = farm_index.try_into() {
+                        notifications.call_simple(&FarmerNotification::FarmingLog {
+                            farm_index: farm_index_generic,
+                            message: format!(
+                                "create farm {farm_index} at {} successfully",
+                                disk_farm.directory.display()
+                            ),
+                        });
+                    }
                     (farm_index, Ok(farm))
                 }
                 .instrument(info_span!("", %farm_index))
@@ -422,6 +441,7 @@ where
 
                 error!(%error, "Single disk creation failed");
             }
+
             farms.push((farm_index, farm?));
         }
 
@@ -513,8 +533,6 @@ where
     }
 
     info!("Finished collecting already plotted pieces successfully");
-
-    let notifications = Arc::new(Notifications::default());
 
     farmer_cache
         .on_sync_progress(Arc::new({

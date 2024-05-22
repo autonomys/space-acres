@@ -770,10 +770,18 @@ impl App {
 
         match notification {
             // TODO: Render progress
-            BackendNotification::Loading { step, progress: _ } => {
+            BackendNotification::Loading {
+                step,
+                progress,
+                message,
+            } => {
                 self.set_current_view(View::Loading);
                 self.set_status_bar_notification(StatusBarNotification::None);
-                self.loading_view.emit(LoadingInput::BackendLoading(step));
+                self.loading_view.emit(LoadingInput::BackendLoading {
+                    step,
+                    progress,
+                    message,
+                });
             }
             BackendNotification::ConfigurationFound { raw_config } => {
                 self.get_mut_current_raw_config()
