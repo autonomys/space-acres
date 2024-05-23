@@ -23,7 +23,9 @@ use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_farmer::farm::{Farm, FarmingNotification, SectorPlottingDetails, SectorUpdate};
+use subspace_farmer::farm::{
+    FarmingNotification, PlottedSectors, SectorPlottingDetails, SectorUpdate,
+};
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::plotter::cpu::CpuPlotter;
@@ -393,7 +395,7 @@ where
                     );
                     info!("  Directory: {}", disk_farm.directory.display());
 
-                    (farm_index, Ok(Box::new(farm) as Box<dyn Farm>))
+                    (farm_index, Ok(farm))
                 }
                 .instrument(info_span!("", %farm_index))
             })
@@ -443,9 +445,15 @@ where
     }
     farmer_cache
         .replace_backing_caches(
-            farms.iter().map(|farm| farm.piece_cache()).collect(),
+            farms
+                .iter()
+                .map(|farm| Arc::new(farm.piece_cache()) as Arc<_>)
+                .collect(),
             if plot_cache {
-                farms.iter().map(|farm| farm.plot_cache()).collect()
+                farms
+                    .iter()
+                    .map(|farm| Arc::new(farm.plot_cache()) as Arc<_>)
+                    .collect()
             } else {
                 Vec::new()
             },
@@ -463,7 +471,7 @@ where
             .try_into()
             .map_err(|_error| anyhow!("More than 256 plots are not supported by Space Acres"))?;
 
-        plotted_pieces.add_farm(farm_index, farm.piece_reader());
+        plotted_pieces.add_farm(farm_index, Arc::new(farm.piece_reader()));
 
         let total_sectors_count = farm.total_sectors_count();
         let mut plotted_sectors_count = 0;
