@@ -138,7 +138,7 @@ where
     pub fn new(config: NodeClientConfig<Client>) -> Result<Self, ApiError> {
         let info = config.client.info();
         let best_hash = info.best_hash;
-        let genesis_hash = BlockHash::try_from(best_hash.as_ref().to_vec())
+        let genesis_hash = BlockHash::try_from(info.genesis_hash.as_ref())
             .expect("Genesis hash must always be convertable into BlockHash; qed");
         let runtime_api = config.client.runtime_api();
         let chain_constants = runtime_api.chain_constants(best_hash)?;
