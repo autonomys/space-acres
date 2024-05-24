@@ -116,7 +116,7 @@ pub(in super::super) struct DirectNodeClient<Client> {
     cached_archived_segment: Arc<AsyncMutex<Option<CachedArchivedSegment>>>,
     archived_segment_acknowledgement_senders:
         Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
-    next_subscription_id: Arc<AtomicU64>,
+    next_subscription_id: AtomicU64,
     sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
     genesis_hash: BlockHash,
     chain_constants: ChainConstants,
@@ -166,11 +166,11 @@ where
             segment_headers_store: config.segment_headers_store,
             cached_archived_segment: Arc::default(),
             archived_segment_acknowledgement_senders: Arc::default(),
-            next_subscription_id: Arc::new(AtomicU64::new(0)),
+            next_subscription_id: AtomicU64::default(),
             sync_oracle: config.sync_oracle,
             genesis_hash,
-            max_pieces_in_sector,
             chain_constants,
+            max_pieces_in_sector,
             kzg: config.kzg,
         })
     }
@@ -446,7 +446,7 @@ where
                 } = archived_segment_notification;
 
                 let segment_index = archived_segment.segment_header.segment_index();
-                let cached_archived_segment_clone = Arc::clone(&cached_archived_segment);
+                let cached_archived_segment = Arc::clone(&cached_archived_segment);
 
                 // Store acknowledgment sender so that we can retrieve it when acknowledgement
                 // comes from the farmer, but only if unsafe APIs are allowed
@@ -480,9 +480,12 @@ where
                 };
 
                 Box::pin(async move {
-                    cached_archived_segment_clone.lock().await.replace(
-                        CachedArchivedSegment::Weak(Arc::downgrade(&archived_segment)),
-                    );
+                    cached_archived_segment
+                        .lock()
+                        .await
+                        .replace(CachedArchivedSegment::Weak(Arc::downgrade(
+                            &archived_segment,
+                        )));
 
                     maybe_archived_segment_header
                 })
