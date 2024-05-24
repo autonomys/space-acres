@@ -187,7 +187,11 @@ enum LoadedConsensusChainNode {
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
     SyncStateUpdate(SyncState),
-    BlockImported(BlockImported),
+    BlockImported {
+        imported_block: BlockImported,
+        current_solution_range: u64,
+        max_pieces_in_sector: u16,
+    },
 }
 
 /// Notification messages send from backend about its operation
@@ -523,9 +527,14 @@ async fn run(
     let _on_imported_block_handler_id = consensus_node.on_block_imported({
         let notifications_sender = notifications_sender.clone();
         // let reward_address_storage_key = account_storage_key(&config.reward_address);
+        let (current_solution_range, max_pieces_in_sector) = consensus_node.tsp_metrics()?;
 
-        Arc::new(move |&block_imported| {
-            let notification = NodeNotification::BlockImported(block_imported);
+        Arc::new(move |&imported_block| {
+            let notification = NodeNotification::BlockImported {
+                imported_block,
+                current_solution_range,
+                max_pieces_in_sector,
+            };
 
             let mut notifications_sender = notifications_sender.clone();
 

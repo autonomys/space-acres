@@ -2,8 +2,10 @@ mod farm;
 mod node;
 
 use crate::backend::config::RawConfig;
-use crate::backend::farmer::{FarmerNotification, InitialFarmState};
-use crate::backend::node::ChainInfo;
+use crate::backend::farmer::{
+    calculate_expected_reward_duration_from_now, FarmerNotification, InitialFarmState,
+};
+use crate::backend::node::{total_space_pledged, ChainInfo};
 use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::progress_bar::create_circular_progress_bar;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
@@ -15,6 +17,9 @@ use relm4_icons::icon_name;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
+
+// TODO: define it calling from chain_constants.
+pub const SLOT_PROBABILITY: (u64, u64) = (1, 6);
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -290,7 +295,11 @@ impl RunningView {
                         }
                         self.node_synced = new_synced;
                     }
-                    NodeNotification::BlockImported(imported_block) => {
+                    NodeNotification::BlockImported {
+                        imported_block,
+                        current_solution_range,
+                        max_pieces_in_sector,
+                    } => {
                         if !self.node_synced {
                             // Do not count balance increase during sync as increase related to
                             // farming, but preserve accumulated diff
@@ -298,7 +307,16 @@ impl RunningView {
                                 - self.farmer_state.initial_reward_address_balance;
                             self.farmer_state.initial_reward_address_balance =
                                 imported_block.reward_address_balance - previous_diff;
+                            self.update_progress(0);
+                        } else {
+                            let total_space_pledged = total_space_pledged(
+                                current_solution_range,
+                                SLOT_PROBABILITY,
+                                max_pieces_in_sector,
+                            );
+                            self.update_progress(total_space_pledged);
                         }
+
                         // In case balance decreased, subtract it from initial balance to ignore,
                         // this typically happens due to chain reorg when reward is "disappears"
                         if let Some(decreased_by) = self
@@ -359,5 +377,31 @@ impl RunningView {
                 }
             }
         }
+    }
+
+    fn update_progress(&mut self, total_space_pledged: u128) {
+        // Sum up the allocated space from all farms
+        let total_allocated_space: u64 = self
+            .farms
+            .iter()
+            .map(|(_, farm)| farm.allocated_space())
+            .sum();
+
+        // Calculate the ETA for reward payment
+        // TODO: may be change the last reward timestamp
+        let eta = calculate_expected_reward_duration_from_now(
+            total_space_pledged,
+            total_allocated_space as u128,
+            None,
+        );
+
+        // TODO: correct the progress updation.
+        // Calculate the progress and update
+        // if total_space_pledged > 0 {
+        //     let progress_value = total_allocated_space as f64 / total_space_pledged as f64;
+        //     *self.progress.borrow_mut() = progress_value;
+        // } else {
+        //     *self.progress.borrow_mut() = 0.0;
+        // }
     }
 }

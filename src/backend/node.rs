@@ -122,7 +122,7 @@ struct Handlers {
     block_imported: Handler<BlockImported>,
 }
 
-pub(super) struct ConsensusNode {
+pub(crate) struct ConsensusNode {
     full_node: NewFull<FullClient<RuntimeApi>>,
     pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
@@ -136,7 +136,7 @@ impl fmt::Debug for ConsensusNode {
 }
 
 impl ConsensusNode {
-    fn new(
+    pub(crate) fn new(
         full_node: NewFull<FullClient<RuntimeApi>>,
         pause_sync: Arc<AtomicBool>,
         chain_info: ChainInfo,
@@ -237,26 +237,14 @@ impl ConsensusNode {
         self.full_node.client.info().best_number
     }
 
-    #[allow(dead_code)]
-    pub(super) fn total_space_pledged(&self) -> anyhow::Result<u128> {
+    /// Returns current solution range & max. pieces in a sector
+    pub(super) fn tsp_metrics(&self) -> anyhow::Result<(u64, u16)> {
         let runtime_api = self.full_node.client.runtime_api();
         let block_hash = self.full_node.client.info().best_hash;
-
         let current_solution_range = runtime_api.solution_ranges(block_hash)?.current;
-        let slot_probability = runtime_api.chain_constants(block_hash)?.slot_probability();
         let max_pieces_in_sector = runtime_api.max_pieces_in_sector(block_hash)?;
 
-        // calculate the sectors
-        let sectors = solution_range_to_sectors(
-            current_solution_range,
-            slot_probability,
-            max_pieces_in_sector,
-        );
-
-        // Calculate the total space pledged
-        Ok(sectors as u128
-            * max_pieces_in_sector as u128
-            * subspace_core_primitives::Piece::SIZE as u128)
+        Ok((current_solution_range, max_pieces_in_sector))
     }
 
     pub(super) fn account_balance(&self, account: &PublicKey) -> Balance {
@@ -569,4 +557,20 @@ pub(super) async fn create_consensus_node(
     maybe_node_rpc_client.inject(node_client);
 
     Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
+}
+
+pub(crate) fn total_space_pledged(
+    current_solution_range: u64,
+    slot_probability: (u64, u64),
+    max_pieces_in_sector: u16,
+) -> u128 {
+    // calculate the sectors
+    let sectors = solution_range_to_sectors(
+        current_solution_range,
+        slot_probability,
+        max_pieces_in_sector,
+    );
+
+    // Calculate the total space pledged
+    sectors as u128 * max_pieces_in_sector as u128 * subspace_core_primitives::Piece::SIZE as u128
 }
