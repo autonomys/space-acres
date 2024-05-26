@@ -10,16 +10,23 @@ use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::progress_bar::create_circular_progress_bar;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
+use crate::frontend::utils::format_eta;
+use anyhow::anyhow;
+use bytesize::ByteSize;
+use futures::FutureExt;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
+use std::cell::RefCell;
+use std::rc::Rc;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
 
-// TODO: define it calling from chain_constants.
-pub const SLOT_PROBABILITY: (u64, u64) = (1, 6);
+// TODO: Need to fetch from chain_constants.
+const SLOT_PROBABILITY: (u64, u64) = (1, 6);
+const DEFAULT_TOOLTIP_ETA_PROGRESS_BAR: &str = "ETA for next reward payment";
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -39,6 +46,14 @@ pub enum RunningInput {
     FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
+}
+
+#[derive(Debug)]
+pub enum CmdOut {
+    /// Progress update based on arc progress of ETA progress bar.
+    RewardEtaProgress(f64),
+    /// Finished signal from ETA progress bar.
+    RewardEtaProgressFinished,
 }
 
 #[derive(Debug)]
@@ -62,7 +77,12 @@ pub struct RunningView {
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
-    circular_progress_bar: gtk::DrawingArea,
+    space_pledged: u128,
+    /// Reward payment ETA Progress value
+    reward_eta_progress: Rc<RefCell<f64>>,
+    /// Reward payment ETA Progress bar (circular)
+    reward_eta_progress_bar: gtk::DrawingArea,
+    reward_eta_progress_bar_stopped: bool,
 }
 
 #[relm4::component(pub)]
@@ -70,7 +90,7 @@ impl Component for RunningView {
     type Init = RunningInit;
     type Input = RunningInput;
     type Output = RunningOutput;
-    type CommandOutput = ();
+    type CommandOutput = CmdOut;
 
     view! {
         #[root]
@@ -115,7 +135,7 @@ impl Component for RunningView {
                         set_halign: gtk::Align::End,
                         set_hexpand: true,
 
-                        model.circular_progress_bar.clone(),
+                        append: &model.reward_eta_progress_bar,
 
                         gtk::LinkButton {
                             remove_css_class: "link",
@@ -202,6 +222,7 @@ impl Component for RunningView {
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
+        let progress = Rc::new(RefCell::new(0.0));
 
         let model = Self {
             node_view,
@@ -209,14 +230,19 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
-            circular_progress_bar: create_circular_progress_bar(
+            space_pledged: 0,
+            reward_eta_progress: progress.clone(),
+            reward_eta_progress_bar: create_circular_progress_bar(
                 20.0,
                 10,
                 10,
                 10,
                 10,
-                "ETA for next reward payment",
+                true,
+                DEFAULT_TOOLTIP_ETA_PROGRESS_BAR,
+                progress,
             ),
+            reward_eta_progress_bar_stopped: true,
         };
 
         let farms_box = model.farms.widget();
@@ -227,6 +253,25 @@ impl Component for RunningView {
 
     fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         self.process_input(input, sender);
+    }
+
+    fn update_cmd(
+        &mut self,
+        message: Self::CommandOutput,
+        _sender: ComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
+        match message {
+            CmdOut::RewardEtaProgress(p) => {
+                *self.reward_eta_progress.borrow_mut() = p;
+                self.reward_eta_progress_bar.queue_draw();
+            }
+            CmdOut::RewardEtaProgressFinished => {
+                self.reward_eta_progress_bar
+                    .set_tooltip_text(Some(DEFAULT_TOOLTIP_ETA_PROGRESS_BAR));
+                self.reward_eta_progress_bar_stopped = true;
+            }
+        }
     }
 }
 
@@ -240,6 +285,7 @@ impl RunningView {
                 raw_config,
                 chain_info,
             } => {
+                let mut space_pledged: u128 = 0;
                 for (farm_index, (initial_farm_state, farm)) in initial_farm_states
                     .iter()
                     .copied()
@@ -252,13 +298,22 @@ impl RunningView {
                             backend; qed",
                         ),
                         FarmWidgetInit {
-                            farm,
+                            farm: farm.clone(),
                             total_sectors: initial_farm_state.total_sectors_count,
                             plotted_total_sectors: initial_farm_state.plotted_sectors_count,
                             plotting_paused: self.plotting_paused,
                         },
                     );
+
+                    // Want this to panic in case of any error which I don't expect to happen
+                    space_pledged += farm
+                        .size
+                        .parse::<ByteSize>()
+                        .expect("Failed to parse farm size")
+                        .0 as u128;
                 }
+
+                self.space_pledged = space_pledged;
 
                 self.farmer_state = FarmerState {
                     initial_reward_address_balance: reward_address_balance,
@@ -307,14 +362,25 @@ impl RunningView {
                                 - self.farmer_state.initial_reward_address_balance;
                             self.farmer_state.initial_reward_address_balance =
                                 imported_block.reward_address_balance - previous_diff;
-                            self.update_progress(0);
                         } else {
-                            let total_space_pledged = total_space_pledged(
-                                current_solution_range,
-                                SLOT_PROBABILITY,
-                                max_pieces_in_sector,
-                            );
-                            self.update_progress(total_space_pledged);
+                            // only move the progress bar if it was stopped & the node is synced ofcourse
+                            if self.reward_eta_progress_bar_stopped {
+                                let total_space_pledged = total_space_pledged(
+                                    current_solution_range,
+                                    SLOT_PROBABILITY,
+                                    max_pieces_in_sector,
+                                );
+
+                                // TODO: Need to fetch the last reward timestamp
+                                let eta = calculate_expected_reward_duration_from_now(
+                                    total_space_pledged,
+                                    self.space_pledged,
+                                    None,
+                                )
+                                .map_err(|_| anyhow!("Failed to calculate ETA for reward payment"))
+                                .unwrap_or(0);
+                                self.move_progress_bar(sender.clone(), eta);
+                            }
                         }
 
                         // In case balance decreased, subtract it from initial balance to ignore,
@@ -364,6 +430,10 @@ impl RunningView {
             },
             RunningInput::ToggleFarmDetails => {
                 self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
+
+                // CLEANUP: remove later
+                // 10s ETA for testing on clicking the farm-details toggle button
+                self.move_progress_bar(sender.clone(), 10000);
             }
             RunningInput::TogglePausePlotting => {
                 self.plotting_paused = !self.plotting_paused;
@@ -379,29 +449,44 @@ impl RunningView {
         }
     }
 
-    fn update_progress(&mut self, total_space_pledged: u128) {
-        // Sum up the allocated space from all farms
-        let total_allocated_space: u64 = self
-            .farms
-            .iter()
-            .map(|(_, farm)| farm.allocated_space())
-            .sum();
+    /// Move the progress bar based on the ETA
+    fn move_progress_bar(&mut self, sender: ComponentSender<RunningView>, eta: u64) {
+        // Format the ETA
+        let eta_str = format_eta(eta);
 
-        // Calculate the ETA for reward payment
-        // TODO: may be change the last reward timestamp
-        let eta = calculate_expected_reward_duration_from_now(
-            total_space_pledged,
-            total_allocated_space as u128,
-            None,
-        );
+        // Update the tooltip text of the progress bar
+        self.reward_eta_progress_bar
+            .set_tooltip_text(Some(&format!("Next reward in {}", eta_str)));
 
-        // TODO: correct the progress updation.
-        // Calculate the progress and update
-        // if total_space_pledged > 0 {
-        //     let progress_value = total_allocated_space as f64 / total_space_pledged as f64;
-        //     *self.progress.borrow_mut() = progress_value;
-        // } else {
-        //     *self.progress.borrow_mut() = 0.0;
-        // }
+        sender.command(move |out, shutdown| {
+            shutdown
+                // Performs this operation until a shutdown is triggered
+                .register(async move {
+                    // Get the decrease value and interval from the helper function
+                    let (decrease_value, interval) = calculate_progress_params(eta);
+
+                    let mut percentage = 1.0;
+
+                    while percentage > 0.0 {
+                        out.send(CmdOut::RewardEtaProgress(percentage)).unwrap();
+                        percentage -= decrease_value;
+                        tokio::time::sleep(std::time::Duration::from_millis(interval)).await;
+                    }
+
+                    out.send(CmdOut::RewardEtaProgressFinished).unwrap();
+                })
+                // Perform task until a shutdown interrupts it
+                .drop_on_shutdown()
+                // Wrap into a `Pin<Box<Future>>` for return
+                .boxed()
+        });
     }
+}
+
+/// Calculate the decrease value and interval for the progress updates
+fn calculate_progress_params(eta: u64) -> (f64, u64) {
+    let interval = 1000; // Default interval of 1 second (1000 milliseconds)
+    let steps = eta / interval;
+    let decrease_value = 1.0 / steps as f64;
+    (decrease_value, interval)
 }

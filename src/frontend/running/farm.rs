@@ -1,5 +1,4 @@
 use crate::backend::config::Farm;
-use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
@@ -549,19 +548,5 @@ impl FarmWidget {
                 "Sector {sector_index}: waiting to be plotted"
             )));
         }
-    }
-
-    pub(super) fn allocated_space(&self) -> u64 {
-        if self.is_node_synced && !self.plotting_paused {
-            // Parsing the size string and converting it to bytes
-            let allocated_space = self
-                .size
-                .parse::<ByteSize>()
-                .expect("Failed to parse farm size")
-                .as_u64();
-            return allocated_space;
-        }
-
-        0
     }
 }
