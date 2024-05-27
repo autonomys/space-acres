@@ -21,6 +21,8 @@ use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
 use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
@@ -225,6 +227,7 @@ pub enum BackendNotification {
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
         chain_info: ChainInfo,
+        chain_constants: ChainConstants,
     },
     Node(NodeNotification),
     Farmer(FarmerNotification<FarmIndex>),
@@ -494,6 +497,7 @@ async fn run(
         "networking".to_string(),
     )?;
 
+    let runtime_api = consensus_node.full_node.client.runtime_api();
     notifications_sender
         .send(BackendNotification::Running {
             raw_config,
@@ -501,6 +505,7 @@ async fn run(
             reward_address_balance: consensus_node.account_balance(&config.reward_address),
             initial_farm_states: farmer.initial_farm_states().to_vec(),
             chain_info: consensus_node.chain_info().clone(),
+            chain_constants: runtime_api.chain_constants(consensus_node.best_block_hash())?,
         })
         .await?;
 

@@ -123,7 +123,7 @@ struct Handlers {
 }
 
 pub(crate) struct ConsensusNode {
-    full_node: NewFull<FullClient<RuntimeApi>>,
+    pub full_node: NewFull<FullClient<RuntimeApi>>,
     pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
     handlers: Handlers,
@@ -235,6 +235,10 @@ impl ConsensusNode {
 
     pub(super) fn best_block_number(&self) -> BlockNumber {
         self.full_node.client.info().best_number
+    }
+
+    pub(super) fn best_block_hash(&self) -> H256 {
+        self.full_node.client.info().best_hash
     }
 
     /// Returns current solution range & max. pieces in a sector

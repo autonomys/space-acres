@@ -18,14 +18,13 @@ use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
+use sp_consensus_subspace::ChainConstants;
 use std::cell::RefCell;
 use std::rc::Rc;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
 
-// TODO: Need to fetch from chain_constants.
-const SLOT_PROBABILITY: (u64, u64) = (1, 6);
 const DEFAULT_TOOLTIP_ETA_PROGRESS_BAR: &str = "ETA for next reward payment";
 
 #[derive(Debug)]
@@ -41,6 +40,7 @@ pub enum RunningInput {
         initial_farm_states: Vec<InitialFarmState>,
         raw_config: RawConfig,
         chain_info: ChainInfo,
+        chain_constants: ChainConstants,
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification<FarmIndex>),
@@ -77,6 +77,7 @@ pub struct RunningView {
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
+    slot_probability: (u64, u64),
     space_pledged: u128,
     /// Reward payment ETA Progress value
     reward_eta_progress: Rc<RefCell<f64>>,
@@ -230,6 +231,7 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
+            slot_probability: (0, 0),
             space_pledged: 0,
             reward_eta_progress: progress.clone(),
             reward_eta_progress_bar: create_circular_progress_bar(
@@ -284,6 +286,7 @@ impl RunningView {
                 initial_farm_states,
                 raw_config,
                 chain_info,
+                chain_constants,
             } => {
                 let mut space_pledged: u128 = 0;
                 for (farm_index, (initial_farm_state, farm)) in initial_farm_states
@@ -312,7 +315,7 @@ impl RunningView {
                         .expect("Failed to parse farm size")
                         .0 as u128;
                 }
-
+                self.slot_probability = chain_constants.slot_probability();
                 self.space_pledged = space_pledged;
 
                 self.farmer_state = FarmerState {
@@ -370,7 +373,7 @@ impl RunningView {
 
                                 let total_space_pledged = total_space_pledged(
                                     current_solution_range,
-                                    SLOT_PROBABILITY,
+                                    self.slot_probability,
                                     max_pieces_in_sector,
                                 );
 
