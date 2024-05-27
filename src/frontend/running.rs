@@ -82,7 +82,7 @@ pub struct RunningView {
     reward_eta_progress: Rc<RefCell<f64>>,
     /// Reward payment ETA Progress bar (circular)
     reward_eta_progress_bar: gtk::DrawingArea,
-    reward_eta_progress_bar_stopped: bool,
+    reward_eta_progress_bar_moving: bool,
 }
 
 #[relm4::component(pub)]
@@ -242,7 +242,7 @@ impl Component for RunningView {
                 DEFAULT_TOOLTIP_ETA_PROGRESS_BAR,
                 progress,
             ),
-            reward_eta_progress_bar_stopped: true,
+            reward_eta_progress_bar_moving: false,
         };
 
         let farms_box = model.farms.widget();
@@ -269,7 +269,7 @@ impl Component for RunningView {
             CmdOut::RewardEtaProgressFinished => {
                 self.reward_eta_progress_bar
                     .set_tooltip_text(Some(DEFAULT_TOOLTIP_ETA_PROGRESS_BAR));
-                self.reward_eta_progress_bar_stopped = true;
+                self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
             }
         }
     }
@@ -364,7 +364,10 @@ impl RunningView {
                                 imported_block.reward_address_balance - previous_diff;
                         } else {
                             // only move the progress bar if it was stopped & the node is synced ofcourse
-                            if self.reward_eta_progress_bar_stopped {
+                            if !self.reward_eta_progress_bar_moving {
+                                self.reward_eta_progress_bar_moving =
+                                    !self.reward_eta_progress_bar_moving;
+
                                 let total_space_pledged = total_space_pledged(
                                     current_solution_range,
                                     SLOT_PROBABILITY,
@@ -433,7 +436,11 @@ impl RunningView {
 
                 // CLEANUP: remove later
                 // 10s ETA for testing on clicking the farm-details toggle button
-                self.move_progress_bar(sender.clone(), 10000);
+                if !self.reward_eta_progress_bar_moving {
+                    self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
+
+                    self.move_progress_bar(sender.clone(), 10000);
+                }
             }
             RunningInput::TogglePausePlotting => {
                 self.plotting_paused = !self.plotting_paused;
