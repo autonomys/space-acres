@@ -256,7 +256,7 @@ impl AsyncComponent for App {
 
                                     gtk::Button {
                                         connect_clicked => AppInput::OpenFeedbackLink,
-                                        set_label: "Feedback",
+                                        set_label: "Leave Feedback / Report a Bug",
                                     },
 
                                     gtk::Button {
@@ -614,7 +614,7 @@ impl AsyncComponent for App {
             }
             AppInput::OpenFeedbackLink => {
                 self.menu_popover.hide();
-                gtk::show_uri(Some(root), "https://subspace.typeform.com/to/tRe4Z0uI", 0);
+                gtk::show_uri(Some(root), "https://linktr.ee/subspace_network", 0);
             }
             AppInput::ShowAboutDialog => {
                 self.menu_popover.hide();
