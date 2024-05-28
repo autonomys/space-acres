@@ -21,6 +21,7 @@ use relm4_icons::icon_name;
 use sp_consensus_subspace::ChainConstants;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
@@ -79,6 +80,7 @@ pub struct RunningView {
     plotting_paused: bool,
     slot_probability: (u64, u64),
     space_pledged: u128,
+    last_reward_timestamp: Option<u64>,
     /// Reward payment ETA Progress value
     reward_eta_progress: Rc<RefCell<f64>>,
     /// Reward payment ETA Progress bar (circular)
@@ -233,6 +235,7 @@ impl Component for RunningView {
             plotting_paused: init.plotting_paused,
             slot_probability: (0, 0),
             space_pledged: 0,
+            last_reward_timestamp: None,
             reward_eta_progress: progress.clone(),
             reward_eta_progress_bar: create_circular_progress_bar(
                 20.0,
@@ -377,11 +380,10 @@ impl RunningView {
                                     max_pieces_in_sector,
                                 );
 
-                                // TODO: Need to fetch the last reward timestamp
                                 let eta = calculate_expected_reward_duration_from_now(
                                     total_space_pledged,
                                     self.space_pledged,
-                                    None,
+                                    self.last_reward_timestamp,
                                 )
                                 .map_err(|_| anyhow!("Failed to calculate ETA for reward payment"))
                                 .unwrap_or(0);
@@ -398,6 +400,22 @@ impl RunningView {
                         {
                             self.farmer_state.initial_reward_address_balance -= decreased_by;
                         }
+
+                        // In case of balance increase or decrease, update the last reward timestamp
+                        if self
+                            .farmer_state
+                            .reward_address_balance
+                            .abs_diff(imported_block.reward_address_balance)
+                            > 0
+                        {
+                            self.last_reward_timestamp = Some(
+                                SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                            );
+                        }
+
                         self.farmer_state.reward_address_balance =
                             imported_block.reward_address_balance;
                     }
