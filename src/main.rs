@@ -256,7 +256,7 @@ impl AsyncComponent for App {
 
                                     gtk::Button {
                                         connect_clicked => AppInput::OpenFeedbackLink,
-                                        set_label: "Leave Feedback / Report a Bug",
+                                        set_label: "Share feedback",
                                     },
 
                                     gtk::Button {
