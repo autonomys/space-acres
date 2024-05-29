@@ -7,7 +7,7 @@ use crate::backend::farmer::{
 };
 use crate::backend::node::{total_space_pledged, ChainInfo};
 use crate::backend::{FarmIndex, NodeNotification};
-use crate::frontend::progress_bar::create_circular_progress_bar;
+use crate::frontend::progress_bar::{CircularProgressBar, DEFAULT_TOOLTIP_ETA_PROGRESS_BAR};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
 use crate::frontend::utils::format_eta;
@@ -19,14 +19,12 @@ use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
 use sp_consensus_subspace::ChainConstants;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
 
-const DEFAULT_TOOLTIP_ETA_PROGRESS_BAR: &str = "ETA for next reward payment";
+use super::progress_bar::ProgressBarInput;
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -81,10 +79,7 @@ pub struct RunningView {
     slot_probability: (u64, u64),
     space_pledged: u128,
     last_reward_timestamp: Option<u64>,
-    /// Reward payment ETA Progress value
-    reward_eta_progress: Rc<RefCell<f64>>,
-    /// Reward payment ETA Progress bar (circular)
-    reward_eta_progress_bar: gtk::DrawingArea,
+    reward_eta_progress_bar: Controller<CircularProgressBar>,
     reward_eta_progress_bar_moving: bool,
 }
 
@@ -138,7 +133,7 @@ impl Component for RunningView {
                         set_halign: gtk::Align::End,
                         set_hexpand: true,
 
-                        append: &model.reward_eta_progress_bar,
+                        model.reward_eta_progress_bar.widget().clone(),
 
                         gtk::LinkButton {
                             remove_css_class: "link",
@@ -225,7 +220,7 @@ impl Component for RunningView {
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
-        let progress = Rc::new(RefCell::new(0.0));
+        let reward_eta_progress_bar = CircularProgressBar::builder().launch(20.0).detach();
 
         let model = Self {
             node_view,
@@ -236,17 +231,7 @@ impl Component for RunningView {
             slot_probability: (0, 0),
             space_pledged: 0,
             last_reward_timestamp: None,
-            reward_eta_progress: progress.clone(),
-            reward_eta_progress_bar: create_circular_progress_bar(
-                20.0,
-                10,
-                10,
-                10,
-                10,
-                true,
-                DEFAULT_TOOLTIP_ETA_PROGRESS_BAR,
-                progress,
-            ),
+            reward_eta_progress_bar,
             reward_eta_progress_bar_moving: false,
         };
 
@@ -268,12 +253,14 @@ impl Component for RunningView {
     ) {
         match message {
             CmdOut::RewardEtaProgress(p) => {
-                *self.reward_eta_progress.borrow_mut() = p;
-                self.reward_eta_progress_bar.queue_draw();
+                self.reward_eta_progress_bar
+                    .emit(ProgressBarInput::SetProgress(p));
             }
             CmdOut::RewardEtaProgressFinished => {
                 self.reward_eta_progress_bar
-                    .set_tooltip_text(Some(DEFAULT_TOOLTIP_ETA_PROGRESS_BAR));
+                    .emit(ProgressBarInput::SetTooltip(
+                        DEFAULT_TOOLTIP_ETA_PROGRESS_BAR.to_string(),
+                    ));
                 self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
             }
         }
@@ -484,7 +471,10 @@ impl RunningView {
 
         // Update the tooltip text of the progress bar
         self.reward_eta_progress_bar
-            .set_tooltip_text(Some(&format!("Next reward in {}", eta_str)));
+            .emit(ProgressBarInput::SetTooltip(format!(
+                "Next reward in {}",
+                eta_str
+            )));
 
         sender.command(move |out, shutdown| {
             shutdown
