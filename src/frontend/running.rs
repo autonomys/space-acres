@@ -444,11 +444,11 @@ impl RunningView {
 
                 // CLEANUP: remove later
                 // 10s ETA for testing on clicking the farm-details toggle button
-                if !self.reward_eta_progress_bar_moving {
-                    self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
+                // if !self.reward_eta_progress_bar_moving {
+                //     self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
 
-                    self.move_progress_bar(sender.clone(), 10000);
-                }
+                //     self.move_progress_bar(sender.clone(), 10000);
+                // }
             }
             RunningInput::TogglePausePlotting => {
                 self.plotting_paused = !self.plotting_paused;
