@@ -37,7 +37,7 @@ pub enum RunningInput {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
-        raw_config: RawConfig,
+        raw_config: Box<RawConfig>,
         chain_info: ChainInfo,
         chain_constants: ChainConstants,
     },
