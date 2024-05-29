@@ -249,7 +249,7 @@ impl RunningView {
                     // TODO: Would be great to have `gemini-3h` in chain spec, but it is
                     //  not available in there in clean form
                     reward_address_url: format!(
-                        "https://explorer.subspace.network/#/{}/consensus/accounts/{}",
+                        "https://explorer.subspace.network/{}/consensus/accounts/{}",
                         chain_info
                             .protocol_id
                             .strip_prefix("subspace-")
