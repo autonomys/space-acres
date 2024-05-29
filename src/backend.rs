@@ -6,7 +6,7 @@ pub mod node;
 mod utils;
 
 use crate::backend::config::{Config, ConfigError, RawConfig};
-use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
+use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::farmer::{
     DiskFarm, Farmer, FarmerAction, FarmerNotification, FarmerOptions, InitialFarmState,
 };
@@ -70,8 +70,8 @@ const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 struct PieceGetterWrapper {
     farmer_piece_getter: FarmerPieceGetter<
         FarmIndex,
-        SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
-        MaybeNodeRpcClient,
+        SegmentCommitmentPieceValidator<MaybeNodeClient>,
+        MaybeNodeClient,
     >,
     semaphore: Arc<Semaphore>,
 }
@@ -102,8 +102,8 @@ impl PieceGetterWrapper {
     fn new(
         farmer_piece_getter: FarmerPieceGetter<
             FarmIndex,
-            SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
-            MaybeNodeRpcClient,
+            SegmentCommitmentPieceValidator<MaybeNodeClient>,
+            MaybeNodeClient,
         >,
     ) -> Self {
         let semaphore = Arc::new(Semaphore::new(PIECE_GETTER_MAX_CONCURRENCY));
@@ -125,8 +125,8 @@ impl PieceGetterWrapper {
 struct WeakPieceGetterWrapper {
     farmer_piece_getter: WeakFarmerPieceGetter<
         FarmIndex,
-        SegmentCommitmentPieceValidator<MaybeNodeRpcClient>,
-        MaybeNodeRpcClient,
+        SegmentCommitmentPieceValidator<MaybeNodeClient>,
+        MaybeNodeClient,
     >,
     semaphore: Weak<Semaphore>,
 }
@@ -767,12 +767,12 @@ async fn create_networking_stack(
     weak_plotted_pieces: Weak<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<(
-    MaybeNodeRpcClient,
+    MaybeNodeClient,
     Node,
     NodeRunner<FarmerCache>,
     Keypair,
     FarmerCache,
-    FarmerCacheWorker<MaybeNodeRpcClient>,
+    FarmerCacheWorker<MaybeNodeClient>,
 )> {
     notifications_sender
         .send(BackendNotification::Loading {
@@ -883,7 +883,7 @@ async fn create_networking_stack(
         network_options.pending_in_connections = 500;
         network_options.pending_out_connections = 500;
     }
-    let maybe_node_client = MaybeNodeRpcClient::default();
+    let maybe_node_client = MaybeNodeClient::default();
 
     let (farmer_cache, farmer_cache_worker) = FarmerCache::new(
         maybe_node_client.clone(),
@@ -925,7 +925,7 @@ async fn create_consensus_node(
     chain_spec: ChainSpec,
     piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
     node: Node,
-    maybe_node_rpc_client: &MaybeNodeRpcClient,
+    maybe_node_client: &MaybeNodeClient,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<LoadedConsensusChainNode> {
     notifications_sender
@@ -942,7 +942,7 @@ async fn create_consensus_node(
         chain_spec,
         piece_getter,
         node,
-        maybe_node_rpc_client,
+        maybe_node_client,
     );
     let consensus_node = match create_consensus_node_fut.await {
         Ok(consensus_node) => consensus_node,
@@ -970,8 +970,8 @@ async fn create_farmer(
     disk_farms: Vec<DiskFarm>,
     plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     farmer_cache: FarmerCache,
-    farmer_cache_worker: FarmerCacheWorker<MaybeNodeRpcClient>,
-    node_client: MaybeNodeRpcClient,
+    farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
+    node_client: MaybeNodeClient,
     kzg: Kzg,
     piece_getter: PieceGetterWrapper,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,

@@ -3,21 +3,19 @@ use futures::Stream;
 use std::pin::Pin;
 use std::sync::Arc;
 use subspace_core_primitives::SegmentHeader;
-use subspace_farmer::node_client::node_rpc_client::NodeRpcClient;
 use subspace_farmer::node_client::{Error, NodeClient, NodeClientExt};
 use subspace_rpc_primitives::{
     FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
 };
 
-// TODO: Replace RPC client with a client that can work with node directly
-/// Wrapper node client that allows injecting real inner node RPC client after construction
+/// Wrapper node client that allows injecting real inner `NodeClientExt` implementation.
 #[derive(Debug, Clone, Default)]
-pub(in super::super) struct MaybeNodeRpcClient {
-    inner: Arc<ArcSwapOption<NodeRpcClient>>,
+pub(in super::super) struct MaybeNodeClient {
+    inner: Arc<ArcSwapOption<Box<dyn NodeClientExt>>>,
 }
 
 #[async_trait::async_trait]
-impl NodeClient for MaybeNodeRpcClient {
+impl NodeClient for MaybeNodeClient {
     async fn farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.farmer_app_info().await,
@@ -111,7 +109,7 @@ impl NodeClient for MaybeNodeRpcClient {
 }
 
 #[async_trait::async_trait]
-impl NodeClientExt for MaybeNodeRpcClient {
+impl NodeClientExt for MaybeNodeClient {
     async fn last_segment_headers(&self, limit: u64) -> Result<Vec<Option<SegmentHeader>>, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.last_segment_headers(limit).await,
@@ -120,8 +118,8 @@ impl NodeClientExt for MaybeNodeRpcClient {
     }
 }
 
-impl MaybeNodeRpcClient {
-    pub(in super::super) fn inject(&self, inner: NodeRpcClient) {
+impl MaybeNodeClient {
+    pub(in super::super) fn inject(&self, inner: Box<dyn NodeClientExt>) {
         self.inner.store(Some(Arc::new(inner)))
     }
 }

@@ -1,6 +1,7 @@
 mod utils;
 
-use crate::backend::farmer::maybe_node_client::MaybeNodeRpcClient;
+use crate::backend::farmer::direct_node_client::{DirectNodeClient, NodeClientConfig};
+use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::node::utils::account_storage_key;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::PosTable;
@@ -33,7 +34,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::{solution_range_to_sectors, BlockNumber, PublicKey};
 use subspace_fake_runtime_api::RuntimeApi;
-use subspace_farmer::node_client::node_rpc_client::NodeRpcClient;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
@@ -456,7 +456,7 @@ pub(super) async fn create_consensus_node(
     chain_spec: ChainSpec,
     piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
     node: Node,
-    maybe_node_rpc_client: &MaybeNodeRpcClient,
+    maybe_node_client: &MaybeNodeClient,
 ) -> Result<ConsensusNode, ConsensusNodeCreationError> {
     set_default_ss58_version(&chain_spec);
 
@@ -479,7 +479,7 @@ pub(super) async fn create_consensus_node(
         create_consensus_chain_config(keypair, base_path.clone(), substrate_port, chain_spec);
     let pause_sync = Arc::clone(&consensus_chain_config.network.pause_sync);
 
-    let consensus_node = {
+    let (consensus_node, direct_node_client) = {
         let span = tracing::info_span!("Node");
         let _enter = span.enter();
 
@@ -521,7 +521,11 @@ pub(super) async fn create_consensus_node(
             });
         }
 
-        subspace_service::new_full::<PosTable, _>(
+        let client = partial_components.client.clone();
+        let segment_headers_store = partial_components.other.segment_headers_store.clone();
+        let kzg = partial_components.other.subspace_link.kzg().clone();
+
+        let consensus_node = subspace_service::new_full::<PosTable, _>(
             consensus_chain_config,
             partial_components,
             None,
@@ -531,7 +535,28 @@ pub(super) async fn create_consensus_node(
         .await
         .map_err(|error| {
             sc_service::Error::Other(format!("Failed to build a full subspace node: {error:?}"))
-        })?
+        })?;
+
+        let direct_node_client = DirectNodeClient::new(NodeClientConfig {
+            client,
+            segment_headers_store,
+            subscription_executor: Arc::new(consensus_node.task_manager.spawn_handle()),
+            new_slot_notification_stream: consensus_node.new_slot_notification_stream.clone(),
+            reward_signing_notification_stream: consensus_node
+                .reward_signing_notification_stream
+                .clone(),
+            archived_segment_notification_stream: consensus_node
+                .archived_segment_notification_stream
+                .clone(),
+            dsn_bootstrap_nodes: vec![],
+            sync_oracle: consensus_node.sync_service.clone(),
+            kzg,
+        })
+        .map_err(|error| {
+            sc_service::Error::Other(format!("Failed to build a node client: {error:?}"))
+        })?;
+
+        (consensus_node, direct_node_client)
     };
 
     StorageMonitorService::try_spawn(
@@ -548,17 +573,9 @@ pub(super) async fn create_consensus_node(
         sc_service::Error::Other(format!("Failed to start storage monitor: {error:?}"))
     })?;
 
-    let node_client = NodeRpcClient::new(&format!("ws://127.0.0.1:{RPC_PORT}"))
-        .await
-        .map_err(|error| {
-            sc_service::Error::Application(
-                format!("Failed to connect to internal node RPC: {error}").into(),
-            )
-        })?;
-
     // Inject working node client into wrapper we have created before such that networking can
     // respond to incoming requests properly
-    maybe_node_rpc_client.inject(node_client);
+    maybe_node_client.inject(Box::new(direct_node_client));
 
     Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
 }
