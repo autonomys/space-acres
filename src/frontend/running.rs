@@ -5,8 +5,14 @@ use crate::backend::config::RawConfig;
 use crate::backend::farmer::{FarmerNotification, InitialFarmState};
 use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
+use crate::frontend::progress_bar::{
+    calculate_progress_params, CircularProgressBar, ProgressBarInput,
+    DEFAULT_TOOLTIP_ETA_PROGRESS_BAR,
+};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
+use crate::frontend::utils::format_eta;
+use futures::FutureExt;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
@@ -28,7 +34,7 @@ pub enum RunningInput {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
-        raw_config: RawConfig,
+        raw_config: Box<RawConfig>,
         chain_info: ChainInfo,
         chain_constants: ChainConstants,
     },
@@ -36,6 +42,14 @@ pub enum RunningInput {
     FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
+}
+
+#[derive(Debug)]
+pub enum CmdOut {
+    /// Progress update based on arc progress of ETA progress bar.
+    RewardEtaProgress(f64),
+    /// Finished signal from ETA progress bar.
+    RewardEtaProgressFinished,
 }
 
 #[derive(Debug)]
@@ -52,6 +66,7 @@ struct FarmerState {
     token_symbol: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RunningView {
     node_view: Controller<NodeView>,
@@ -59,6 +74,11 @@ pub struct RunningView {
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
+    slot_probability: (u64, u64),
+    space_pledged: u128,
+    last_reward_timestamp: Option<u64>,
+    reward_eta_progress_bar: Controller<CircularProgressBar>,
+    reward_eta_progress_bar_moving: bool,
 }
 
 #[relm4::component(pub)]
@@ -66,7 +86,7 @@ impl Component for RunningView {
     type Init = RunningInit;
     type Input = RunningInput;
     type Output = RunningOutput;
-    type CommandOutput = ();
+    type CommandOutput = CmdOut;
 
     view! {
         #[root]
@@ -109,6 +129,8 @@ impl Component for RunningView {
                     gtk::Box {
                         set_halign: gtk::Align::End,
                         set_hexpand: true,
+
+                        model.reward_eta_progress_bar.widget().clone(),
 
                         gtk::LinkButton {
                             remove_css_class: "link",
@@ -195,6 +217,7 @@ impl Component for RunningView {
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
+        let reward_eta_progress_bar = CircularProgressBar::builder().launch(20.0).detach();
 
         let model = Self {
             node_view,
@@ -202,6 +225,11 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
+            slot_probability: (0, 0),
+            space_pledged: 0,
+            last_reward_timestamp: None,
+            reward_eta_progress_bar,
+            reward_eta_progress_bar_moving: false,
         };
 
         let farms_box = model.farms.widget();
@@ -212,6 +240,27 @@ impl Component for RunningView {
 
     fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         self.process_input(input, sender);
+    }
+
+    fn update_cmd(
+        &mut self,
+        message: Self::CommandOutput,
+        _sender: ComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
+        match message {
+            CmdOut::RewardEtaProgress(p) => {
+                self.reward_eta_progress_bar
+                    .emit(ProgressBarInput::SetProgress(p));
+            }
+            CmdOut::RewardEtaProgressFinished => {
+                self.reward_eta_progress_bar
+                    .emit(ProgressBarInput::SetTooltip(
+                        DEFAULT_TOOLTIP_ETA_PROGRESS_BAR.to_string(),
+                    ));
+                self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
+            }
+        }
     }
 }
 
@@ -341,6 +390,14 @@ impl RunningView {
             },
             RunningInput::ToggleFarmDetails => {
                 self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
+
+                // CLEANUP: remove later
+                // 10s ETA for testing on clicking the farm-details toggle button
+                if !self.reward_eta_progress_bar_moving {
+                    self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
+
+                    self.move_progress_bar(sender.clone(), 10000);
+                }
             }
             RunningInput::TogglePausePlotting => {
                 self.plotting_paused = !self.plotting_paused;
@@ -354,5 +411,41 @@ impl RunningView {
                 }
             }
         }
+    }
+
+    /// Move the progress bar based on the ETA
+    fn move_progress_bar(&mut self, sender: ComponentSender<RunningView>, eta: u64) {
+        // Format the ETA
+        let eta_str = format_eta(eta);
+
+        // Update the tooltip text of the progress bar
+        self.reward_eta_progress_bar
+            .emit(ProgressBarInput::SetTooltip(format!(
+                "Next reward in {}",
+                eta_str
+            )));
+
+        sender.command(move |out, shutdown| {
+            shutdown
+                // Performs this operation until a shutdown is triggered
+                .register(async move {
+                    // Get the decrease value and interval from the helper function
+                    let (decrease_value, interval) = calculate_progress_params(eta);
+
+                    let mut percentage = 1.0;
+
+                    while percentage > 0.0 {
+                        out.send(CmdOut::RewardEtaProgress(percentage)).unwrap();
+                        percentage -= decrease_value;
+                        tokio::time::sleep(std::time::Duration::from_millis(interval)).await;
+                    }
+
+                    out.send(CmdOut::RewardEtaProgressFinished).unwrap();
+                })
+                // Perform task until a shutdown interrupts it
+                .drop_on_shutdown()
+                // Wrap into a `Pin<Box<Future>>` for return
+                .boxed()
+        });
     }
 }
