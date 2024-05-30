@@ -18,7 +18,7 @@ use std::hash::Hash;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
@@ -692,4 +692,40 @@ where
         notifications,
         action_sender,
     })
+}
+
+/// Calculate the ETA for reward payment.
+/// The farmer can expect reward in secs/mins/hrs/days/weeks time.
+#[allow(dead_code)]
+pub(crate) fn calculate_expected_reward_duration_from_now(
+    total_space_pledged: u128,
+    space_pledged: u128,
+    last_reward_timestamp: Option<u64>,
+) -> anyhow::Result<u64> {
+    // Time elapsed since the last reward payment timestamp.
+    let time_previous = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .checked_sub(last_reward_timestamp.unwrap_or(0))
+        .ok_or_else(|| anyhow!("Overflow occurred while subtracting the last reward timestamp"))?;
+
+    // Ensure space_pledged is not zero to prevent division by zero.
+    if space_pledged == 0 {
+        return Err(anyhow!("Division by zero error: space_pledged is zero"));
+    }
+
+    // Expected time duration for next reward payment since the last reward payment timestamp.
+    let expected_time_next = (total_space_pledged as u64)
+        .checked_div(space_pledged as u64)
+        .ok_or_else(|| anyhow!("Overflow occurred during division"))?
+        .checked_mul(time_previous)
+        .ok_or_else(|| anyhow!("Overflow occurred during multiplication"))?;
+
+    // Subtract the duration till now from the expected time duration to get the ETA duration.
+    let eta_duration = expected_time_next
+        .checked_sub(time_previous)
+        .ok_or_else(|| anyhow!("Overflow occurred during final subtraction"))?;
+
+    Ok(eta_duration)
 }
