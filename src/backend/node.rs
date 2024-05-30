@@ -20,6 +20,8 @@ use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetC
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_subspace::SubspaceApi;
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
 use sp_core::H256;
@@ -120,8 +122,8 @@ struct Handlers {
     block_imported: Handler<BlockImported>,
 }
 
-pub(super) struct ConsensusNode {
-    full_node: NewFull<FullClient<RuntimeApi>>,
+pub(crate) struct ConsensusNode {
+    pub(crate) full_node: NewFull<FullClient<RuntimeApi>>,
     pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
     handlers: Handlers,
@@ -233,6 +235,21 @@ impl ConsensusNode {
 
     pub(super) fn best_block_number(&self) -> BlockNumber {
         self.full_node.client.info().best_number
+    }
+
+    #[allow(dead_code)]
+    pub(super) fn best_block_hash(&self) -> H256 {
+        self.full_node.client.info().best_hash
+    }
+
+    /// Returns current solution range & max. pieces in a sector
+    pub(super) fn tsp_metrics(&self) -> anyhow::Result<(u64, u16)> {
+        let runtime_api = self.full_node.client.runtime_api();
+        let block_hash = self.full_node.client.info().best_hash;
+        let current_solution_range = runtime_api.solution_ranges(block_hash)?.current;
+        let max_pieces_in_sector = runtime_api.max_pieces_in_sector(block_hash)?;
+
+        Ok((current_solution_range, max_pieces_in_sector))
     }
 
     pub(super) fn account_balance(&self, account: &PublicKey) -> Balance {

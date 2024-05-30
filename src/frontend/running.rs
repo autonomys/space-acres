@@ -11,6 +11,7 @@ use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
+use sp_consensus_subspace::ChainConstants;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
@@ -20,6 +21,7 @@ pub struct RunningInit {
     pub plotting_paused: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum RunningInput {
     Initialize {
@@ -28,6 +30,7 @@ pub enum RunningInput {
         initial_farm_states: Vec<InitialFarmState>,
         raw_config: RawConfig,
         chain_info: ChainInfo,
+        chain_constants: ChainConstants,
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification<FarmIndex>),
@@ -221,6 +224,7 @@ impl RunningView {
                 initial_farm_states,
                 raw_config,
                 chain_info,
+                chain_constants: _,
             } => {
                 for (farm_index, (initial_farm_state, farm)) in initial_farm_states
                     .iter()
@@ -277,7 +281,11 @@ impl RunningView {
                         }
                         self.node_synced = new_synced;
                     }
-                    NodeNotification::BlockImported(imported_block) => {
+                    NodeNotification::BlockImported {
+                        imported_block,
+                        current_solution_range: _,
+                        max_pieces_in_sector: _,
+                    } => {
                         if !self.node_synced {
                             // Do not count balance increase during sync as increase related to
                             // farming, but preserve accumulated diff

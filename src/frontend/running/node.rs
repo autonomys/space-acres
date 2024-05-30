@@ -291,7 +291,7 @@ impl NodeView {
                     }
                     self.sync_state = new_sync_state;
                 }
-                NodeNotification::BlockImported(imported_block) => {
+                NodeNotification::BlockImported { imported_block, .. } => {
                     self.best_block_number = imported_block.number;
                     // Ensure target is never below current block
                     if let SyncState::Syncing { target, .. } = &mut self.sync_state {
