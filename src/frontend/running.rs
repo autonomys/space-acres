@@ -2,8 +2,10 @@ mod farm;
 mod node;
 
 use crate::backend::config::RawConfig;
-use crate::backend::farmer::{FarmerNotification, InitialFarmState};
-use crate::backend::node::ChainInfo;
+use crate::backend::farmer::{
+    calculate_expected_reward_duration_from_now, FarmerNotification, InitialFarmState,
+};
+use crate::backend::node::{total_space_pledged, ChainInfo};
 use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::progress_bar::{
     calculate_progress_params, CircularProgressBar, ProgressBarInput,
@@ -12,12 +14,15 @@ use crate::frontend::progress_bar::{
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
 use crate::frontend::utils::format_eta;
+use anyhow::anyhow;
+use bytesize::ByteSize;
 use futures::FutureExt;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
 use sp_consensus_subspace::ChainConstants;
+use std::time::{SystemTime, UNIX_EPOCH};
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
@@ -27,7 +32,6 @@ pub struct RunningInit {
     pub plotting_paused: bool,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum RunningInput {
     Initialize {
@@ -66,7 +70,6 @@ struct FarmerState {
     token_symbol: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RunningView {
     node_view: Controller<NodeView>,
@@ -273,8 +276,9 @@ impl RunningView {
                 initial_farm_states,
                 raw_config,
                 chain_info,
-                chain_constants: _,
+                chain_constants,
             } => {
+                let mut space_pledged: u128 = 0;
                 for (farm_index, (initial_farm_state, farm)) in initial_farm_states
                     .iter()
                     .copied()
@@ -287,13 +291,22 @@ impl RunningView {
                             backend; qed",
                         ),
                         FarmWidgetInit {
-                            farm,
+                            farm: farm.clone(),
                             total_sectors: initial_farm_state.total_sectors_count,
                             plotted_total_sectors: initial_farm_state.plotted_sectors_count,
                             plotting_paused: self.plotting_paused,
                         },
                     );
+
+                    // Want this to panic in case of any error which I don't expect to happen
+                    space_pledged += farm
+                        .size
+                        .parse::<ByteSize>()
+                        .expect("Failed to parse farm size")
+                        .0 as u128;
                 }
+                self.slot_probability = chain_constants.slot_probability();
+                self.space_pledged = space_pledged;
 
                 self.farmer_state = FarmerState {
                     initial_reward_address_balance: reward_address_balance,
@@ -332,8 +345,8 @@ impl RunningView {
                     }
                     NodeNotification::BlockImported {
                         imported_block,
-                        current_solution_range: _,
-                        max_pieces_in_sector: _,
+                        current_solution_range,
+                        max_pieces_in_sector,
                     } => {
                         if !self.node_synced {
                             // Do not count balance increase during sync as increase related to
@@ -342,7 +355,29 @@ impl RunningView {
                                 - self.farmer_state.initial_reward_address_balance;
                             self.farmer_state.initial_reward_address_balance =
                                 imported_block.reward_address_balance - previous_diff;
+                        } else {
+                            // only move the progress bar if it was stopped & the node is synced ofcourse
+                            if !self.reward_eta_progress_bar_moving {
+                                self.reward_eta_progress_bar_moving =
+                                    !self.reward_eta_progress_bar_moving;
+
+                                let total_space_pledged = total_space_pledged(
+                                    current_solution_range,
+                                    self.slot_probability,
+                                    max_pieces_in_sector,
+                                );
+
+                                let eta = calculate_expected_reward_duration_from_now(
+                                    total_space_pledged,
+                                    self.space_pledged,
+                                    self.last_reward_timestamp,
+                                )
+                                .map_err(|_| anyhow!("Failed to calculate ETA for reward payment"))
+                                .unwrap_or(0);
+                                self.move_progress_bar(sender.clone(), eta);
+                            }
                         }
+
                         // In case balance decreased, subtract it from initial balance to ignore,
                         // this typically happens due to chain reorg when reward is "disappears"
                         if let Some(decreased_by) = self
@@ -352,6 +387,22 @@ impl RunningView {
                         {
                             self.farmer_state.initial_reward_address_balance -= decreased_by;
                         }
+
+                        // In case of balance increase or decrease, update the last reward timestamp
+                        if self
+                            .farmer_state
+                            .reward_address_balance
+                            .abs_diff(imported_block.reward_address_balance)
+                            > 0
+                        {
+                            self.last_reward_timestamp = Some(
+                                SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                            );
+                        }
+
                         self.farmer_state.reward_address_balance =
                             imported_block.reward_address_balance;
                     }
@@ -393,11 +444,11 @@ impl RunningView {
 
                 // CLEANUP: remove later
                 // 10s ETA for testing on clicking the farm-details toggle button
-                if !self.reward_eta_progress_bar_moving {
-                    self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
+                // if !self.reward_eta_progress_bar_moving {
+                //     self.reward_eta_progress_bar_moving = !self.reward_eta_progress_bar_moving;
 
-                    self.move_progress_bar(sender.clone(), 10000);
-                }
+                //     self.move_progress_bar(sender.clone(), 10000);
+                // }
             }
             RunningInput::TogglePausePlotting => {
                 self.plotting_paused = !self.plotting_paused;

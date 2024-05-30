@@ -32,7 +32,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::{solution_range_to_sectors, BlockNumber, PublicKey};
 use subspace_fake_runtime_api::RuntimeApi;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
@@ -237,7 +237,6 @@ impl ConsensusNode {
         self.full_node.client.info().best_number
     }
 
-    #[allow(dead_code)]
     pub(super) fn best_block_hash(&self) -> H256 {
         self.full_node.client.info().best_hash
     }
@@ -579,4 +578,20 @@ pub(super) async fn create_consensus_node(
     maybe_node_client.inject(Box::new(direct_node_client));
 
     Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
+}
+
+pub(crate) fn total_space_pledged(
+    current_solution_range: u64,
+    slot_probability: (u64, u64),
+    max_pieces_in_sector: u16,
+) -> u128 {
+    // calculate the sectors
+    let sectors = solution_range_to_sectors(
+        current_solution_range,
+        slot_probability,
+        max_pieces_in_sector,
+    );
+
+    // Calculate the total space pledged
+    sectors as u128 * max_pieces_in_sector as u128 * subspace_core_primitives::Piece::SIZE as u128
 }

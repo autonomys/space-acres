@@ -696,7 +696,6 @@ where
 
 /// Calculate the ETA for reward payment.
 /// The farmer can expect reward in secs/mins/hrs/days/weeks time.
-#[allow(dead_code)]
 pub(crate) fn calculate_expected_reward_duration_from_now(
     total_space_pledged: u128,
     space_pledged: u128,

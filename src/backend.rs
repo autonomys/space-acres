@@ -186,7 +186,6 @@ enum LoadedConsensusChainNode {
     Incompatible { compatible_chain: String },
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
     SyncStateUpdate(SyncState),
