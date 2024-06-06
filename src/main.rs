@@ -718,7 +718,7 @@ impl App {
                     best_block_number,
                     reward_address_balance,
                     initial_farm_states,
-                    raw_config: Box::new(raw_config),
+                    raw_config,
                     chain_info,
                     chain_constants,
                 });

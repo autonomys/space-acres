@@ -529,10 +529,11 @@ async fn run(
             }
         })
     });
+    let (current_solution_range, max_pieces_in_sector) =
+        consensus_node.total_space_pledged_chain_constants()?;
     let _on_imported_block_handler_id = consensus_node.on_block_imported({
         let notifications_sender = notifications_sender.clone();
         // let reward_address_storage_key = account_storage_key(&config.reward_address);
-        let (current_solution_range, max_pieces_in_sector) = consensus_node.tsp_metrics()?;
 
         Arc::new(move |&imported_block| {
             let notification = NodeNotification::BlockImported {

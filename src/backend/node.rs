@@ -122,8 +122,8 @@ struct Handlers {
     block_imported: Handler<BlockImported>,
 }
 
-pub(crate) struct ConsensusNode {
-    pub(crate) full_node: NewFull<FullClient<RuntimeApi>>,
+pub(super) struct ConsensusNode {
+    pub(super) full_node: NewFull<FullClient<RuntimeApi>>,
     pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
     handlers: Handlers,
@@ -242,7 +242,7 @@ impl ConsensusNode {
     }
 
     /// Returns current solution range & max. pieces in a sector
-    pub(super) fn tsp_metrics(&self) -> anyhow::Result<(u64, u16)> {
+    pub(super) fn total_space_pledged_chain_constants(&self) -> anyhow::Result<(u64, u16)> {
         let runtime_api = self.full_node.client.runtime_api();
         let block_hash = self.full_node.client.info().best_hash;
         let current_solution_range = runtime_api.solution_ranges(block_hash)?.current;
