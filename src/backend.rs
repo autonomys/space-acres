@@ -189,8 +189,8 @@ enum LoadedConsensusChainNode {
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
     SyncStateUpdate(SyncState),
-    BlockImported {
-        imported_block: BlockImported,
+    BlockImported(BlockImported),
+    ChainConstants {
         current_solution_range: u64,
         max_pieces_in_sector: u16,
     },
@@ -239,6 +239,7 @@ pub enum BackendNotification {
         /// Error that happened
         error: anyhow::Error,
     },
+    AllocatedDiskSpace(u128),
 }
 
 /// Control action messages sent to backend to control its behavior
@@ -529,21 +530,31 @@ async fn run(
             }
         })
     });
-    let (current_solution_range, max_pieces_in_sector) =
-        consensus_node.total_space_pledged_chain_constants()?;
     let _on_imported_block_handler_id = consensus_node.on_block_imported({
         let notifications_sender = notifications_sender.clone();
+        let (current_solution_range, max_pieces_in_sector) =
+            consensus_node.total_space_pledged_chain_constants()?;
         // let reward_address_storage_key = account_storage_key(&config.reward_address);
 
-        Arc::new(move |&imported_block| {
-            let notification = NodeNotification::BlockImported {
-                imported_block,
-                current_solution_range,
-                max_pieces_in_sector,
-            };
-
+        Arc::new(move |&block_imported| {
             let mut notifications_sender = notifications_sender.clone();
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Node(
+                    NodeNotification::ChainConstants {
+                        current_solution_range,
+                        max_pieces_in_sector,
+                    },
+                ))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send imported block chain constants notification");
+            }
 
+            let notification = NodeNotification::BlockImported(block_imported);
             if let Err(error) = notifications_sender
                 .try_send(BackendNotification::Node(notification))
                 .or_else(|error| {
@@ -977,6 +988,16 @@ async fn create_farmer(
     piece_getter: PieceGetterWrapper,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<Farmer<FarmIndex>> {
+    let allocated_disk_space = disk_farms
+        .iter()
+        .map(|farm| farm.allocated_plotting_space as u128)
+        .sum::<u128>();
+    notifications_sender
+        .send(BackendNotification::AllocatedDiskSpace(
+            allocated_disk_space,
+        ))
+        .await?;
+
     notifications_sender
         .send(BackendNotification::Loading {
             step: LoadingStep::CreatingFarmer,

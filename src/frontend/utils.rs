@@ -20,19 +20,19 @@ pub(crate) fn format_eta(eta_secs: u64) -> String {
 #[test]
 fn test_format_eta() {
     assert_eq!(format_eta(0), "any time now");
-    assert_eq!(format_eta(999), "any time now");
-    assert_eq!(format_eta(1000), "1 secs");
-    assert_eq!(format_eta(60_000), "1 mins");
-    assert_eq!(format_eta(60_999), "1 mins");
-    assert_eq!(format_eta(120_000), "2 mins");
-    assert_eq!(format_eta(3_600_000), "1 hours");
-    assert_eq!(format_eta(3_600_999), "1 hours");
-    assert_eq!(format_eta(3_661_000), "1 hours");
-    assert_eq!(format_eta(86_400_000), "1 days");
-    assert_eq!(format_eta(86_460_000), "1 days");
-    assert_eq!(format_eta(604_800_000), "1 weeks");
-    assert_eq!(format_eta(604_860_000), "1 weeks");
-    assert_eq!(format_eta(1_000_000), "16 mins");
-    assert_eq!(format_eta(10_000_000), "2 hours");
-    assert_eq!(format_eta(864_000_000), "1 weeks");
+    assert_eq!(format_eta(999), "16 mins");
+    assert_eq!(format_eta(1), "1 secs");
+    assert_eq!(format_eta(60), "1 mins");
+    assert_eq!(format_eta(61), "1 mins");
+    assert_eq!(format_eta(120), "2 mins");
+    assert_eq!(format_eta(3_600), "1 hours");
+    assert_eq!(format_eta(3_699), "1 hours");
+    assert_eq!(format_eta(3_661), "1 hours");
+    assert_eq!(format_eta(86_400), "1 days");
+    assert_eq!(format_eta(86_460), "1 days");
+    assert_eq!(format_eta(604_800), "1 weeks");
+    assert_eq!(format_eta(604_860), "1 weeks");
+    assert_eq!(format_eta(1_000), "16 mins");
+    assert_eq!(format_eta(10_000_000), "16 weeks");
+    assert_eq!(format_eta(864_000), "1 weeks");
 }

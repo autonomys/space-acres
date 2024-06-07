@@ -125,11 +125,3 @@ impl Component for CircularProgressBar {
         }
     }
 }
-
-/// Calculate the decrease value and interval for the progress updates
-pub(crate) fn calculate_progress_params(eta_in_secs: u64) -> (f64, u64) {
-    let interval = 1; // Default interval of 1 second (1000 milliseconds)
-    let steps = eta_in_secs / interval;
-    let decrease_value = 1.0 / steps as f64;
-    (decrease_value, interval)
-}

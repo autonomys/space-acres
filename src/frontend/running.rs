@@ -7,13 +7,10 @@ use crate::backend::farmer::{
 };
 use crate::backend::node::{total_space_pledged, ChainInfo};
 use crate::backend::{FarmIndex, NodeNotification};
-use crate::frontend::circular_progress_bar::{
-    calculate_progress_params, CircularProgressBar, CircularProgressBarInput,
-};
+use crate::frontend::circular_progress_bar::{CircularProgressBar, CircularProgressBarInput};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
 use crate::frontend::utils::format_eta;
-use bytesize::ByteSize;
 use futures::FutureExt;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
@@ -47,6 +44,7 @@ pub enum RunningInput {
     },
     NodeNotification(NodeNotification),
     FarmerNotification(FarmerNotification<FarmIndex>),
+    AllocatedDiskSpace(u128),
     ToggleFarmDetails,
     TogglePausePlotting,
 }
@@ -74,6 +72,13 @@ struct FarmerState {
     space_pledged: u128,
 }
 
+#[derive(Debug, Default)]
+struct TotalSpacePledgedConstants {
+    slot_probability: (u64, u64),
+    current_solution_range: u64,
+    max_pieces_in_sector: u16,
+}
+
 #[derive(Debug)]
 pub struct RunningView {
     node_view: Controller<NodeView>,
@@ -81,7 +86,7 @@ pub struct RunningView {
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
-    slot_probability: (u64, u64),
+    chain_constants: TotalSpacePledgedConstants,
     reward_eta_progress_bar: Controller<CircularProgressBar>,
     reward_eta_progress_bar_moving: bool,
 }
@@ -242,7 +247,7 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
-            slot_probability: (0, 0),
+            chain_constants: TotalSpacePledgedConstants::default(),
             reward_eta_progress_bar,
             reward_eta_progress_bar_moving: false,
         };
@@ -290,20 +295,12 @@ impl RunningView {
                 chain_info,
                 chain_constants,
             } => {
-                let mut space_pledged: u128 = 0;
                 for (farm_index, (initial_farm_state, farm)) in initial_farm_states
                     .iter()
                     .copied()
                     .zip(raw_config.farms().iter().cloned())
                     .enumerate()
                 {
-                    // Want this to panic in case of any error which I don't expect to happen
-                    space_pledged += farm
-                        .size
-                        .parse::<ByteSize>()
-                        .expect("Failed to parse farm size")
-                        .0 as u128;
-
                     self.farms.insert(
                         u8::try_from(farm_index).expect(
                             "More than 256 plots are not supported, this is checked on \
@@ -317,7 +314,7 @@ impl RunningView {
                         },
                     );
                 }
-                self.slot_probability = chain_constants.slot_probability();
+                self.chain_constants.slot_probability = chain_constants.slot_probability();
 
                 self.farmer_state = FarmerState {
                     initial_reward_address_balance: reward_address_balance,
@@ -334,7 +331,7 @@ impl RunningView {
                         raw_config.reward_address()
                     ),
                     token_symbol: chain_info.token_symbol.clone(),
-                    space_pledged,
+                    space_pledged: 0,
                 };
                 self.node_view.emit(NodeInput::Initialize {
                     best_block_number,
@@ -355,11 +352,7 @@ impl RunningView {
                         }
                         self.node_synced = new_synced;
                     }
-                    NodeNotification::BlockImported {
-                        imported_block,
-                        current_solution_range,
-                        max_pieces_in_sector,
-                    } => {
+                    NodeNotification::BlockImported(imported_block) => {
                         if !self.node_synced {
                             // Do not count balance increase during sync as increase related to
                             // farming, but preserve accumulated diff
@@ -374,9 +367,9 @@ impl RunningView {
                                     !self.reward_eta_progress_bar_moving;
 
                                 let total_space_pledged = total_space_pledged(
-                                    current_solution_range,
-                                    self.slot_probability,
-                                    max_pieces_in_sector,
+                                    self.chain_constants.current_solution_range,
+                                    self.chain_constants.slot_probability,
+                                    self.chain_constants.max_pieces_in_sector,
                                 );
 
                                 let eta = calculate_expected_reward_duration_from_now(
@@ -400,6 +393,13 @@ impl RunningView {
 
                         self.farmer_state.reward_address_balance =
                             imported_block.reward_address_balance;
+                    }
+                    NodeNotification::ChainConstants {
+                        current_solution_range,
+                        max_pieces_in_sector,
+                    } => {
+                        self.chain_constants.current_solution_range = current_solution_range;
+                        self.chain_constants.max_pieces_in_sector = max_pieces_in_sector;
                     }
                 }
             }
@@ -434,6 +434,9 @@ impl RunningView {
                         .send(&farm_index, FarmWidgetInput::Error { error });
                 }
             },
+            RunningInput::AllocatedDiskSpace(allocated_space) => {
+                self.farmer_state.space_pledged = allocated_space;
+            }
             RunningInput::ToggleFarmDetails => {
                 self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
             }
@@ -454,6 +457,10 @@ impl RunningView {
     /// Move the progress bar based on the ETA
     fn update_reward_eta(&mut self, sender: ComponentSender<RunningView>, eta: Duration) {
         let eta_secs = eta.as_secs();
+        if eta_secs == 0 {
+            return;
+        }
+
         // Format the ETA
         let eta_str = format_eta(eta_secs);
 
@@ -468,16 +475,13 @@ impl RunningView {
             shutdown
                 // Performs this operation until a shutdown is triggered
                 .register(async move {
-                    // Get the decrease value and interval from the helper function
-                    let (decrease_value, interval) = calculate_progress_params(eta_secs);
-
                     let mut percentage = 1.0;
 
                     while percentage > 0.0 {
                         out.send(RunningCommandOutput::RewardEtaProgress(percentage))
                             .unwrap();
-                        percentage -= decrease_value;
-                        tokio::time::sleep(Duration::from_secs(interval)).await;
+                        percentage -= 1.0 / eta_secs as f64;
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
 
                     out.send(RunningCommandOutput::RewardEtaProgressFinished)

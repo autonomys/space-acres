@@ -737,6 +737,10 @@ impl App {
             BackendNotification::IrrecoverableError { error } => {
                 self.current_view = View::Error(error);
             }
+            BackendNotification::AllocatedDiskSpace(disk_space) => {
+                self.running_view
+                    .emit(RunningInput::AllocatedDiskSpace(disk_space));
+            }
         }
     }
 
