@@ -24,7 +24,7 @@ use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::debug;
 
-const DEFAULT_TOOLTIP_ETA_PROGRESS_BAR: &str = "ETA for next reward payment";
+const DEFAULT_TOOLTIP_ETA_PROGRESS_BAR: &str = "ETA for next reward\nWaiting for node to sync..⏳";
 
 #[derive(Debug)]
 pub struct RunningInit {
