@@ -16,7 +16,7 @@ use sc_client_api::{HeaderBackend, StorageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus_slots::SlotProportion;
 use sc_informant::OutputFormat;
-use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig};
+use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig, SyncMode};
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
@@ -37,7 +37,7 @@ use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
 use subspace_runtime_primitives::{Balance, Nonce};
 use subspace_service::config::{
-    SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
+    ChainSyncMode, SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
     SubstrateNetworkConfiguration, SubstrateRpcConfiguration,
 };
 use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
@@ -363,10 +363,10 @@ fn create_consensus_chain_config(
     base_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
-) -> Configuration {
+) -> SubstrateConfiguration {
     let telemetry_endpoints = chain_spec.0.telemetry_endpoints().clone();
 
-    let consensus_chain_config = SubstrateConfiguration {
+    SubstrateConfiguration {
         impl_name: env!("CARGO_PKG_NAME").to_string(),
         impl_version: env!("CARGO_PKG_VERSION").to_string(),
         farmer: true,
@@ -397,6 +397,7 @@ fn create_consensus_chain_config(
             },
             node_name: generate_node_name(),
             allow_private_ips: false,
+            sync_mode: ChainSyncMode::Snap,
             force_synced: false,
         },
         state_pruning: PruningMode::ArchiveCanonical,
@@ -428,9 +429,7 @@ fn create_consensus_chain_config(
         informant_output_format: OutputFormat {
             enable_color: false,
         },
-    };
-
-    Configuration::from(consensus_chain_config)
+    }
 }
 
 pub(super) async fn create_consensus_node(
@@ -461,13 +460,15 @@ pub(super) async fn create_consensus_node(
 
     let consensus_chain_config =
         create_consensus_chain_config(keypair, base_path.clone(), substrate_port, chain_spec);
+    let sync = consensus_chain_config.network.sync_mode;
+    let consensus_chain_config = Configuration::from(consensus_chain_config);
     let pause_sync = Arc::clone(&consensus_chain_config.network.pause_sync);
 
     let (consensus_node, direct_node_client) = {
         let span = tracing::info_span!("Node");
         let _enter = span.enter();
 
-        let consensus_chain_config = SubspaceConfiguration {
+        let mut consensus_chain_config = SubspaceConfiguration {
             base: consensus_chain_config,
             // Domain node needs slots notifications for bundle production
             force_new_slot_notifications: false,
@@ -476,9 +477,9 @@ pub(super) async fn create_consensus_node(
                 bootstrap_nodes: dsn_bootstrap_nodes,
             },
             dsn_piece_getter: Some(piece_getter),
-            sync_from_dsn: true,
             is_timekeeper: false,
             timekeeper_cpu_cores: Default::default(),
+            sync,
         };
 
         // TODO: Remove once support for upgrade from Gemini 3g is no longer necessary
@@ -491,13 +492,46 @@ pub(super) async fn create_consensus_node(
             });
         }
 
-        let partial_components = subspace_service::new_partial::<PosTable, RuntimeApi>(
+        let partial_components = match subspace_service::new_partial::<PosTable, RuntimeApi>(
             &consensus_chain_config.base,
             &pot_external_entropy,
-        )
-        .map_err(|error| {
-            sc_service::Error::Other(format!("Failed to build a full subspace node: {error:?}"))
-        })?;
+        ) {
+            Ok(partial_components) => partial_components,
+            Err(sc_service::Error::Client(sp_blockchain::Error::StateDatabase(error)))
+                if error.to_string().contains(
+                    "Incompatible pruning modes [stored: ArchiveCanonical; requested: \
+                    Constrained",
+                ) =>
+            {
+                // TODO: Workaround for supporting older default `archive-canonical` while new
+                //  default has become pruned state, can be removed if/when
+                //  https://github.com/paritytech/polkadot-sdk/issues/4671 is implemented
+                consensus_chain_config.base.state_pruning = Some(PruningMode::ArchiveCanonical);
+
+                // TODO: revisit SyncMode change after https://github.com/paritytech/polkadot-sdk/issues/4407
+                if consensus_chain_config.base.network.sync_mode.light_state() {
+                    // In case of archival pruning mode sync mode needs to be set to full or
+                    // else Substrate network will fail to initialize
+                    consensus_chain_config.base.network.sync_mode = SyncMode::Full;
+                }
+
+                subspace_service::new_partial::<PosTable, RuntimeApi>(
+                    &consensus_chain_config,
+                    &pot_external_entropy,
+                )
+                .map_err(|error| {
+                    sc_service::Error::Other(format!(
+                        "Failed to build a full subspace node 1: {error:?}"
+                    ))
+                })?
+            }
+            Err(error) => {
+                return Err(sc_service::Error::Other(format!(
+                    "Failed to build a full subspace node 2: {error:?}"
+                ))
+                .into());
+            }
+        };
 
         if hex::encode(partial_components.client.info().genesis_hash) != GENESIS_HASH {
             return Err(ConsensusNodeCreationError::IncompatibleChain {
