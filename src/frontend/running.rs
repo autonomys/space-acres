@@ -1,5 +1,6 @@
 mod farm;
 mod node;
+mod dashboard;
 
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::{FarmerNotification, InitialFarmState};
@@ -7,6 +8,7 @@ use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
+use crate::frontend::running::dashboard::Dashboard;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
@@ -56,6 +58,7 @@ pub struct RunningView {
     farmer_state: FarmerState,
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
+    dashboard: Controller<Dashboard>,
 }
 
 #[relm4::component(pub)]
@@ -69,6 +72,12 @@ impl Component for RunningView {
         #[root]
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
+
+            model.dashboard.widget().clone(),
+
+            gtk::Separator {
+                set_margin_all: 10,
+            },
 
             model.node_view.widget().clone(),
 
@@ -192,6 +201,7 @@ impl Component for RunningView {
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
+        let dashboard = Dashboard::builder().launch(()).detach();
 
         let model = Self {
             node_view,
@@ -199,6 +209,7 @@ impl Component for RunningView {
             farmer_state: FarmerState::default(),
             farms,
             plotting_paused: init.plotting_paused,
+            dashboard,
         };
 
         let farms_box = model.farms.widget();

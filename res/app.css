@@ -96,3 +96,85 @@ farm-sector.writing {
 .folder-button {
     padding: 0;
 }
+
+/* dashboard styling below */
+
+.dashboard-title {
+    font-size: 32px;
+    font-weight: bold;
+    color: #000;
+    margin-bottom: 5px;
+}
+
+.last-day-label {
+    font-weight: bold;
+    color: #000; 
+}
+
+.status-label {
+    font-size: 18px;
+    color: #000000;
+    font-weight: bold;
+}
+
+.data-box,
+.farm-stats,
+.detailed-stats {
+    background-color: #FFF;
+    border: 1px solid #A9A9A9;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.stat-box {
+    background-color: #FFF;
+    padding: 5px;
+}
+
+.data-label {
+    font-size: 25px;
+    font-weight: bold;
+    color: #000;
+    margin-top: 10px;
+}
+
+.stat-label {
+    font-size: 15px;
+    color: #000;
+    margin-top: 10px;
+}
+
+.detail-stat-label {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.button-box {
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-button {
+    background-color: #E6F1F3;
+    color: #000;
+    border: 1px solid #A9A9A9;
+    border-radius: 8px;
+    padding: 5px 15px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.dashboard-button:hover {
+    background-color: #D4E7EA;
+}
+
+/* Additional Colors */
+.orange {
+    color: orange;
+}
+
+.green {
+    color: green;
+}
