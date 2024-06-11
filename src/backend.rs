@@ -23,6 +23,7 @@ use futures::{future, select, SinkExt, StreamExt};
 use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::{Arc, Weak};
@@ -49,7 +50,6 @@ use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::runtime::Handle;
-use tokio::sync::Semaphore;
 use tracing::{error, info_span, warn, Instrument};
 
 pub type FarmIndex = u8;
@@ -58,21 +58,16 @@ pub type FarmIndex = u8;
 const PIECE_GETTER_MAX_RETRIES: u16 = 7;
 /// Global limit on combined piece getter, a nice number that should result in enough pieces
 /// downloading successfully during DSN sync
-const PIECE_GETTER_MAX_CONCURRENCY: usize = 512;
+const PIECE_GETTER_MAX_CONCURRENCY: NonZeroUsize = NonZeroUsize::new(128).expect("Not zero; qed");
 /// Defines initial duration between get_piece calls.
 const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
 /// Defines max duration between get_piece calls.
 const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Clone)]
-struct PieceGetterWrapper {
-    farmer_piece_getter: FarmerPieceGetter<
-        FarmIndex,
-        SegmentCommitmentPieceValidator<MaybeNodeClient>,
-        MaybeNodeClient,
-    >,
-    semaphore: Arc<Semaphore>,
-}
+struct PieceGetterWrapper(
+    FarmerPieceGetter<FarmIndex, SegmentCommitmentPieceValidator<MaybeNodeClient>, MaybeNodeClient>,
+);
 
 #[async_trait::async_trait]
 impl DsnSyncPieceGetter for PieceGetterWrapper {
@@ -80,8 +75,7 @@ impl DsnSyncPieceGetter for PieceGetterWrapper {
         &self,
         piece_index: PieceIndex,
     ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
-        let _permit = self.semaphore.acquire().await;
-        Ok(self.farmer_piece_getter.get_piece_fast(piece_index).await)
+        Ok(self.0.get_piece_fast(piece_index).await)
     }
 }
 
@@ -91,8 +85,7 @@ impl PieceGetter for PieceGetterWrapper {
         &self,
         piece_index: PieceIndex,
     ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
-        let _permit = self.semaphore.acquire().await;
-        self.farmer_piece_getter.get_piece(piece_index).await
+        self.0.get_piece(piece_index).await
     }
 }
 
@@ -104,30 +97,22 @@ impl PieceGetterWrapper {
             MaybeNodeClient,
         >,
     ) -> Self {
-        let semaphore = Arc::new(Semaphore::new(PIECE_GETTER_MAX_CONCURRENCY));
-        Self {
-            farmer_piece_getter,
-            semaphore,
-        }
+        Self(farmer_piece_getter)
     }
 
     fn downgrade(&self) -> WeakPieceGetterWrapper {
-        WeakPieceGetterWrapper {
-            farmer_piece_getter: self.farmer_piece_getter.downgrade(),
-            semaphore: Arc::downgrade(&self.semaphore),
-        }
+        WeakPieceGetterWrapper(self.0.downgrade())
     }
 }
 
 #[derive(Debug, Clone)]
-struct WeakPieceGetterWrapper {
-    farmer_piece_getter: WeakFarmerPieceGetter<
+struct WeakPieceGetterWrapper(
+    WeakFarmerPieceGetter<
         FarmIndex,
         SegmentCommitmentPieceValidator<MaybeNodeClient>,
         MaybeNodeClient,
     >,
-    semaphore: Weak<Semaphore>,
-}
+);
 
 #[async_trait::async_trait]
 impl PieceGetter for WeakPieceGetterWrapper {
@@ -135,11 +120,7 @@ impl PieceGetter for WeakPieceGetterWrapper {
         &self,
         piece_index: PieceIndex,
     ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
-        let Some(semaphore) = self.semaphore.upgrade() else {
-            return Ok(None);
-        };
-        let _permit = semaphore.acquire().await;
-        self.farmer_piece_getter.get_piece(piece_index).await
+        self.0.get_piece(piece_index).await
     }
 }
 
@@ -422,6 +403,7 @@ async fn load(
                 ..ExponentialBackoff::default()
             },
         },
+        PIECE_GETTER_MAX_CONCURRENCY,
     ));
 
     let create_consensus_node_fut = create_consensus_node(
