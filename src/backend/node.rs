@@ -50,6 +50,9 @@ pub(super) const GENESIS_HASH: &str =
     "0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34";
 pub(super) const RPC_PORT: u16 = 19944;
 const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
+/// Roughly 138k empty blocks can fit into one archived segment, hence we need to not allow to prune
+/// more blocks that this
+const MIN_STATE_PRUNING: BlockNumber = 140_000;
 
 /// The maximum number of characters for a node name.
 const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -400,7 +403,7 @@ fn create_consensus_chain_config(
             sync_mode: ChainSyncMode::Snap,
             force_synced: false,
         },
-        state_pruning: PruningMode::ArchiveCanonical,
+        state_pruning: PruningMode::blocks_pruning(MIN_STATE_PRUNING),
         blocks_pruning: BlocksPruning::Some(256),
         rpc_options: SubstrateRpcConfiguration {
             listen_on: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, RPC_PORT)),
@@ -552,7 +555,7 @@ pub(super) async fn create_consensus_node(
         )
         .await
         .map_err(|error| {
-            sc_service::Error::Other(format!("Failed to build a full subspace node: {error:?}"))
+            sc_service::Error::Other(format!("Failed to build a full subspace node 3: {error:?}"))
         })?;
 
         let direct_node_client = DirectNodeClient::new(NodeClientConfig {
