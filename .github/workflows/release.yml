@@ -30,12 +30,13 @@ jobs:
           #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
           #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
           #  rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
-          #- os: macos-14
-          #  target: aarch64-apple-darwin
-          #  suffix: macos-aarch64-${{ github.ref_name }}
+          - os: macos-14
+            target: aarch64-apple-darwin
+            suffix: macos-universal-${{ github.ref_name }}
+            modern-rustflags: "-C target-cpu=native"
           #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
           #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
-          #  rustflags: "--cfg aes_armv8"
+            rustflags: "--cfg aes_armv8"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             suffix: windows-x86_64-skylake-${{ github.ref_name }}
@@ -61,8 +62,14 @@ jobs:
           key: ${{ runner.os }}-gtk4
         if: runner.os == 'Windows'
 
+      - name: Install brew x86_64 (macOS)
+        run: arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if: runner.os == 'macOS'
+
       - name: Install GTK4 (macOS)
-        run: brew install gtk4
+        run: |
+          brew install gtk4
+          arch -x86_64 /usr/local/bin/brew install gtk4
         if: runner.os == 'macOS'
 
       - name: Install GTK4 (Windows)
@@ -158,7 +165,10 @@ jobs:
           RUSTFLAGS: ${{ matrix.build.rustflags }}
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
 
-      # TODO: Package macOS
+      - name: Create bundle (macOS)
+        run: |
+          ./scripts/create-app-bundle.sh
+        if: runner.os == 'macOS'
 
       - name: Install cargo-wix (Windows)
         uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
@@ -292,3 +302,20 @@ jobs:
         with:
           asset_paths: '["space-acres-*.AppImage", "target/${{ matrix.build.target }}/debian/*.deb"]'
         if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_type == 'tag'
+
+      - name: Upload app-bundle to artifacts (macOS)
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
+        with:
+          name: AppBundle-${{ matrix.build.suffix }}
+          path: |
+            target/bundle/${{ matrix.build.target }}/*.tar.gz
+          if-no-files-found: error
+        if: runner.os == 'macOS'
+
+      - name: Upload app-bundle to assets (macOS)
+        uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["target/bundle/${{ matrix.build.target }}/*.tar.gz"]'
+        if: runner.os == 'macOS' && github.event_name == 'push' && github.ref_type == 'tag'
