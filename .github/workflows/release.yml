@@ -62,14 +62,9 @@ jobs:
           key: ${{ runner.os }}-gtk4
         if: runner.os == 'Windows'
 
-      - name: Install brew x86_64 (macOS)
-        run: arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        if: runner.os == 'macOS'
-
       - name: Install GTK4 (macOS)
         run: |
           brew install gtk4
-          arch -x86_64 /usr/local/bin/brew install gtk4
         if: runner.os == 'macOS'
 
       - name: Install GTK4 (Windows)
@@ -167,7 +162,7 @@ jobs:
 
       - name: Create bundle (macOS)
         run: |
-          ./scripts/create-app-bundle.sh
+          ./scripts/create-app-bundle.sh ${{ matrix.build.target }}
         if: runner.os == 'macOS'
 
       - name: Install cargo-wix (Windows)
