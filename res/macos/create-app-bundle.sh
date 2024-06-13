@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
+target=$1
+
 BUNDLE_ID="com.subspace.spaceacres"
-BUNDLE_VERSION="0.1.1"
+BUNDLE_VERSION="$(cargo pkgid | cut -d "#" -f2)"
 BUNDLE_NAME="space-acres"
 BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
 
 APP_PREFIX=target/bundle
-
-target=$1
 
 function process_dependencies()
 {

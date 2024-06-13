@@ -32,7 +32,7 @@ jobs:
           #  rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
           - os: macos-14
             target: aarch64-apple-darwin
-            suffix: macos-universal-${{ github.ref_name }}
+            suffix: macos-arm64-${{ github.ref_name }}
             modern-rustflags: "-C target-cpu=native"
           #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
           #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
@@ -162,12 +162,12 @@ jobs:
 
       - name: Create bundle (macOS)
         run: |
-          ./scripts/create-app-bundle.sh ${{ matrix.build.target }}
+          ./res/macos/create-app-bundle.sh ${{ matrix.build.target }}
         if: runner.os == 'macOS'
 
       - name: Create dmg (macOS)
         run: |
-          npx appdmg scripts/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+          npx appdmg res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
         if: runner.os == 'macOS'
 
       - name: Install cargo-wix (Windows)
@@ -306,7 +306,7 @@ jobs:
       - name: Upload dmg to artifacts (macOS)
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
         with:
-          name: AppBundle-${{ matrix.build.suffix }}
+          name: space-acres-${{ matrix.build.suffix }}
           path: |
             target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
           if-no-files-found: error

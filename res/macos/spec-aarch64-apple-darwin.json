@@ -13,7 +13,7 @@
             "x": 150,
             "y": 130,
             "type": "file",
-            "path": "../target/bundle/aarch64-apple-darwin/SpaceAcres.app"
+            "path": "../../target/bundle/aarch64-apple-darwin/SpaceAcres.app"
         },
         {
             "x": 350,
