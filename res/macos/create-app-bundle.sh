@@ -3,7 +3,6 @@ set -e
 
 target=$1
 
-BUNDLE_ID="com.subspace.spaceacres"
 BUNDLE_VERSION="$(cargo pkgid | cut -d "#" -f2)"
 BUNDLE_NAME="space-acres"
 BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
@@ -69,7 +68,7 @@ function create_plist_file()
 <key>CFBundleIconFile</key>
 <string>space-acres.icns</string>
 <key>CFBundleIdentifier</key>
-<string>$BUNDLE_ID</string>
+<string>network.subspace.space-acres</string>
 <key>CFBundleInfoDictionaryVersion</key>
 <string>6.0</string>
 <key>CFBundleName</key>
