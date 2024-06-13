@@ -4,7 +4,6 @@ set -e
 target=$1
 
 BUNDLE_VERSION="$(cargo pkgid | cut -d "#" -f2)"
-BUNDLE_NAME="space-acres"
 BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
 
 APP_PREFIX=target/bundle
@@ -51,45 +50,6 @@ function process_dependencies()
     done
 }
 
-function create_plist_file()
-{
-    local output_file=$1
-    cat > $output_file <<EOL
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-<key>CFBundleDevelopmentRegion</key>
-<string>English</string>
-<key>CFBundleDisplayName</key>
-<string>space-acres</string>
-<key>CFBundleExecutable</key>
-<string>space-acres</string>
-<key>CFBundleIconFile</key>
-<string>space-acres.icns</string>
-<key>CFBundleIdentifier</key>
-<string>network.subspace.space-acres</string>
-<key>CFBundleInfoDictionaryVersion</key>
-<string>6.0</string>
-<key>CFBundleName</key>
-<string>$BUNDLE_NAME</string>
-<key>CFBundlePackageType</key>
-<string>APPL</string>
-<key>CFBundleShortVersionString</key>
-<string>$BUNDLE_VERSION</string>
-<key>CFBundleVersion</key>
-<string>$BUNDLE_BUILD</string>
-<key>CSResourcesFileMapped</key>
-<true/>
-<key>LSRequiresCarbon</key>
-<true/>
-<key>NSHighResolutionCapable</key>
-<true/>
-</dict>
-</plist>
-EOL
-}
-
 function sign_binary()
 {
     local file=$1
@@ -111,7 +71,9 @@ cp target/$target/production/space-acres $APP_PREFIX/$target/SpaceAcres.app/Cont
 
 cp res/macos/space-acres.icns $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources
 
-create_plist_file $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
+cp res/macos/Info.plist $APP_PREFIX/$target/SpaceAcres.app/Contents/
+sed -i '' "s/%BUNDLE_VERSION%/$BUNDLE_VERSION/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
+sed -i '' "s/%BUNDLE_BUILD%/$BUNDLE_BUILD/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
 
 # 3. Copy and fix dependencies
 destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/lib
