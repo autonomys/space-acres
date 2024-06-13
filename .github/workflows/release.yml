@@ -225,9 +225,37 @@ jobs:
           process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
         if: runner.os == 'macOS'
 
+      - name: Sign Application (macOS)
+        run: |
+          echo "Importing certificate"
+          echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
+          security create-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERTIFICATE_PW }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+
+          echo "Signing apps"
+          for lib in $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/lib/*.dylib; do
+            codesign --force --options=runtime --entitlements .github/workflows/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp $lib
+          done
+          codesign --force --options=runtime --entitlements .github/workflows/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
+        # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
+        continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
+        if: runner.os == 'macOS'
+
       - name: Create dmg (macOS)
         run: |
           npx appdmg res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+        if: runner.os == 'macOS'
+
+      - name: Notarize dmg (macOS)
+        run: |
+          echo "Notarizing"
+          # Notarize the Dmg using notarytool
+          xcrun notarytool submit target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
+        # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
+        continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
 
       - name: Install cargo-wix (Windows)
