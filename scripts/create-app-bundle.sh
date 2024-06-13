@@ -109,7 +109,6 @@ fi
 mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/{MacOS,Resources,Frameworks}
 mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/{lib,etc,share}
 cp target/$target/production/space-acres $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
-strip $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
 
 cp res/macos/space-acres.icns $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources
 
@@ -124,7 +123,3 @@ for lib in $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/lib/*.dylib; d
 done
 
 sign_binary $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
-
-pushd $APP_PREFIX/$target
-tar czf SpaceAcres-$target.tar.gz SpaceAcres.app
-popd
