@@ -32,7 +32,7 @@ jobs:
           #  rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
           - os: macos-14
             target: aarch64-apple-darwin
-            suffix: macos-arm64-${{ github.ref_name }}
+            suffix: macos-aarch64-${{ github.ref_name }}
           #  modern-rustflags: "-C target-cpu=native"
           #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
           #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
@@ -175,12 +175,7 @@ jobs:
 
             echo "Processing $file"
 
-            # Intel x86_64 path
-            local inst_prefix=/usr/local/*
-            if [[ $target == "aarch64-apple-darwin" ]]; then
-              # Arm64 path
-              inst_prefix=/opt/homebrew/*
-            fi
+            local inst_prefix=/opt/homebrew/*
 
             local DEPS=$(dyld_info -dependents $file | tail -n +4)
             local process_list=""
@@ -237,16 +232,16 @@ jobs:
 
           echo "Signing apps"
           for lib in $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/lib/*.dylib; do
-            codesign --force --options=runtime --entitlements .github/workflows/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp $lib
+            codesign --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp $lib
           done
-          codesign --force --options=runtime --entitlements .github/workflows/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
+          codesign --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
 
       - name: Create dmg (macOS)
         run: |
-          npx appdmg res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
         if: runner.os == 'macOS'
 
       - name: Notarize dmg (macOS)
