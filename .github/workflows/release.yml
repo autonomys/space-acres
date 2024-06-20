@@ -239,11 +239,12 @@ jobs:
       - name: Create dmg (macOS)
         run: |
           npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
-          codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
         if: runner.os == 'macOS'
 
-      - name: Notarize dmg (macOS)
+      - name: Sign and notarize dmg (macOS)
         run: |
+          echo "Signing"
+          codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
           echo "Notarizing"
           # Notarize the Dmg using notarytool
           xcrun notarytool submit target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
