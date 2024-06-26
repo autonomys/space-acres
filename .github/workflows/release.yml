@@ -231,7 +231,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
 
           echo "Signing app"
-          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  $APP_PREFIX/$target/SpaceAcres.app
+          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
