@@ -214,6 +214,7 @@ jobs:
           cp target/$target/production/space-acres $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
 
           cp res/macos/space-acres.icns $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources
+          cp res/macos/run-space-acres.sh $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
 
           cp res/macos/Info.plist $APP_PREFIX/$target/SpaceAcres.app/Contents/
           sed -i '' "s/%BUNDLE_VERSION%/$BUNDLE_VERSION/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
