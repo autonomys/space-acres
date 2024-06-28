@@ -172,6 +172,8 @@ jobs:
             local target=$1
             local destdir=$2
             local file=$3
+            local rpath=$4
+            local recursive=$5
 
             echo "Processing $file"
 
@@ -191,7 +193,7 @@ jobs:
 
                 # Fix the dependency
                 echo "  Patching $dep"
-                install_name_tool -change $dep @executable_path/../Frameworks/lib/$dep_file $file
+                install_name_tool -change $dep @executable_path/$rpath/lib/$dep_file $file
 
                 # Collect list of dependencies
                 process_list="$new_dep_file $process_list"
@@ -199,9 +201,11 @@ jobs:
             done
 
             # Recursively process dependencies
-            for dep in $process_list; do
-              process_dependencies $target $destdir $dep
-            done
+            if [[ $recursive == "true" ]]; then
+              for dep in $process_list; do
+                process_dependencies $target $destdir $dep $rpath $recursive
+              done
+            fi
           }
 
           # 1. Create the bundle
@@ -217,7 +221,16 @@ jobs:
 
           # 2. Copy and fix dependencies
           destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/lib
-          process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres
+          process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres "../Frameworks" "true"
+
+          # 3. Copy svg dependencies
+          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders
+          rm -rf $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders/*.a
+          for loader in $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders/*.so; do
+            process_dependencies $target $destDir $loader "../Frameworks" "false"
+          done
+          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks
+          sed -i '' "s|/opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/|PREFIX/|g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders.cache
         if: runner.os == 'macOS'
 
       - name: Sign Application (macOS)

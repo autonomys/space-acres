@@ -7,7 +7,7 @@
 <key>CFBundleDisplayName</key>
 <string>space-acres</string>
 <key>CFBundleExecutable</key>
-<string>space-acres</string>
+<string>run-space-acres.sh</string>
 <key>CFBundleIconFile</key>
 <string>space-acres.icns</string>
 <key>CFBundleIdentifier</key>
