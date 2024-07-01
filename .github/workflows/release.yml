@@ -173,11 +173,10 @@ jobs:
             local destdir=$2
             local file=$3
             local rpath=$4
-            local recursive=$5
 
             echo "Processing $file"
 
-            local inst_prefix=/opt/homebrew/*
+            local inst_prefix="$(brew --prefix)/*"
 
             local DEPS=$(dyld_info -dependents $file | tail -n +4)
             local process_list=""
@@ -193,7 +192,7 @@ jobs:
 
                 # Fix the dependency
                 echo "  Patching $dep"
-                install_name_tool -change $dep @executable_path/$rpath/lib/$dep_file $file
+                install_name_tool -change $dep $rpath/$dep_file $file
 
                 # Collect list of dependencies
                 process_list="$new_dep_file $process_list"
@@ -201,16 +200,14 @@ jobs:
             done
 
             # Recursively process dependencies
-            if [[ $recursive == "true" ]]; then
-              for dep in $process_list; do
-                process_dependencies $target $destdir $dep $rpath $recursive
-              done
-            fi
+            for dep in $process_list; do
+              process_dependencies $target $destdir $dep $rpath
+            done
           }
 
           # 1. Create the bundle
-          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/{MacOS,Resources,Frameworks}
-          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/{lib,etc,share}
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/{MacOS,Resources}
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/{lib,share}
           cp target/$target/production/space-acres $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
 
           cp res/macos/space-acres.icns $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources
@@ -221,17 +218,20 @@ jobs:
           sed -i '' "s/%BUNDLE_BUILD%/$BUNDLE_BUILD/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
 
           # 2. Copy and fix dependencies
-          destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/lib
-          process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres "../Frameworks" "true"
+          destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib
+          process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres "@executable_path/../Resources/lib"
 
-          # 3. Copy svg dependencies
-          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders
-          rm -rf $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders/*.a
-          for loader in $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders/*.so; do
-            process_dependencies $target $destDir $loader "../Frameworks" "false"
+          # 3. Copy loaders
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
+          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
+
+          # 4. Fix loaders
+          for loader in $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
+            process_dependencies $target $destDir $loader "@executable_path/../Resources/lib"
           done
-          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks
-          sed -i '' "s|/opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/|PREFIX/|g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Frameworks/loaders.cache
+
+          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
+          sed -i '' "s|$(brew --prefix)|/Applications/SpaceAcres.app/Contents/Resources|g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
         if: runner.os == 'macOS'
 
       - name: Sign Application (macOS)
@@ -245,6 +245,10 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
 
           echo "Signing app"
+          # Sign all libs under Resources/lib
+          find target/bundle/${{ matrix.build.target }}/SpaceAcres.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
+
+          # Sign the app
           codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}

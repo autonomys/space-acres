@@ -1,17 +1,8 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-LAUNCH_DIR="$(pwd)"
+EXECUTABLE_PATH="$(pwd)"
 
-loaders=/tmp/saloaders.cache
-if [ $loaders ]; then
-  rm $loaders
-fi
+export GDK_PIXBUF_MODULE_FILE="$EXECUTABLE_PATH/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
 
-cp ../Frameworks/loaders.cache $loaders
-sed -i '' "s|PREFIX|$(pwd)/../Frameworks|g" $loaders
-
-export GDK_PIXBUF_MODULEDIR="$LAUNCH_DIR/../Frameworks/loaders"
-export GDK_PIXBUF_MODULE_FILE=$loaders
-
-"$LAUNCH_DIR/space-acres"
+exec "$EXECUTABLE_PATH/space-acres"
