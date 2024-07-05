@@ -248,26 +248,26 @@ jobs:
 
           echo "Signing app"
           # Sign all libs under Resources/lib
-          find target/bundle/${{ matrix.build.target }}/SpaceAcres.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
+          find target/bundle/SpaceAcres.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
 
           # Sign the app
-          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
+          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/SpaceAcres.app
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
 
       - name: Create dmg (macOS)
         run: |
-          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/space-acres-$version.dmg
         if: runner.os == 'macOS'
 
       - name: Sign and notarize dmg (macOS)
         run: |
           echo "Signing"
-          codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+          codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/space-acres-$version.dmg
           echo "Notarizing"
           # Notarize the Dmg using notarytool
-          xcrun notarytool submit target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
+          xcrun notarytool submit target/bundle/space-acres-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
@@ -318,23 +318,6 @@ jobs:
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'Windows'
-
-      - name: Upload installer to artifacts (Windows)
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
-        with:
-          name: installer-${{ matrix.build.suffix }}
-          path: |
-            target/wix/*.msi
-          if-no-files-found: error
-        if: runner.os == 'Windows'
-
-      - name: Upload installer to assets (Windows)
-        uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          asset_paths: '["target/wix/*.msi"]'
-        if: runner.os == 'Windows' && github.event_name == 'push' && github.ref_type == 'tag'
 
       - name: Install cargo-deb (Linux)
         uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
@@ -410,7 +393,7 @@ jobs:
         with:
           name: space-acres-${{ matrix.build.suffix }}
           path: |
-            target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+            target/bundle/*.dmg
           if-no-files-found: error
         if: runner.os == 'macOS'
 
@@ -419,5 +402,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          asset_paths: '["target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg"]'
+          asset_paths: '["target/bundle/*.dmg"]'
         if: runner.os == 'macOS' && github.event_name == 'push' && github.ref_type == 'tag'
+
+      - name: Upload installer to artifacts (Windows)
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
+        with:
+          name: installer-${{ matrix.build.suffix }}
+          path: |
+            target/wix/*.msi
+          if-no-files-found: error
+        if: runner.os == 'Windows'
+
+      - name: Upload installer to assets (Windows)
+        uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["target/wix/*.msi"]'
+        if: runner.os == 'Windows' && github.event_name == 'push' && github.ref_type == 'tag'
+
