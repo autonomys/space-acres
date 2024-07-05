@@ -33,9 +33,8 @@ jobs:
           - os: macos-14
             target: aarch64-apple-darwin
             suffix: macos-aarch64-${{ github.ref_name }}
-          #  modern-rustflags: "-C target-cpu=native"
-          #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
-          #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+            # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
+            #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
             rustflags: "--cfg aes_armv8"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
@@ -211,7 +210,7 @@ jobs:
           cp target/$target/production/space-acres $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
 
           cp res/macos/space-acres.icns $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources
-          cp res/macos/run-space-acres.sh $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
+          cp res/macos/space-acres.sh $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
 
           cp res/macos/Info.plist $APP_PREFIX/$target/SpaceAcres.app/Contents/
           sed -i '' "s/%BUNDLE_VERSION%/$BUNDLE_VERSION/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist

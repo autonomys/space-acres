@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-<key>CFBundleDevelopmentRegion</key>
-<string>English</string>
-<key>CFBundleDisplayName</key>
-<string>space-acres</string>
-<key>CFBundleExecutable</key>
-<string>run-space-acres.sh</string>
-<key>CFBundleIconFile</key>
-<string>space-acres.icns</string>
-<key>CFBundleIdentifier</key>
-<string>network.subspace.space-acres</string>
-<key>CFBundleInfoDictionaryVersion</key>
-<string>6.0</string>
-<key>CFBundleName</key>
-<string>space-acres</string>
-<key>CFBundlePackageType</key>
-<string>APPL</string>
-<key>CFBundleShortVersionString</key>
-<string>%BUNDLE_VERSION%</string>
-<key>CFBundleVersion</key>
-<string>%BUNDLE_BUILD%</string>
-<key>CSResourcesFileMapped</key>
-<true/>
-<key>LSRequiresCarbon</key>
-<true/>
-<key>NSHighResolutionCapable</key>
-<true/>
-</dict>
+    <dict>
+        <key>CFBundleDevelopmentRegion</key>
+        <string>English</string>
+        <key>CFBundleDisplayName</key>
+        <string>space-acres</string>
+        <key>CFBundleExecutable</key>
+        <string>space-acres.sh</string>
+        <key>CFBundleIconFile</key>
+        <string>space-acres.icns</string>
+        <key>CFBundleIdentifier</key>
+        <string>network.subspace.space-acres</string>
+        <key>CFBundleInfoDictionaryVersion</key>
+        <string>6.0</string>
+        <key>CFBundleName</key>
+        <string>space-acres</string>
+        <key>CFBundlePackageType</key>
+        <string>APPL</string>
+        <key>CFBundleShortVersionString</key>
+        <string>%BUNDLE_VERSION%</string>
+        <key>CFBundleVersion</key>
+        <string>%BUNDLE_BUILD%</string>
+        <key>CSResourcesFileMapped</key>
+        <true/>
+        <key>LSRequiresCarbon</key>
+        <true/>
+        <key>NSHighResolutionCapable</key>
+        <true/>
+    </dict>
 </plist>
