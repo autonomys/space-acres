@@ -2,7 +2,7 @@
 name = "space-acres"
 description = "Space Acres is an opinionated GUI application for farming on Subspace Network"
 license = "0BSD"
-version = "0.1.25"
+version = "0.1.26"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 repository = "https://github.com/subspace/space-acres"
 edition = "2021"
