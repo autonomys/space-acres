@@ -248,10 +248,10 @@ jobs:
 
           echo "Signing app"
           # Sign all libs under Resources/lib
-          find target/bundle/SpaceAcres.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
+          find target/bundle/${{ matrix.build.target }}/SpaceAcres.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
 
           # Sign the app
-          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/SpaceAcres.app
+          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
         # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
         continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
