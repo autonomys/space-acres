@@ -17,7 +17,7 @@ use sc_client_db::PruningMode;
 use sc_consensus_slots::SlotProportion;
 use sc_informant::OutputFormat;
 use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig, SyncMode};
-use sc_service::{BlocksPruning, Configuration, GenericChainSpec};
+use sc_service::{BlocksPruning, Configuration, GenericChainSpec, NoExtension};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
@@ -25,7 +25,7 @@ use sp_core::storage::StorageKey;
 use sp_core::H256;
 use sp_runtime::traits::Header;
 use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -290,7 +290,7 @@ fn get_total_account_balance(
 }
 
 pub(super) fn load_chain_specification(chain_spec: &'static [u8]) -> Result<ChainSpec, String> {
-    GenericChainSpec::<()>::from_json_bytes(chain_spec)
+    GenericChainSpec::<NoExtension, ()>::from_json_bytes(chain_spec)
         .map(|chain_spec| ChainSpec(Box::new(chain_spec)))
 }
 
@@ -377,18 +377,22 @@ fn create_consensus_chain_config(
         transaction_pool: Default::default(),
         network: SubstrateNetworkConfiguration {
             listen_on: vec![
-                sc_network::Multiaddr::from(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-                    .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
-                sc_network::Multiaddr::from(IpAddr::V6(Ipv6Addr::UNSPECIFIED))
-                    .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
+                sc_network::Multiaddr::from(sc_network::multiaddr::Protocol::Ip4(
+                    Ipv4Addr::UNSPECIFIED,
+                ))
+                .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
+                sc_network::Multiaddr::from(sc_network::multiaddr::Protocol::Ip6(
+                    Ipv6Addr::UNSPECIFIED,
+                ))
+                .with(sc_network::multiaddr::Protocol::Tcp(substrate_port)),
             ],
             public_addresses: Vec::new(),
             bootstrap_nodes: chain_spec.0.boot_nodes().to_vec(),
             node_key: NodeKeyConfig::Ed25519(Ed25519Secret::Input(
-                libp2p_identity_substate::ed25519::SecretKey::try_from_bytes(
+                sc_network_types::ed25519::SecretKey::try_from_bytes(
                     keypair.secret().as_ref().to_vec(),
                 )
-                .expect("Correct keypair, just libp2p version is different; qed"),
+                .expect("Correct secret; qed"),
             )),
             default_peers_set: SetConfig {
                 // Substrate's default
@@ -420,6 +424,8 @@ fn create_consensus_chain_config(
             methods: Default::default(),
             // Substrate's default
             rate_limit: None,
+            rate_limit_whitelisted_ips: vec![],
+            rate_limit_trust_proxy_headers: false,
             max_subscriptions_per_connection: 1024,
             message_buffer_capacity_per_connection: 64,
             disable_batch_requests: false,
