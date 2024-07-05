@@ -64,7 +64,7 @@ jobs:
 
       - name: Install GTK4 (macOS)
         run: |
-          brew install gtk4
+          brew install gtk4 librsvg
         if: runner.os == 'macOS'
 
       - name: Install GTK4 (Windows)
@@ -216,6 +216,9 @@ jobs:
           cp res/macos/Info.plist $APP_PREFIX/$target/SpaceAcres.app/Contents/
           sed -i '' "s/%BUNDLE_VERSION%/$BUNDLE_VERSION/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
           sed -i '' "s/%BUNDLE_BUILD%/$BUNDLE_BUILD/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
+
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/share/glib-2.0
+          cp -r /opt/homebrew/share/glib-2.0/schemas $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/share/glib-2.0
 
           # 2. Copy and fix dependencies
           destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib
