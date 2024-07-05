@@ -33,6 +33,7 @@ use std::thread::available_parallelism;
 use std::{env, fs, io, process};
 use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
 use subspace_proof_of_space::chia::ChiaTable;
+use subspace_proof_of_space::chia_legacy::ChiaTableLegacy;
 use tracing::{error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
@@ -86,6 +87,7 @@ const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 const TRAY_ICON: &[u8] = include_bytes!("../res/linux/space-acres.png");
 
+type PosTableLegacy = ChiaTableLegacy;
 type PosTable = ChiaTable;
 
 #[derive(Debug)]

@@ -30,13 +30,13 @@ use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
 use subspace_core_primitives::{BlockNumber, Piece, PieceIndex, PublicKey};
+use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
-use subspace_farmer::single_disk_farm::SingleDiskFarm;
-use subspace_farmer::utils::farmer_piece_getter::{
+use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
+use subspace_farmer::farmer_piece_getter::{
     DsnCacheRetryPolicy, FarmerPieceGetter, WeakFarmerPieceGetter,
 };
-use subspace_farmer::utils::piece_validator::SegmentCommitmentPieceValidator;
-use subspace_farmer::utils::plotted_pieces::PlottedPieces;
+use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_farmer_components::PieceGetter;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};

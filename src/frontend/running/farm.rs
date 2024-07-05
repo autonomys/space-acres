@@ -9,9 +9,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::SectorIndex;
 use subspace_farmer::farm::{
-    FarmingNotification, SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
+    FarmingError, FarmingNotification, SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
 };
-use subspace_farmer::single_disk_farm::FarmingError;
 use tracing::error;
 
 /// Experimentally found number that is good for default window size to not have horizontal scroll

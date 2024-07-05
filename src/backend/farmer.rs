@@ -4,7 +4,7 @@ pub(super) mod maybe_node_client;
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::backend::PieceGetterWrapper;
-use crate::PosTable;
+use crate::{PosTable, PosTableLegacy};
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use event_listener_primitives::HandlerId;
@@ -23,6 +23,7 @@ use std::{fmt, fs};
 use subspace_core_primitives::crypto::kzg::Kzg;
 use subspace_core_primitives::{PublicKey, Record, SectorIndex};
 use subspace_erasure_coding::ErasureCoding;
+use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{
     FarmingNotification, PlottedSectors, SectorPlottingDetails, SectorUpdate,
 };
@@ -32,7 +33,6 @@ use subspace_farmer::plotter::cpu::CpuPlotter;
 use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
-use subspace_farmer::utils::plotted_pieces::PlottedPieces;
 use subspace_farmer::utils::{
     create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
@@ -295,8 +295,17 @@ where
     )?;
 
     let global_mutex = Arc::default();
-    let plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
-        piece_getter,
+    let legacy_cpu_plotter = Arc::new(CpuPlotter::<_, PosTableLegacy>::new(
+        piece_getter.clone(),
+        Arc::clone(&downloading_semaphore),
+        plotting_thread_pool_manager.clone(),
+        record_encoding_concurrency,
+        Arc::clone(&global_mutex),
+        kzg.clone(),
+        erasure_coding.clone(),
+    ));
+    let modern_cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
+        piece_getter.clone(),
         downloading_semaphore,
         plotting_thread_pool_manager.clone(),
         record_encoding_concurrency,
@@ -325,7 +334,8 @@ where
                 let max_pieces_in_sector = farmer_app_info.protocol_info.max_pieces_in_sector;
                 let kzg = kzg.clone();
                 let erasure_coding = erasure_coding.clone();
-                let plotter = Arc::clone(&plotter);
+                let plotter_legacy = Arc::clone(&legacy_cpu_plotter);
+                let plotter = Arc::clone(&modern_cpu_plotter);
                 let global_mutex = Arc::clone(&global_mutex);
                 let faster_read_sector_record_chunks_mode_barrier =
                     Arc::clone(&faster_read_sector_record_chunks_mode_barrier);
@@ -333,7 +343,7 @@ where
                     Arc::clone(&faster_read_sector_record_chunks_mode_concurrency);
 
                 async move {
-                    let farm_fut = SingleDiskFarm::new::<_, _, PosTable>(
+                    let farm_fut = SingleDiskFarm::new::<_, PosTableLegacy, PosTable>(
                         SingleDiskFarmOptions {
                             directory: disk_farm.directory.clone(),
                             farmer_app_info,
@@ -341,6 +351,8 @@ where
                             max_pieces_in_sector,
                             node_client,
                             reward_address,
+                            plotter_legacy,
+                            plotter,
                             kzg,
                             erasure_coding,
                             cache_percentage: CACHE_PERCENTAGE.get(),
@@ -351,7 +363,6 @@ where
                             read_sector_record_chunks_mode: None,
                             faster_read_sector_record_chunks_mode_barrier,
                             faster_read_sector_record_chunks_mode_concurrency,
-                            plotter,
                             create: true,
                         },
                         farm_index,
