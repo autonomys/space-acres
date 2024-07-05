@@ -30,12 +30,12 @@ jobs:
           #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
           #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
           #  rustflags: "-C linker=aarch64-linux-gnu-gcc --cfg aes_armv8"
-          #- os: macos-14
-          #  target: aarch64-apple-darwin
-          #  suffix: macos-aarch64-${{ github.ref_name }}
-          #  # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
-          #  #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
-          #  rustflags: "--cfg aes_armv8"
+          - os: macos-14
+            target: aarch64-apple-darwin
+            suffix: macos-aarch64-${{ github.ref_name }}
+            # TODO: AES flag is such that we have decent performance on ARMv8, remove once `aes` crate bumps MSRV to
+            #  at least 1.61: https://github.com/RustCrypto/block-ciphers/issues/373
+            rustflags: "--cfg aes_armv8"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             suffix: windows-x86_64-skylake-${{ github.ref_name }}
@@ -62,7 +62,8 @@ jobs:
         if: runner.os == 'Windows'
 
       - name: Install GTK4 (macOS)
-        run: brew install gtk4
+        run: |
+          brew install gtk4 librsvg
         if: runner.os == 'macOS'
 
       - name: Install GTK4 (Windows)
@@ -158,7 +159,118 @@ jobs:
           RUSTFLAGS: ${{ matrix.build.rustflags }}
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
 
-      # TODO: Package macOS
+      - name: Create bundle (macOS)
+        run: |
+          target=${{ matrix.build.target }}
+          BUNDLE_VERSION="$(cargo pkgid | cut -d "#" -f2)"
+          BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
+          APP_PREFIX=target/bundle
+
+          function process_dependencies()
+          {
+            local target=$1
+            local destdir=$2
+            local file=$3
+            local rpath=$4
+
+            echo "Processing $file"
+
+            local inst_prefix="$(brew --prefix)/*"
+
+            local DEPS=$(dyld_info -dependents $file | tail -n +4)
+            local process_list=""
+            for dep in $DEPS; do
+              if [[ $dep == $inst_prefix ]]; then
+                dep_file=$(basename $dep)
+                new_dep_file=$destdir/$dep_file
+                if [ ! -f $new_dep_file ]; then
+                  # Not exist, do copy
+                  echo "  Copying $dep"
+                  cp -n $dep $destdir
+                fi
+
+                # Fix the dependency
+                echo "  Patching $dep"
+                install_name_tool -change $dep $rpath/$dep_file $file
+
+                # Collect list of dependencies
+                process_list="$new_dep_file $process_list"
+              fi
+            done
+
+            # Recursively process dependencies
+            for dep in $process_list; do
+              process_dependencies $target $destdir $dep $rpath
+            done
+          }
+
+          # 1. Create the bundle
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/{MacOS,Resources}
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/{lib,share}
+          cp target/$target/production/space-acres $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
+
+          cp res/macos/space-acres.icns $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources
+          cp res/macos/space-acres.sh $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS
+
+          cp res/macos/Info.plist $APP_PREFIX/$target/SpaceAcres.app/Contents/
+          sed -i '' "s/%BUNDLE_VERSION%/$BUNDLE_VERSION/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
+          sed -i '' "s/%BUNDLE_BUILD%/$BUNDLE_BUILD/g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Info.plist
+
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/share/glib-2.0
+          cp -r /opt/homebrew/share/glib-2.0/schemas $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/share/glib-2.0
+
+          # 2. Copy and fix dependencies
+          destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib
+          process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres "@executable_path/../Resources/lib"
+
+          # 3. Copy loaders
+          mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
+          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
+
+          # 4. Fix loaders
+          for loader in $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
+            process_dependencies $target $destDir $loader "@executable_path/../Resources/lib"
+          done
+
+          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
+          sed -i '' "s|$(brew --prefix)|/Applications/SpaceAcres.app/Contents/Resources|g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+        if: runner.os == 'macOS'
+
+      - name: Sign Application (macOS)
+        run: |
+          echo "Importing certificate"
+          echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
+          security create-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERTIFICATE_PW }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+
+          echo "Signing app"
+          # Sign all libs under Resources/lib
+          find target/bundle/${{ matrix.build.target }}/SpaceAcres.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
+
+          # Sign the app
+          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
+        # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
+        continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
+        if: runner.os == 'macOS'
+
+      - name: Create dmg (macOS)
+        run: |
+          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+        if: runner.os == 'macOS'
+
+      - name: Sign and notarize dmg (macOS)
+        run: |
+          echo "Signing"
+          codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+          echo "Notarizing"
+          # Notarize the Dmg using notarytool
+          xcrun notarytool submit target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
+        # Allow code signing to fail on non-release builds and in non-subspace repos (forks)
+        continue-on-error: ${{ github.repository_owner != 'subspace' || github.event_name != 'push' || github.ref_type != 'tag' }}
+        if: runner.os == 'macOS'
 
       - name: Install cargo-wix (Windows)
         uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
@@ -292,3 +404,20 @@ jobs:
         with:
           asset_paths: '["space-acres-*.AppImage", "target/${{ matrix.build.target }}/debian/*.deb"]'
         if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_type == 'tag'
+
+      - name: Upload dmg to artifacts (macOS)
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
+        with:
+          name: space-acres-${{ matrix.build.suffix }}
+          path: |
+            target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg
+          if-no-files-found: error
+        if: runner.os == 'macOS'
+
+      - name: Upload dmg to assets (macOS)
+        uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["target/bundle/${{ matrix.build.target }}/space-acres-${{ matrix.build.suffix }}.dmg"]'
+        if: runner.os == 'macOS' && github.event_name == 'push' && github.ref_type == 'tag'
