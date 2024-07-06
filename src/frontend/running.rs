@@ -13,7 +13,7 @@ use relm4::prelude::*;
 use relm4_icons::icon_name;
 use subspace_core_primitives::BlockNumber;
 use subspace_runtime_primitives::{Balance, SSC};
-use tracing::debug;
+use tracing::{debug, error};
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -33,6 +33,9 @@ pub enum RunningInput {
     FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
+    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
+    //  for macOS
+    OpenRewardAddressInExplorer,
 }
 
 #[derive(Debug)]
@@ -107,11 +110,18 @@ impl Component for RunningView {
                         set_halign: gtk::Align::End,
                         set_hexpand: true,
 
-                        gtk::LinkButton {
+                        // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
+                        //  for macOS
+                        gtk::Button {
+                            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
+                            //  for macOS
+                            connect_clicked => RunningInput::OpenRewardAddressInExplorer,
                             remove_css_class: "link",
                             set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
-                            #[watch]
-                            set_uri: &model.farmer_state.reward_address_url,
+                            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
+                            //  for macOS
+                            // #[watch]
+                            // set_uri: &model.farmer_state.reward_address_url,
                             set_use_underline: false,
 
                             gtk::Label {
@@ -343,6 +353,11 @@ impl RunningView {
                     .is_err()
                 {
                     debug!("Failed to send RunningOutput::TogglePausePlotting");
+                }
+            }
+            RunningInput::OpenRewardAddressInExplorer => {
+                if let Err(error) = open::that_detached(&self.farmer_state.reward_address_url) {
+                    error!(%error, "Failed to open explorer in default browser");
                 }
             }
         }
