@@ -166,44 +166,6 @@ jobs:
           BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
           APP_PREFIX=target/bundle
 
-          function process_dependencies()
-          {
-            local target=$1
-            local destdir=$2
-            local file=$3
-            local rpath=$4
-
-            echo "Processing $file"
-
-            local inst_prefix="$(brew --prefix)/*"
-
-            local DEPS=$(dyld_info -dependents $file | tail -n +4)
-            local process_list=""
-            for dep in $DEPS; do
-              if [[ $dep == $inst_prefix ]]; then
-                dep_file=$(basename $dep)
-                new_dep_file=$destdir/$dep_file
-                if [ ! -f $new_dep_file ]; then
-                  # Not exist, do copy
-                  echo "  Copying $dep"
-                  cp -n $dep $destdir
-                fi
-
-                # Fix the dependency
-                echo "  Patching $dep"
-                install_name_tool -change $dep $rpath/$dep_file $file
-
-                # Collect list of dependencies
-                process_list="$new_dep_file $process_list"
-              fi
-            done
-
-            # Recursively process dependencies
-            for dep in $process_list; do
-              process_dependencies $target $destdir $dep $rpath
-            done
-          }
-
           # 1. Create the bundle
           mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/{MacOS,Resources}
           mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/{lib,share}
@@ -221,15 +183,42 @@ jobs:
 
           # 2. Copy and fix dependencies
           destDir=$APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib
-          process_dependencies $target $destDir $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres "@executable_path/../Resources/lib"
-
-          # 3. Copy loaders
           mkdir -p $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
-          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
 
-          # 4. Fix loaders
+          libs="cairo fontconfig freetype fribidi gdk-pixbuf gettext glib graphene graphite2 gtk4 harfbuzz jpeg-turbo libepoxy libpng libtiff librsvg libx11 libxau libxcb libxdmcp libxext libxrender lzo pango pcre2 pixman xz zstd"
+          for lib in $libs; do
+            cp -R /opt/homebrew/opt/$lib/lib/*.dylib $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib
+          done
+          cp /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
+
+          # 3. Fix dependencies
+          function fix_dep()
+          {
+            local file=$1
+            local rpath=$2
+
+            echo "Fixing $file"
+
+            local inst_prefix="$(brew --prefix)/*"
+
+            local DEPS=$(dyld_info -dependents $file)
+            for dep in $DEPS; do
+              if [[ $dep == $inst_prefix ]]; then
+                dep_file=$(basename $dep)
+
+                install_name_tool -change $dep $rpath/$dep_file $file
+              fi
+            done
+          }
+
+          fix_dep $APP_PREFIX/$target/SpaceAcres.app/Contents/MacOS/space-acres "@executable_path/../Resources/lib"
+
+          for lib in $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/*.dylib; do
+            fix_dep $lib "@executable_path/../Resources/lib"
+          done
+
           for loader in $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
-            process_dependencies $target $destDir $loader "@executable_path/../Resources/lib"
+            fix_dep $loader "@executable_path/../Resources/lib"
           done
 
           cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
