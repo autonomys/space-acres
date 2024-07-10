@@ -63,7 +63,7 @@ jobs:
 
       - name: Install GTK4 (macOS)
         run: |
-          brew install gtk4 librsvg
+          brew install gtk4 librsvg grep
         if: runner.os == 'macOS'
 
       - name: Install GTK4 (Windows)
@@ -162,7 +162,7 @@ jobs:
       - name: Create bundle (macOS)
         run: |
           target=${{ matrix.build.target }}
-          BUNDLE_VERSION=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          BUNDLE_VERSION=$(ggrep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
           BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
           APP_PREFIX=target/bundle
 
