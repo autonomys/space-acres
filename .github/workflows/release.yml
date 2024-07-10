@@ -63,7 +63,7 @@ jobs:
 
       - name: Install GTK4 (macOS)
         run: |
-          brew install gtk4 librsvg grep
+          brew install gtk4 librsvg
         if: runner.os == 'macOS'
 
       - name: Install GTK4 (Windows)
@@ -162,7 +162,7 @@ jobs:
       - name: Create bundle (macOS)
         run: |
           target=${{ matrix.build.target }}
-          BUNDLE_VERSION=$(ggrep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          BUNDLE_VERSION=$(cargo pkgid | cut -d "#" -f2)
           BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
           APP_PREFIX=target/bundle
 
@@ -247,14 +247,14 @@ jobs:
 
       - name: Create dmg (macOS)
         run: |
-          version=$(ggrep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          version=$(cargo pkgid | cut -d "#" -f2)
           npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/space-acres-$version.dmg
         if: runner.os == 'macOS'
 
       - name: Sign and notarize dmg (macOS)
         run: |
           echo "Signing"
-          version=$(ggrep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          version=$(cargo pkgid | cut -d "#" -f2)
           codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/space-acres-$version.dmg
           echo "Notarizing"
           # Notarize the Dmg using notarytool
