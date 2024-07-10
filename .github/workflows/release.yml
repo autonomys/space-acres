@@ -247,14 +247,14 @@ jobs:
 
       - name: Create dmg (macOS)
         run: |
-          version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          version=$(ggrep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
           npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/space-acres-$version.dmg
         if: runner.os == 'macOS'
 
       - name: Sign and notarize dmg (macOS)
         run: |
           echo "Signing"
-          version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
+          version=$(ggrep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
           codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/space-acres-$version.dmg
           echo "Notarizing"
           # Notarize the Dmg using notarytool
