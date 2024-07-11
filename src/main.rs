@@ -979,6 +979,15 @@ impl Cli {
         app.set_global_css(GLOBAL_CSS);
         relm4_icons::initialize_icons();
 
+        // TODO: Remove this hack once GTK is upgraded to 4.16.0+, see https://github.com/subspace/space-acres/issues/145#issuecomment-2206615439
+        #[cfg(target_os = "macos")]
+        {
+            let app = relm4::main_application();
+            app.set_accels_for_action("clipboard.cut", &["<Meta>x"]);
+            app.set_accels_for_action("clipboard.copy", &["<Meta>c"]);
+            app.set_accels_for_action("clipboard.paste", &["<Meta>v"]);
+        }
+
         // Prefer dark theme in cross-platform way if environment is configured that way
         if let Some(settings) = gtk::Settings::default() {
             if matches!(dark_light::detect(), dark_light::Mode::Dark) {
