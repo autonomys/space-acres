@@ -616,7 +616,9 @@ impl AsyncComponent for App {
             }
             AppInput::OpenFeedbackLink => {
                 self.menu_popover.hide();
-                gtk::show_uri(Some(root), "https://linktr.ee/subspace_network", 0);
+                if let Err(error) = open::that_detached("https://linktr.ee/subspace_network") {
+                    error!(%error, "Failed to open share feedback page in default browser");
+                }
             }
             AppInput::ShowAboutDialog => {
                 self.menu_popover.hide();
