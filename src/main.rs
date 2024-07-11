@@ -516,28 +516,34 @@ impl AsyncComponent for App {
         #[cfg(target_os = "windows")]
         let tray_img = Icon::from_resource(1, None).expect("Tray icon is a valid ICO; qed");
 
-        let tray = TrayIconBuilder::new()
-            .with_icon(tray_img)
-            .with_tooltip("Space Acres")
-            .with_menu(Menu::new([
-                MenuItem::button("Open", TrayMenuSignal::Open),
-                MenuItem::button("Quit", TrayMenuSignal::Quit),
-            ]))
-            .build({
-                let sender = sender.clone();
-                move |tray_event| {
-                    if let TrayEvent::Menu(signal) = tray_event {
-                        match signal {
-                            TrayMenuSignal::Open => sender.input(AppInput::ShowWindow),
-                            TrayMenuSignal::Quit => sender.input(AppInput::Quit),
+        // TODO: Re-enable macOS once https://github.com/subspace/space-acres/issues/183 and/or
+        //  https://github.com/subspace/space-acres/issues/222 are resolved
+        let tray = if cfg!(target_os = "macos") {
+            None
+        } else {
+            TrayIconBuilder::new()
+                .with_icon(tray_img)
+                .with_tooltip("Space Acres")
+                .with_menu(Menu::new([
+                    MenuItem::button("Open", TrayMenuSignal::Open),
+                    MenuItem::button("Quit", TrayMenuSignal::Quit),
+                ]))
+                .build({
+                    let sender = sender.clone();
+                    move |tray_event| {
+                        if let TrayEvent::Menu(signal) = tray_event {
+                            match signal {
+                                TrayMenuSignal::Open => sender.input(AppInput::ShowWindow),
+                                TrayMenuSignal::Quit => sender.input(AppInput::Quit),
+                            }
                         }
                     }
-                }
-            })
-            .map_err(|err| {
-                warn!(%err, "Unable to create tray icon ");
-            })
-            .ok();
+                })
+                .map_err(|err| {
+                    warn!(%err, "Unable to create tray icon ");
+                })
+                .ok()
+        };
 
         let mut model = Self {
             current_view: View::Loading,
