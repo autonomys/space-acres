@@ -715,11 +715,13 @@ impl App {
                 }
             },
             BackendNotification::Running {
+                config,
                 raw_config,
                 best_block_number,
                 reward_address_balance,
                 initial_farm_states,
                 chain_info,
+                chain_constants,
             } => {
                 self.current_raw_config.replace(raw_config.clone());
                 self.current_view = View::Running;
@@ -727,8 +729,10 @@ impl App {
                     best_block_number,
                     reward_address_balance,
                     initial_farm_states,
+                    config,
                     raw_config,
                     chain_info,
+                    chain_constants,
                 });
             }
             BackendNotification::Node(node_notification) => {

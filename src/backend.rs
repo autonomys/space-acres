@@ -12,7 +12,7 @@ use crate::backend::farmer::{
 };
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
-    dsn_bootstrap_nodes, BlockImported, ChainInfo, ChainSpec, ConsensusNode,
+    dsn_bootstrap_nodes, BlockImportedNotification, ChainInfo, ChainSpec, ConsensusNode,
     ConsensusNodeCreationError, SyncState, GENESIS_HASH,
 };
 use async_lock::RwLock as AsyncRwLock;
@@ -21,6 +21,7 @@ use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
 use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
+use sp_consensus_subspace::ChainConstants;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::num::NonZeroUsize;
@@ -168,11 +169,12 @@ enum LoadedConsensusChainNode {
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
     SyncStateUpdate(SyncState),
-    BlockImported(BlockImported),
+    BlockImported(BlockImportedNotification),
 }
 
 /// Notification messages send from backend about its operation
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum BackendNotification {
     /// Application loading progress
     Loading {
@@ -197,11 +199,13 @@ pub enum BackendNotification {
     },
     ConfigSaveResult(anyhow::Result<()>),
     Running {
+        config: Config,
         raw_config: RawConfig,
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
         chain_info: ChainInfo,
+        chain_constants: ChainConstants,
     },
     Node(NodeNotification),
     Farmer(FarmerNotification<FarmIndex>),
@@ -472,13 +476,16 @@ async fn run(
         "networking".to_string(),
     )?;
 
+    let reward_address = config.reward_address;
     notifications_sender
         .send(BackendNotification::Running {
+            config,
             raw_config,
             best_block_number: consensus_node.best_block_number(),
-            reward_address_balance: consensus_node.account_balance(&config.reward_address),
+            reward_address_balance: consensus_node.account_balance(&reward_address),
             initial_farm_states: farmer.initial_farm_states().to_vec(),
             chain_info: consensus_node.chain_info().clone(),
+            chain_constants: *consensus_node.chain_constants(),
         })
         .await?;
 
@@ -504,7 +511,6 @@ async fn run(
     });
     let _on_imported_block_handler_id = consensus_node.on_block_imported({
         let notifications_sender = notifications_sender.clone();
-        // let reward_address_storage_key = account_storage_key(&config.reward_address);
 
         Arc::new(move |&block_imported| {
             let notification = NodeNotification::BlockImported(block_imported);
@@ -547,7 +553,7 @@ async fn run(
     // Order is important here, we want to destroy dependents first and only then corresponding
     // dependencies to avoid unnecessary errors and warnings in logs
     let networking_fut = networking_fut;
-    let consensus_node_fut = consensus_node.run(&config.reward_address);
+    let consensus_node_fut = consensus_node.run(&reward_address);
     let farmer_fut = farmer.run();
     let process_backend_actions_fut = {
         let mut notifications_sender = notifications_sender.clone();
