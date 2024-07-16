@@ -857,6 +857,7 @@ async fn create_networking_stack(
         maybe_node_client.clone(),
         subspace_networking::libp2p::identity::PublicKey::from(network_keypair.public())
             .to_peer_id(),
+        None,
     );
 
     let (node, node_runner) = create_network(
