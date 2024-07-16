@@ -303,6 +303,7 @@ where
         Arc::clone(&global_mutex),
         kzg.clone(),
         erasure_coding.clone(),
+        None,
     ));
     let modern_cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
         piece_getter.clone(),
@@ -312,6 +313,7 @@ where
         Arc::clone(&global_mutex),
         kzg.clone(),
         erasure_coding.clone(),
+        None,
     ));
 
     let (farms, plotting_delay_senders) = {
@@ -363,6 +365,7 @@ where
                             read_sector_record_chunks_mode: None,
                             faster_read_sector_record_chunks_mode_barrier,
                             faster_read_sector_record_chunks_mode_concurrency,
+                            registry: None,
                             create: true,
                         },
                         farm_index,
