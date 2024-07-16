@@ -20,6 +20,8 @@ use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetC
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec, NoExtension};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
 use sp_core::H256;
@@ -30,7 +32,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::{BlockNumber, PublicKey, SolutionRange};
 use subspace_fake_runtime_api::RuntimeApi;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
@@ -112,21 +114,24 @@ impl SyncState {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct BlockImported {
+pub struct BlockImportedNotification {
     pub number: BlockNumber,
     pub reward_address_balance: Balance,
+    pub solution_range: SolutionRange,
+    pub voting_solution_range: SolutionRange,
 }
 
 #[derive(Default, Debug)]
 struct Handlers {
     sync_state_change: Handler<SyncState>,
-    block_imported: Handler<BlockImported>,
+    block_imported: Handler<BlockImportedNotification>,
 }
 
 pub(super) struct ConsensusNode {
     full_node: NewFull<FullClient<RuntimeApi>>,
     pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
+    chain_constants: ChainConstants,
     handlers: Handlers,
 }
 
@@ -141,11 +146,13 @@ impl ConsensusNode {
         full_node: NewFull<FullClient<RuntimeApi>>,
         pause_sync: Arc<AtomicBool>,
         chain_info: ChainInfo,
+        chain_constants: ChainConstants,
     ) -> Self {
         Self {
             full_node,
             pause_sync,
             chain_info,
+            chain_constants,
             handlers: Handlers::default(),
         }
     }
@@ -166,17 +173,27 @@ impl ConsensusNode {
 
                     while let Some(block_import) = block_import_stream.next().await {
                         if block_import.is_new_best {
-                            self.handlers.block_imported.call_simple(&BlockImported {
+                            let best_hash = client.info().best_hash;
+                            let runtime_api = client.runtime_api();
+                            let solution_ranges =
+                                runtime_api.solution_ranges(best_hash).unwrap_or_default();
+
+                            let block_imported_notification = BlockImportedNotification {
                                 number: *block_import.header.number(),
-                                // TODO: This is not pretty that we do it here, but not clear what would be a
-                                //  nicer API
+                                // TODO: This is not pretty that we do it here, but not clear what
+                                //  would be a nicer API
                                 reward_address_balance: get_total_account_balance(
                                     &client,
                                     block_import.header.hash(),
                                     &reward_address_storage_key,
                                 )
                                 .unwrap_or_default(),
-                            });
+                                solution_range: solution_ranges.current,
+                                voting_solution_range: solution_ranges.voting_current,
+                            };
+                            self.handlers
+                                .block_imported
+                                .call_simple(&block_imported_notification);
                         }
                     }
                 }
@@ -253,11 +270,18 @@ impl ConsensusNode {
         &self.chain_info
     }
 
+    pub(super) fn chain_constants(&self) -> &ChainConstants {
+        &self.chain_constants
+    }
+
     pub(super) fn on_sync_state_change(&self, callback: HandlerFn<SyncState>) -> HandlerId {
         self.handlers.sync_state_change.add(callback)
     }
 
-    pub(super) fn on_block_imported(&self, callback: HandlerFn<BlockImported>) -> HandlerId {
+    pub(super) fn on_block_imported(
+        &self,
+        callback: HandlerFn<BlockImportedNotification>,
+    ) -> HandlerId {
         self.handlers.block_imported.add(callback)
     }
 }
@@ -604,5 +628,20 @@ pub(super) async fn create_consensus_node(
     // respond to incoming requests properly
     maybe_node_client.inject(Box::new(direct_node_client));
 
-    Ok(ConsensusNode::new(consensus_node, pause_sync, chain_info))
+    let chain_constants = consensus_node
+        .client
+        .runtime_api()
+        .chain_constants(consensus_node.client.info().best_hash)
+        .map_err(|error| {
+            sc_service::Error::Other(format!(
+                "Failed to get chain constants from client: {error:?}"
+            ))
+        })?;
+
+    Ok(ConsensusNode::new(
+        consensus_node,
+        pause_sync,
+        chain_info,
+        chain_constants,
+    ))
 }
