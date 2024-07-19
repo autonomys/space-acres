@@ -11,10 +11,19 @@ use tracing::warn;
 // 2 GB
 const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct FarmWidgetInit {
     pub(super) path: MaybeValid<PathBuf>,
     pub(super) size: MaybeValid<String>,
+}
+
+impl Default for FarmWidgetInit {
+    fn default() -> Self {
+        Self {
+            path: MaybeValid::no(PathBuf::new()),
+            size: MaybeValid::no(String::new()),
+        }
+    }
 }
 
 #[derive(Debug)]

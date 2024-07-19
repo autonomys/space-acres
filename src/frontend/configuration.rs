@@ -51,7 +51,6 @@ pub enum ConfigurationOutput {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum IsValid {
-    Unknown,
     Yes,
     No,
 }
@@ -72,15 +71,6 @@ where
     is_valid: IsValid,
 }
 
-impl<T> Default for MaybeValid<T>
-where
-    T: Default + PartialEq,
-{
-    fn default() -> Self {
-        Self::unknown(T::default())
-    }
-}
-
 impl<T> Deref for MaybeValid<T>
 where
     T: PartialEq,
@@ -96,15 +86,6 @@ impl<T> MaybeValid<T>
 where
     T: PartialEq,
 {
-    /// Initialize as unknown with tracker set to changed
-    fn unknown(value: T) -> Self {
-        Self {
-            value,
-            is_valid: IsValid::Unknown,
-            tracker: u8::MAX,
-        }
-    }
-
     /// Initialize as yes with tracker set to changed
     fn yes(value: T) -> Self {
         Self {
@@ -115,7 +96,6 @@ where
     }
 
     /// Initialize as no with tracker set to changed
-    #[allow(dead_code)]
     fn no(value: T) -> Self {
         Self {
             value,
@@ -126,7 +106,6 @@ where
 
     fn icon(&self) -> Option<&'static str> {
         match self.is_valid {
-            IsValid::Unknown => None,
             IsValid::Yes => Some(icon_name::CHECKMARK),
             IsValid::No => Some(icon_name::CROSS),
         }
@@ -535,8 +514,8 @@ impl Component for ConfigurationView {
         farms.guard().push_back(FarmWidgetInit::default());
 
         let model = Self {
-            reward_address: Default::default(),
-            node_path: Default::default(),
+            reward_address: MaybeValid::no(String::new()),
+            node_path: MaybeValid::no(PathBuf::new()),
             farms,
             network_configuration: Default::default(),
             pending_directory_selection: Default::default(),
