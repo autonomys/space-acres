@@ -96,3 +96,13 @@ farm-sector.writing {
 .folder-button {
     padding: 0;
 }
+
+/* Secondary icon */
+entry.invalid-input text + image {
+    color: #ff3800;
+}
+
+/* Secondary icon */
+entry.valid-input text + image {
+    color: #499249;
+}

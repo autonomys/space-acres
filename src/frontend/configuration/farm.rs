@@ -72,6 +72,12 @@ impl FactoryComponent for FarmWidget {
                         add_css_class: "linked",
 
                         gtk::Entry {
+                            #[track = "self.path.changed_is_valid()"]
+                            set_css_classes: if self.path.is_valid.yes() {
+                                &["valid-input"]
+                            } else {
+                                &["invalid-input"]
+                            },
                             set_can_focus: false,
                             set_editable: false,
                             set_hexpand: true,
@@ -113,6 +119,12 @@ impl FactoryComponent for FarmWidget {
                         },
                         connect_changed[sender] => move |entry| {
                             sender.input(FarmWidgetInput::FarmSizeChanged(entry.text().into()));
+                        },
+                        #[track = "self.size.changed_is_valid()"]
+                        set_css_classes: if self.size.is_valid.yes() {
+                            &["valid-input"]
+                        } else {
+                            &["invalid-input"]
                         },
                         set_placeholder_text: Some(
                             "4T, 2.5TB, 500GiB, etc.",

@@ -217,6 +217,12 @@ impl Component for ConfigurationView {
 
                                     gtk::Entry {
                                         set_can_focus: false,
+                                        #[track = "model.node_path.changed_is_valid()"]
+                                        set_css_classes: if model.node_path.is_valid.yes() {
+                                            &["valid-input"]
+                                        } else {
+                                            &["invalid-input"]
+                                        },
                                         set_editable: false,
                                         set_hexpand: true,
                                         set_placeholder_text: Some(
@@ -275,6 +281,12 @@ impl Component for ConfigurationView {
                                         sender.input(ConfigurationInput::RewardAddressChanged(
                                             entry.text().into()
                                         ));
+                                    },
+                                    #[track = "model.reward_address.changed_is_valid()"]
+                                    set_css_classes: if model.reward_address.is_valid.yes() {
+                                        &["valid-input"]
+                                    } else {
+                                        &["invalid-input"]
                                     },
                                     set_placeholder_text: Some(
                                         "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
