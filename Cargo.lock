@@ -11533,6 +11533,7 @@ dependencies = [
  "dirs 5.0.1",
  "duct",
  "event-listener-primitives",
+ "fdlimit",
  "file-rotate",
  "frame-system",
  "fs4 0.8.4",

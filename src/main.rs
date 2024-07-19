@@ -34,7 +34,7 @@ use std::{env, fs, io, process};
 use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::chia_legacy::ChiaTableLegacy;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -47,6 +47,27 @@ const LOG_READ_BUFFER: usize = 1024 * 1024;
 /// If `true`, this means supervisor will not be able to capture logs from child application and logger needs to be in
 /// the child process itself, while supervisor will not attempt to read stdout/stderr at all
 const WINDOWS_SUBSYSTEM_WINDOWS: bool = cfg!(all(windows, not(debug_assertions)));
+
+fn raise_fd_limit() {
+    match fdlimit::raise_fd_limit() {
+        Ok(fdlimit::Outcome::LimitRaised { from, to }) => {
+            debug!(
+                "Increased file descriptor limit from previous (most likely soft) limit {} to \
+                new (most likely hard) limit {}",
+                from, to
+            );
+        }
+        Ok(fdlimit::Outcome::Unsupported) => {
+            // Unsupported platform (non-Linux)
+        }
+        Err(error) => {
+            warn!(
+                "Failed to increase file descriptor limit for the process due to an error: {}.",
+                error
+            );
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum TrayMenuSignal {
@@ -1216,5 +1237,7 @@ impl Cli {
 }
 
 fn main() -> ExitCode {
+    raise_fd_limit();
+
     Cli::parse().run()
 }
