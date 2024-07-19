@@ -48,6 +48,7 @@ dark-light = "1.1.1"
 dirs = "5.0.1"
 duct = "0.13.7"
 event-listener-primitives = "2.0.1"
+fdlimit = "0.3.0"
 file-rotate = "0.7.6"
 frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "0cbfcb0232bbf71ac5b14cc8c99bf043cec420ef", default-features = false }
 fs4 = "0.8.4"
