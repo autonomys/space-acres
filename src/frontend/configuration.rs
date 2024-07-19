@@ -49,10 +49,16 @@ pub enum ConfigurationOutput {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum MaybeValid<T> {
-    Unknown(T),
-    Valid(T),
-    Invalid(T),
+enum IsValid {
+    Unknown,
+    Yes,
+    No,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct MaybeValid<T> {
+    value: T,
+    is_valid: IsValid,
 }
 
 impl<T> Default for MaybeValid<T>
@@ -60,7 +66,7 @@ where
     T: Default,
 {
     fn default() -> Self {
-        Self::Unknown(T::default())
+        Self::unknown(T::default())
     }
 }
 
@@ -68,26 +74,45 @@ impl<T> Deref for MaybeValid<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        let (Self::Unknown(inner) | Self::Valid(inner) | Self::Invalid(inner)) = self;
-
-        inner
+        &self.value
     }
 }
 
 impl<T> MaybeValid<T> {
+    fn unknown(value: T) -> Self {
+        Self {
+            value,
+            is_valid: IsValid::Unknown,
+        }
+    }
+
+    fn yes(value: T) -> Self {
+        Self {
+            value,
+            is_valid: IsValid::Yes,
+        }
+    }
+
+    fn no(value: T) -> Self {
+        Self {
+            value,
+            is_valid: IsValid::No,
+        }
+    }
+
     fn is_unknown(&self) -> bool {
-        matches!(self, Self::Unknown(_))
+        matches!(self.is_valid, IsValid::Unknown)
     }
 
     fn is_valid(&self) -> bool {
-        matches!(self, Self::Valid(_))
+        matches!(self.is_valid, IsValid::Yes)
     }
 
     fn icon(&self) -> Option<&'static str> {
-        match self {
-            Self::Unknown(_) => None,
-            Self::Valid(_) => Some(icon_name::CHECKMARK),
-            Self::Invalid(_) => Some(icon_name::CROSS),
+        match self.is_valid {
+            IsValid::Unknown => None,
+            IsValid::Yes => Some(icon_name::CHECKMARK),
+            IsValid::No => Some(icon_name::CROSS),
         }
     }
 }
@@ -109,8 +134,8 @@ impl From<NetworkConfiguration> for NetworkConfigurationWrapper {
     fn from(config: NetworkConfiguration) -> Self {
         // `Unknown` is a hack to make it actually render the first time
         Self {
-            substrate_port: MaybeValid::Unknown(config.substrate_port),
-            subspace_port: MaybeValid::Unknown(config.subspace_port),
+            substrate_port: MaybeValid::unknown(config.substrate_port),
+            subspace_port: MaybeValid::unknown(config.subspace_port),
             faster_networking: config.faster_networking,
         }
     }
@@ -506,7 +531,7 @@ impl ConfigurationView {
             ConfigurationInput::DirectorySelected(path) => {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
-                        self.node_path = MaybeValid::Valid(path);
+                        self.node_path = MaybeValid::yes(path);
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
                         self.farms.send(
@@ -523,10 +548,10 @@ impl ConfigurationView {
                 }
             }
             ConfigurationInput::SubstratePortChanged(port) => {
-                self.network_configuration.substrate_port = MaybeValid::Valid(port);
+                self.network_configuration.substrate_port = MaybeValid::yes(port);
             }
             ConfigurationInput::SubspacePortChanged(port) => {
-                self.network_configuration.subspace_port = MaybeValid::Valid(port);
+                self.network_configuration.subspace_port = MaybeValid::yes(port);
             }
             ConfigurationInput::FasterNetworkingChanged(faster_networking) => {
                 self.network_configuration.faster_networking = faster_networking;
@@ -542,23 +567,23 @@ impl ConfigurationView {
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();
                 self.reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
-                    MaybeValid::Valid(new_reward_address.to_string())
+                    MaybeValid::yes(new_reward_address.to_string())
                 } else {
-                    MaybeValid::Invalid(new_reward_address.to_string())
+                    MaybeValid::no(new_reward_address.to_string())
                 };
             }
             ConfigurationInput::Reconfigure(raw_config) => {
                 // `Unknown` is a hack to make it actually render the first time
-                self.reward_address = MaybeValid::Unknown(raw_config.reward_address().to_string());
-                self.node_path = MaybeValid::Valid(raw_config.node_path().clone());
+                self.reward_address = MaybeValid::unknown(raw_config.reward_address().to_string());
+                self.node_path = MaybeValid::yes(raw_config.node_path().clone());
                 {
                     let mut farms = self.farms.guard();
                     farms.clear();
                     for farm in raw_config.farms() {
                         farms.push_back(FarmWidgetInit {
-                            path: MaybeValid::Valid(farm.path.clone()),
+                            path: MaybeValid::yes(farm.path.clone()),
                             // `Unknown` is a hack to make it actually render the first time
-                            size: MaybeValid::Unknown(farm.size.clone()),
+                            size: MaybeValid::unknown(farm.size.clone()),
                         });
                     }
                 }

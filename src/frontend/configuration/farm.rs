@@ -157,16 +157,16 @@ impl FactoryComponent for FarmWidget {
     fn update(&mut self, input: Self::Input, sender: FactorySender<Self>) {
         match input {
             FarmWidgetInput::DirectorySelected(path) => {
-                self.path = MaybeValid::Valid(path);
+                self.path = MaybeValid::yes(path);
             }
             FarmWidgetInput::FarmSizeChanged(size) => {
                 let size = if ByteSize::from_str(&size)
                     .map(|size| size.as_u64() >= MIN_FARM_SIZE)
                     .unwrap_or_default()
                 {
-                    MaybeValid::Valid(size)
+                    MaybeValid::yes(size)
                 } else {
-                    MaybeValid::Invalid(size)
+                    MaybeValid::no(size)
                 };
                 self.size = size;
             }
