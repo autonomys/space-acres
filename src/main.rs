@@ -176,10 +176,6 @@ impl StatusBarNotification {
         matches!(self, Self::None)
     }
 
-    fn css_classes() -> &'static [&'static str] {
-        &["label", "warning-label", "error-label"]
-    }
-
     fn css_class(&self) -> &'static str {
         match self {
             Self::None => "label",
@@ -421,16 +417,9 @@ impl AsyncComponent for App {
                         #[track = "model.changed_status_bar_notification()"]
                         set_visible: !model.status_bar_notification.is_none(),
 
-                        #[name(status_bar_notification_label)]
                         gtk::Label {
                             #[track = "model.changed_status_bar_notification()"]
-                            add_css_class: {
-                                for css_class in StatusBarNotification::css_classes() {
-                                    status_bar_notification_label.remove_css_class(css_class);
-                                }
-
-                                model.status_bar_notification.css_class()
-                            },
+                            set_css_classes: &[model.status_bar_notification.css_class()],
                             #[track = "model.changed_status_bar_notification()"]
                             set_label: model.status_bar_notification.message(),
                         },

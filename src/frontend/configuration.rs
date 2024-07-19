@@ -14,7 +14,7 @@ use relm4_icons::icon_name;
 use std::ops::Deref;
 use std::path::PathBuf;
 use subspace_farmer::utils::ss58::parse_ss58_reward_address;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DirectoryKind {
@@ -33,6 +33,7 @@ pub enum ConfigurationInput {
     FasterNetworkingChanged(bool),
     Delete(DynamicIndex),
     Reconfigure(RawConfig),
+    Help,
     Start,
     Back,
     Cancel,
@@ -49,19 +50,6 @@ pub enum ConfigurationOutput {
     Close,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum IsValid {
-    Unknown,
-    Yes,
-    No,
-}
-
-impl IsValid {
-    fn yes(&self) -> bool {
-        matches!(self, Self::Yes)
-    }
-}
-
 #[tracker::track]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct MaybeValid<T>
@@ -69,16 +57,7 @@ where
     T: PartialEq,
 {
     value: T,
-    is_valid: IsValid,
-}
-
-impl<T> Default for MaybeValid<T>
-where
-    T: Default + PartialEq,
-{
-    fn default() -> Self {
-        Self::unknown(T::default())
-    }
+    is_valid: bool,
 }
 
 impl<T> Deref for MaybeValid<T>
@@ -96,39 +75,29 @@ impl<T> MaybeValid<T>
 where
     T: PartialEq,
 {
-    /// Initialize as unknown with tracker set to changed
-    fn unknown(value: T) -> Self {
-        Self {
-            value,
-            is_valid: IsValid::Unknown,
-            tracker: u8::MAX,
-        }
-    }
-
     /// Initialize as yes with tracker set to changed
     fn yes(value: T) -> Self {
         Self {
             value,
-            is_valid: IsValid::Yes,
+            is_valid: true,
             tracker: u8::MAX,
         }
     }
 
     /// Initialize as no with tracker set to changed
-    #[allow(dead_code)]
     fn no(value: T) -> Self {
         Self {
             value,
-            is_valid: IsValid::No,
+            is_valid: false,
             tracker: u8::MAX,
         }
     }
 
     fn icon(&self) -> Option<&'static str> {
-        match self.is_valid {
-            IsValid::Unknown => None,
-            IsValid::Yes => Some(icon_name::CHECKMARK),
-            IsValid::No => Some(icon_name::CROSS),
+        if self.is_valid {
+            Some(icon_name::CHECKMARK)
+        } else {
+            Some(icon_name::CROSS)
         }
     }
 }
@@ -217,13 +186,19 @@ impl Component for ConfigurationView {
 
                                     gtk::Entry {
                                         set_can_focus: false,
+                                        #[track = "model.node_path.changed_is_valid()"]
+                                        set_css_classes: if model.node_path.is_valid {
+                                            &["valid-input"]
+                                        } else {
+                                            &["invalid-input"]
+                                        },
                                         set_editable: false,
                                         set_hexpand: true,
                                         set_placeholder_text: Some(
                                             if cfg!(windows) {
-                                                "D:\\subspace-node"
+                                                "Example: D:\\subspace-node"
                                             } else {
-                                                "/media/subspace-node"
+                                                "Example: /media/subspace-node"
                                             },
                                         ),
                                         set_primary_icon_name: Some(icon_name::SSD),
@@ -276,8 +251,14 @@ impl Component for ConfigurationView {
                                             entry.text().into()
                                         ));
                                     },
+                                    #[track = "model.reward_address.changed_is_valid()"]
+                                    set_css_classes: if model.reward_address.is_valid {
+                                        &["valid-input"]
+                                    } else {
+                                        &["invalid-input"]
+                                    },
                                     set_placeholder_text: Some(
-                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                        "Example: stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
                                     ),
                                     set_primary_icon_name: Some(icon_name::WALLET2),
                                     set_primary_icon_activatable: false,
@@ -433,6 +414,15 @@ impl Component for ConfigurationView {
                                 set_spacing: 10,
 
                                 gtk::Button {
+                                    connect_clicked => ConfigurationInput::Help,
+
+                                    gtk::Label {
+                                        set_label: "Help",
+                                        set_margin_all: 10,
+                                    },
+                                },
+
+                                gtk::Button {
                                     connect_clicked => ConfigurationInput::Cancel,
 
                                     gtk::Label {
@@ -445,8 +435,8 @@ impl Component for ConfigurationView {
                                     add_css_class: "suggested-action",
                                     connect_clicked => ConfigurationInput::Save,
                                     #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
-                                    set_sensitive: model.reward_address.is_valid.yes()
-                                        && model.node_path.is_valid.yes()
+                                    set_sensitive: model.reward_address.is_valid
+                                        && model.node_path.is_valid
                                         && !model.farms.is_empty()
                                         && model.farms.iter().all(FarmWidget::valid),
 
@@ -462,6 +452,15 @@ impl Component for ConfigurationView {
                                 set_spacing: 10,
 
                                 gtk::Button {
+                                    connect_clicked => ConfigurationInput::Help,
+
+                                    gtk::Label {
+                                        set_label: "Help",
+                                        set_margin_all: 10,
+                                    },
+                                },
+
+                                gtk::Button {
                                     connect_clicked => ConfigurationInput::Back,
 
                                     gtk::Label {
@@ -475,8 +474,8 @@ impl Component for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Start,
                                     #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
                                     set_sensitive:
-                                        model.reward_address.is_valid.yes()
-                                            && model.node_path.is_valid.yes()
+                                        model.reward_address.is_valid
+                                            && model.node_path.is_valid
                                             && !model.farms.is_empty()
                                             && model.farms.iter().all(FarmWidget::valid),
 
@@ -523,8 +522,8 @@ impl Component for ConfigurationView {
         farms.guard().push_back(FarmWidgetInit::default());
 
         let model = Self {
-            reward_address: Default::default(),
-            node_path: Default::default(),
+            reward_address: MaybeValid::no(String::new()),
+            node_path: MaybeValid::no(PathBuf::new()),
             farms,
             network_configuration: Default::default(),
             pending_directory_selection: Default::default(),
@@ -566,7 +565,7 @@ impl ConfigurationView {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
                         self.node_path.value = path;
-                        self.node_path.set_is_valid(IsValid::Yes);
+                        self.node_path.set_is_valid(true);
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
                         self.get_mut_farms().send(
@@ -601,11 +600,8 @@ impl ConfigurationView {
             }
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();
-                if parse_ss58_reward_address(new_reward_address).is_ok() {
-                    self.reward_address.set_is_valid(IsValid::Yes);
-                } else {
-                    self.reward_address.set_is_valid(IsValid::No);
-                }
+                self.reward_address
+                    .set_is_valid(parse_ss58_reward_address(new_reward_address).is_ok());
                 self.reward_address.value = new_reward_address.to_string();
             }
             ConfigurationInput::Reconfigure(raw_config) => {
@@ -624,6 +620,13 @@ impl ConfigurationView {
                 self.network_configuration =
                     NetworkConfigurationWrapper::from(raw_config.network());
                 self.reconfiguration = true;
+            }
+            ConfigurationInput::Help => {
+                if let Err(error) = open::that_detached(
+                    "https://docs.subspace.network/docs/category/space-acres-recommended/",
+                ) {
+                    error!(%error, "Failed to open help page in default browser");
+                }
             }
             ConfigurationInput::Start => {
                 if sender

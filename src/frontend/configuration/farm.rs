@@ -1,5 +1,5 @@
 use crate::backend::config::Farm;
-use crate::frontend::configuration::{IsValid, MaybeValid};
+use crate::frontend::configuration::MaybeValid;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::prelude::*;
@@ -11,10 +11,19 @@ use tracing::warn;
 // 2 GB
 const MIN_FARM_SIZE: u64 = 1000 * 1000 * 1000 * 2;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct FarmWidgetInit {
     pub(super) path: MaybeValid<PathBuf>,
     pub(super) size: MaybeValid<String>,
+}
+
+impl Default for FarmWidgetInit {
+    fn default() -> Self {
+        Self {
+            path: MaybeValid::no(PathBuf::new()),
+            size: MaybeValid::no(String::new()),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -72,14 +81,20 @@ impl FactoryComponent for FarmWidget {
                         add_css_class: "linked",
 
                         gtk::Entry {
+                            #[track = "self.path.changed_is_valid()"]
+                            set_css_classes: if self.path.is_valid {
+                                &["valid-input"]
+                            } else {
+                                &["invalid-input"]
+                            },
                             set_can_focus: false,
                             set_editable: false,
                             set_hexpand: true,
                             set_placeholder_text: Some(
                                 if cfg!(windows) {
-                                    "D:\\subspace-farm"
+                                    "Example: D:\\subspace-farm"
                                 } else {
-                                    "/media/subspace-farm"
+                                    "Example: /media/subspace-farm"
                                 },
                             ),
                             set_primary_icon_name: Some(icon_name::SSD),
@@ -114,8 +129,14 @@ impl FactoryComponent for FarmWidget {
                         connect_changed[sender] => move |entry| {
                             sender.input(FarmWidgetInput::FarmSizeChanged(entry.text().into()));
                         },
+                        #[track = "self.size.changed_is_valid()"]
+                        set_css_classes: if self.size.is_valid {
+                            &["valid-input"]
+                        } else {
+                            &["invalid-input"]
+                        },
                         set_placeholder_text: Some(
-                            "4T, 2.5TB, 500GiB, etc.",
+                            "Example: 4T, 2.5TB, 500GiB, etc.",
                         ),
                         set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
                         set_primary_icon_activatable: false,
@@ -162,18 +183,15 @@ impl FactoryComponent for FarmWidget {
 
         match input {
             FarmWidgetInput::DirectorySelected(path) => {
-                self.path.set_is_valid(IsValid::Yes);
+                self.path.set_is_valid(true);
                 self.path.value = path;
             }
             FarmWidgetInput::FarmSizeChanged(size) => {
-                if ByteSize::from_str(&size)
-                    .map(|size| size.as_u64() >= MIN_FARM_SIZE)
-                    .unwrap_or_default()
-                {
-                    self.size.set_is_valid(IsValid::Yes);
-                } else {
-                    self.size.set_is_valid(IsValid::No);
-                }
+                self.size.set_is_valid(
+                    ByteSize::from_str(&size)
+                        .map(|size| size.as_u64() >= MIN_FARM_SIZE)
+                        .unwrap_or_default(),
+                );
                 self.size.value = size;
             }
         }
@@ -193,7 +211,7 @@ impl FactoryComponent for FarmWidget {
 
 impl FarmWidget {
     pub(super) fn valid(&self) -> bool {
-        self.path.is_valid.yes() && self.size.is_valid.yes()
+        self.path.is_valid && self.size.is_valid
     }
 
     pub(super) fn farm(&self) -> Farm {
