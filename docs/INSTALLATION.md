@@ -101,5 +101,4 @@ Consider contributing to Linux packaging though!
 
 ## macOS
 
-There are no official packages for macOS yet and if you build from source you hopefully know what you are doing.
-Consider [contributing to macOS packaging](https://github.com/subspace/space-acres/issues/7) though!
+macOS 14+ is supported on Apple Silicon hardware. Simply download `.dmg` file and install it as any other application.
