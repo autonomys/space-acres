@@ -14,7 +14,7 @@ use relm4_icons::icon_name;
 use std::ops::Deref;
 use std::path::PathBuf;
 use subspace_farmer::utils::ss58::parse_ss58_reward_address;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DirectoryKind {
@@ -33,6 +33,7 @@ pub enum ConfigurationInput {
     FasterNetworkingChanged(bool),
     Delete(DynamicIndex),
     Reconfigure(RawConfig),
+    Help,
     Start,
     Back,
     Cancel,
@@ -413,6 +414,15 @@ impl Component for ConfigurationView {
                                 set_spacing: 10,
 
                                 gtk::Button {
+                                    connect_clicked => ConfigurationInput::Help,
+
+                                    gtk::Label {
+                                        set_label: "Help",
+                                        set_margin_all: 10,
+                                    },
+                                },
+
+                                gtk::Button {
                                     connect_clicked => ConfigurationInput::Cancel,
 
                                     gtk::Label {
@@ -440,6 +450,15 @@ impl Component for ConfigurationView {
                             gtk::Box {
                                 set_halign: gtk::Align::End,
                                 set_spacing: 10,
+
+                                gtk::Button {
+                                    connect_clicked => ConfigurationInput::Help,
+
+                                    gtk::Label {
+                                        set_label: "Help",
+                                        set_margin_all: 10,
+                                    },
+                                },
 
                                 gtk::Button {
                                     connect_clicked => ConfigurationInput::Back,
@@ -601,6 +620,13 @@ impl ConfigurationView {
                 self.network_configuration =
                     NetworkConfigurationWrapper::from(raw_config.network());
                 self.reconfiguration = true;
+            }
+            ConfigurationInput::Help => {
+                if let Err(error) = open::that_detached(
+                    "https://docs.subspace.network/docs/category/space-acres-recommended/",
+                ) {
+                    error!(%error, "Failed to open help page in default browser");
+                }
             }
             ConfigurationInput::Start => {
                 if sender
