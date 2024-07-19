@@ -83,9 +83,9 @@ impl FactoryComponent for FarmWidget {
                             set_hexpand: true,
                             set_placeholder_text: Some(
                                 if cfg!(windows) {
-                                    "D:\\subspace-farm"
+                                    "Example: D:\\subspace-farm"
                                 } else {
-                                    "/media/subspace-farm"
+                                    "Example: /media/subspace-farm"
                                 },
                             ),
                             set_primary_icon_name: Some(icon_name::SSD),
@@ -127,7 +127,7 @@ impl FactoryComponent for FarmWidget {
                             &["invalid-input"]
                         },
                         set_placeholder_text: Some(
-                            "4T, 2.5TB, 500GiB, etc.",
+                            "Example: 4T, 2.5TB, 500GiB, etc.",
                         ),
                         set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
                         set_primary_icon_activatable: false,

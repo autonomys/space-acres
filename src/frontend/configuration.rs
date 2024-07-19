@@ -227,9 +227,9 @@ impl Component for ConfigurationView {
                                         set_hexpand: true,
                                         set_placeholder_text: Some(
                                             if cfg!(windows) {
-                                                "D:\\subspace-node"
+                                                "Example: D:\\subspace-node"
                                             } else {
-                                                "/media/subspace-node"
+                                                "Example: /media/subspace-node"
                                             },
                                         ),
                                         set_primary_icon_name: Some(icon_name::SSD),
@@ -289,7 +289,7 @@ impl Component for ConfigurationView {
                                         &["invalid-input"]
                                     },
                                     set_placeholder_text: Some(
-                                        "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                        "Example: stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
                                     ),
                                     set_primary_icon_name: Some(icon_name::WALLET2),
                                     set_primary_icon_activatable: false,
