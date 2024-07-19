@@ -68,27 +68,26 @@ impl<T> Deref for MaybeValid<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        let (MaybeValid::Unknown(inner) | MaybeValid::Valid(inner) | MaybeValid::Invalid(inner)) =
-            self;
+        let (Self::Unknown(inner) | Self::Valid(inner) | Self::Invalid(inner)) = self;
 
         inner
     }
 }
 
 impl<T> MaybeValid<T> {
-    fn unknown(&self) -> bool {
-        matches!(self, MaybeValid::Unknown(_))
+    fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown(_))
     }
 
-    fn valid(&self) -> bool {
-        matches!(self, MaybeValid::Valid(_))
+    fn is_valid(&self) -> bool {
+        matches!(self, Self::Valid(_))
     }
 
     fn icon(&self) -> Option<&'static str> {
         match self {
-            MaybeValid::Unknown(_) => None,
-            MaybeValid::Valid(_) => Some(icon_name::CHECKMARK),
-            MaybeValid::Invalid(_) => Some(icon_name::CROSS),
+            Self::Unknown(_) => None,
+            Self::Valid(_) => Some(icon_name::CHECKMARK),
+            Self::Invalid(_) => Some(icon_name::CROSS),
         }
     }
 }
@@ -237,7 +236,7 @@ impl Component for ConfigurationView {
                                     set_secondary_icon_name: model.reward_address.icon(),
                                     set_secondary_icon_activatable: false,
                                     set_secondary_icon_sensitive: false,
-                                    #[track = "model.reward_address.unknown()"]
+                                    #[track = "model.reward_address.is_unknown()"]
                                     set_text: &model.reward_address,
                                     set_tooltip_markup: Some(
                                         "Use Subwallet or polkadot{.js} extension or any other \
@@ -301,7 +300,7 @@ impl Component for ConfigurationView {
                                                 "Default port number is {}",
                                                 NetworkConfiguration::default().substrate_port
                                             ),
-                                            #[track = "model.network_configuration.substrate_port.unknown()"]
+                                            #[track = "model.network_configuration.substrate_port.is_unknown()"]
                                             set_value: *model.network_configuration.substrate_port as f64,
                                             set_width_chars: 5,
                                         },
@@ -331,7 +330,7 @@ impl Component for ConfigurationView {
                                                 "Default port number is {}",
                                                 NetworkConfiguration::default().subspace_port
                                             ),
-                                            #[track = "model.network_configuration.subspace_port.unknown()"]
+                                            #[track = "model.network_configuration.subspace_port.is_unknown()"]
                                             set_value: *model.network_configuration.subspace_port as f64,
                                             set_width_chars: 5,
                                         },
@@ -396,8 +395,8 @@ impl Component for ConfigurationView {
                                     add_css_class: "suggested-action",
                                     connect_clicked => ConfigurationInput::Save,
                                     #[watch]
-                                    set_sensitive: model.reward_address.valid()
-                                        && model.node_path.valid()
+                                    set_sensitive: model.reward_address.is_valid()
+                                        && model.node_path.is_valid()
                                         && !model.farms.is_empty()
                                         && model.farms.iter().all(FarmWidget::valid),
 
@@ -426,8 +425,8 @@ impl Component for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Start,
                                     #[watch]
                                     set_sensitive:
-                                        model.reward_address.valid()
-                                            && model.node_path.valid()
+                                        model.reward_address.is_valid()
+                                            && model.node_path.is_valid()
                                             && !model.farms.is_empty()
                                             && model.farms.iter().all(FarmWidget::valid),
 

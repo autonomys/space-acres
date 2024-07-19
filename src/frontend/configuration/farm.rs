@@ -123,7 +123,7 @@ impl FactoryComponent for FarmWidget {
                         set_secondary_icon_name: self.size.icon(),
                         set_secondary_icon_activatable: false,
                         set_secondary_icon_sensitive: false,
-                        #[track = "self.size.unknown()"]
+                        #[track = "self.size.is_unknown()"]
                         set_text: self.size.as_str(),
                         set_tooltip_markup: Some(
                             "Size of the farm in whichever units you prefer, any \
@@ -187,7 +187,7 @@ impl FactoryComponent for FarmWidget {
 
 impl FarmWidget {
     pub(super) fn valid(&self) -> bool {
-        self.path.valid() && self.size.valid()
+        self.path.is_valid() && self.size.is_valid()
     }
 
     pub(super) fn farm(&self) -> Farm {
