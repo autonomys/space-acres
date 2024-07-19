@@ -109,6 +109,9 @@ thread-priority = "1.1.0"
 tokio = { version = "1.38.0", features = ["fs", "time"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+# TODO: Switch to upstream version once https://github.com/AaronErhardt/Tracker/pull/12 is published
+#tracker = "0.2.2"
+tracker = { git = "https://github.com/AaronErhardt/Tracker", rev = "a672f1eb2aa46479f83a136b07a7abf79aa85157" }
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"

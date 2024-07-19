@@ -37,6 +37,7 @@ pub enum ConfigurationInput {
     Back,
     Cancel,
     Save,
+    UpdateFarms,
     Ignore,
 }
 
@@ -55,22 +56,35 @@ enum IsValid {
     No,
 }
 
+impl IsValid {
+    fn yes(&self) -> bool {
+        matches!(self, Self::Yes)
+    }
+}
+
+#[tracker::track]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct MaybeValid<T> {
+struct MaybeValid<T>
+where
+    T: PartialEq,
+{
     value: T,
     is_valid: IsValid,
 }
 
 impl<T> Default for MaybeValid<T>
 where
-    T: Default,
+    T: Default + PartialEq,
 {
     fn default() -> Self {
         Self::unknown(T::default())
     }
 }
 
-impl<T> Deref for MaybeValid<T> {
+impl<T> Deref for MaybeValid<T>
+where
+    T: PartialEq,
+{
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -78,34 +92,36 @@ impl<T> Deref for MaybeValid<T> {
     }
 }
 
-impl<T> MaybeValid<T> {
+impl<T> MaybeValid<T>
+where
+    T: PartialEq,
+{
+    /// Initialize as unknown with tracker set to changed
     fn unknown(value: T) -> Self {
         Self {
             value,
             is_valid: IsValid::Unknown,
+            tracker: u8::MAX,
         }
     }
 
+    /// Initialize as yes with tracker set to changed
     fn yes(value: T) -> Self {
         Self {
             value,
             is_valid: IsValid::Yes,
+            tracker: u8::MAX,
         }
     }
 
+    /// Initialize as no with tracker set to changed
+    #[allow(dead_code)]
     fn no(value: T) -> Self {
         Self {
             value,
             is_valid: IsValid::No,
+            tracker: u8::MAX,
         }
-    }
-
-    fn is_unknown(&self) -> bool {
-        matches!(self.is_valid, IsValid::Unknown)
-    }
-
-    fn is_valid(&self) -> bool {
-        matches!(self.is_valid, IsValid::Yes)
     }
 
     fn icon(&self) -> Option<&'static str> {
@@ -117,10 +133,11 @@ impl<T> MaybeValid<T> {
     }
 }
 
+#[tracker::track]
 #[derive(Debug)]
 struct NetworkConfigurationWrapper {
-    substrate_port: MaybeValid<u16>,
-    subspace_port: MaybeValid<u16>,
+    substrate_port: u16,
+    subspace_port: u16,
     faster_networking: bool,
 }
 
@@ -132,23 +149,31 @@ impl Default for NetworkConfigurationWrapper {
 
 impl From<NetworkConfiguration> for NetworkConfigurationWrapper {
     fn from(config: NetworkConfiguration) -> Self {
-        // `Unknown` is a hack to make it actually render the first time
         Self {
-            substrate_port: MaybeValid::unknown(config.substrate_port),
-            subspace_port: MaybeValid::unknown(config.subspace_port),
+            substrate_port: config.substrate_port,
+            subspace_port: config.subspace_port,
             faster_networking: config.faster_networking,
+            tracker: u8::MAX,
         }
     }
 }
 
+#[tracker::track]
 #[derive(Debug)]
 pub struct ConfigurationView {
+    #[do_not_track]
     reward_address: MaybeValid<String>,
+    #[do_not_track]
     node_path: MaybeValid<PathBuf>,
+    #[no_eq]
     farms: FactoryVecDeque<FarmWidget>,
+    #[do_not_track]
     network_configuration: NetworkConfigurationWrapper,
+    #[do_not_track]
     pending_directory_selection: Option<DirectoryKind>,
+    #[do_not_track]
     open_dialog: Controller<OpenDialog>,
+    #[do_not_track]
     reconfiguration: bool,
 }
 
@@ -204,11 +229,11 @@ impl Component for ConfigurationView {
                                         set_primary_icon_name: Some(icon_name::SSD),
                                         set_primary_icon_activatable: false,
                                         set_primary_icon_sensitive: false,
-                                        #[watch]
+                                        #[track = "model.node_path.changed_is_valid()"]
                                         set_secondary_icon_name: model.node_path.icon(),
                                         set_secondary_icon_activatable: false,
                                         set_secondary_icon_sensitive: false,
-                                        #[watch]
+                                        #[track = "model.node_path.changed_value()"]
                                         set_text: model.node_path.display().to_string().as_str(),
                                         set_tooltip_markup: Some(
                                             "Absolute path where node files will be stored, prepare to \
@@ -257,11 +282,11 @@ impl Component for ConfigurationView {
                                     set_primary_icon_name: Some(icon_name::WALLET2),
                                     set_primary_icon_activatable: false,
                                     set_primary_icon_sensitive: false,
-                                    #[watch]
+                                    #[track = "model.reward_address.changed_is_valid()"]
                                     set_secondary_icon_name: model.reward_address.icon(),
                                     set_secondary_icon_activatable: false,
                                     set_secondary_icon_sensitive: false,
-                                    #[track = "model.reward_address.is_unknown()"]
+                                    #[track = "model.reward_address.changed_value()"]
                                     set_text: &model.reward_address,
                                     set_tooltip_markup: Some(
                                         "Use Subwallet or polkadot{.js} extension or any other \
@@ -325,8 +350,8 @@ impl Component for ConfigurationView {
                                                 "Default port number is {}",
                                                 NetworkConfiguration::default().substrate_port
                                             ),
-                                            #[track = "model.network_configuration.substrate_port.is_unknown()"]
-                                            set_value: *model.network_configuration.substrate_port as f64,
+                                            #[track = "model.network_configuration.changed_substrate_port()"]
+                                            set_value: model.network_configuration.substrate_port as f64,
                                             set_width_chars: 5,
                                         },
                                     },
@@ -355,8 +380,8 @@ impl Component for ConfigurationView {
                                                 "Default port number is {}",
                                                 NetworkConfiguration::default().subspace_port
                                             ),
-                                            #[track = "model.network_configuration.subspace_port.is_unknown()"]
-                                            set_value: *model.network_configuration.subspace_port as f64,
+                                            #[track = "model.network_configuration.changed_subspace_port()"]
+                                            set_value: model.network_configuration.subspace_port as f64,
                                             set_width_chars: 5,
                                         },
                                     },
@@ -375,7 +400,7 @@ impl Component for ConfigurationView {
 
                                                 gtk::glib::Propagation::Proceed
                                             },
-                                            #[watch]
+                                            #[track = "model.network_configuration.changed_faster_networking()"]
                                             set_active: model.network_configuration.faster_networking,
                                             set_tooltip:
                                                 "By default networking is optimized for consumer routers, but if you have more powerful setup, faster networking may improve sync speed and other processes",
@@ -419,9 +444,9 @@ impl Component for ConfigurationView {
                                 gtk::Button {
                                     add_css_class: "suggested-action",
                                     connect_clicked => ConfigurationInput::Save,
-                                    #[watch]
-                                    set_sensitive: model.reward_address.is_valid()
-                                        && model.node_path.is_valid()
+                                    #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
+                                    set_sensitive: model.reward_address.is_valid.yes()
+                                        && model.node_path.is_valid.yes()
                                         && !model.farms.is_empty()
                                         && model.farms.iter().all(FarmWidget::valid),
 
@@ -448,10 +473,10 @@ impl Component for ConfigurationView {
                                 gtk::Button {
                                     add_css_class: "suggested-action",
                                     connect_clicked => ConfigurationInput::Start,
-                                    #[watch]
+                                    #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
                                     set_sensitive:
-                                        model.reward_address.is_valid()
-                                            && model.node_path.is_valid()
+                                        model.reward_address.is_valid.yes()
+                                            && model.node_path.is_valid.yes()
                                             && !model.farms.is_empty()
                                             && model.farms.iter().all(FarmWidget::valid),
 
@@ -491,7 +516,7 @@ impl Component for ConfigurationView {
                 FarmWidgetOutput::OpenDirectory(index) => {
                     ConfigurationInput::OpenDirectory(DirectoryKind::FarmPath(index))
                 }
-                FarmWidgetOutput::ValidityUpdate => ConfigurationInput::Ignore,
+                FarmWidgetOutput::ValidityUpdate => ConfigurationInput::UpdateFarms,
                 FarmWidgetOutput::Delete(index) => ConfigurationInput::Delete(index),
             });
 
@@ -505,6 +530,7 @@ impl Component for ConfigurationView {
             pending_directory_selection: Default::default(),
             open_dialog,
             reconfiguration: false,
+            tracker: u8::MAX,
         };
 
         let configuration_list_box = model.farms.widget();
@@ -514,6 +540,12 @@ impl Component for ConfigurationView {
     }
 
     fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
+        // Reset changes
+        self.reset();
+        self.reward_address.reset();
+        self.node_path.reset();
+        self.network_configuration.reset();
+
         self.process_input(input, sender);
     }
 }
@@ -522,7 +554,9 @@ impl ConfigurationView {
     fn process_input(&mut self, input: ConfigurationInput, sender: ComponentSender<Self>) {
         match input {
             ConfigurationInput::AddFarm => {
-                self.farms.guard().push_back(FarmWidgetInit::default());
+                self.get_mut_farms()
+                    .guard()
+                    .push_back(FarmWidgetInit::default());
             }
             ConfigurationInput::OpenDirectory(directory_kind) => {
                 self.pending_directory_selection.replace(directory_kind);
@@ -531,10 +565,11 @@ impl ConfigurationView {
             ConfigurationInput::DirectorySelected(path) => {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
-                        self.node_path = MaybeValid::yes(path);
+                        self.node_path.value = path;
+                        self.node_path.set_is_valid(IsValid::Yes);
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
-                        self.farms.send(
+                        self.get_mut_farms().send(
                             index.current_index(),
                             FarmWidgetInput::DirectorySelected(path),
                         );
@@ -548,16 +583,16 @@ impl ConfigurationView {
                 }
             }
             ConfigurationInput::SubstratePortChanged(port) => {
-                self.network_configuration.substrate_port = MaybeValid::yes(port);
+                self.network_configuration.substrate_port = port;
             }
             ConfigurationInput::SubspacePortChanged(port) => {
-                self.network_configuration.subspace_port = MaybeValid::yes(port);
+                self.network_configuration.subspace_port = port;
             }
             ConfigurationInput::FasterNetworkingChanged(faster_networking) => {
                 self.network_configuration.faster_networking = faster_networking;
             }
             ConfigurationInput::Delete(index) => {
-                let mut farms = self.farms.guard();
+                let mut farms = self.get_mut_farms().guard();
                 farms.remove(index.current_index());
                 // Force re-rendering of all farms
                 farms.iter_mut().for_each(|_| {
@@ -566,24 +601,23 @@ impl ConfigurationView {
             }
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();
-                self.reward_address = if parse_ss58_reward_address(new_reward_address).is_ok() {
-                    MaybeValid::yes(new_reward_address.to_string())
+                if parse_ss58_reward_address(new_reward_address).is_ok() {
+                    self.reward_address.set_is_valid(IsValid::Yes);
                 } else {
-                    MaybeValid::no(new_reward_address.to_string())
-                };
+                    self.reward_address.set_is_valid(IsValid::No);
+                }
+                self.reward_address.value = new_reward_address.to_string();
             }
             ConfigurationInput::Reconfigure(raw_config) => {
-                // `Unknown` is a hack to make it actually render the first time
-                self.reward_address = MaybeValid::unknown(raw_config.reward_address().to_string());
+                self.reward_address = MaybeValid::yes(raw_config.reward_address().to_string());
                 self.node_path = MaybeValid::yes(raw_config.node_path().clone());
                 {
-                    let mut farms = self.farms.guard();
+                    let mut farms = self.get_mut_farms().guard();
                     farms.clear();
                     for farm in raw_config.farms() {
                         farms.push_back(FarmWidgetInit {
                             path: MaybeValid::yes(farm.path.clone()),
-                            // `Unknown` is a hack to make it actually render the first time
-                            size: MaybeValid::unknown(farm.size.clone()),
+                            size: MaybeValid::yes(farm.size.clone()),
                         });
                     }
                 }
@@ -619,6 +653,10 @@ impl ConfigurationView {
                     debug!("Failed to send ConfigurationOutput::ConfigUpdate");
                 }
             }
+            ConfigurationInput::UpdateFarms => {
+                // Mark as changed
+                let _ = self.get_mut_farms();
+            }
             ConfigurationInput::Ignore => {
                 // Ignore
             }
@@ -632,8 +670,8 @@ impl ConfigurationView {
             node_path: PathBuf::clone(&self.node_path),
             farms: self.farms.iter().map(FarmWidget::farm).collect(),
             network: NetworkConfiguration {
-                substrate_port: *self.network_configuration.substrate_port,
-                subspace_port: *self.network_configuration.subspace_port,
+                substrate_port: self.network_configuration.substrate_port,
+                subspace_port: self.network_configuration.subspace_port,
                 faster_networking: self.network_configuration.faster_networking,
             },
         }

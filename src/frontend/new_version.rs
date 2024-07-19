@@ -22,6 +22,7 @@ pub enum NewVersionCommandOutput {
     NewVersion(Version),
 }
 
+#[tracker::track]
 #[derive(Debug)]
 pub struct NewVersion {
     new_version: Option<Version>,
@@ -62,7 +63,7 @@ impl Component for NewVersion {
             remove_css_class: "flat",
             remove_css_class: "link",
             remove_css_class: "text-button",
-            #[watch]
+            #[track = "model.changed_new_version()"]
             set_label: &format!(
                 "Version {} available 🎉",
                 model.new_version.as_ref().map(Version::to_string).unwrap_or_default()
@@ -84,7 +85,7 @@ impl Component for NewVersion {
             //     }
             // },
             set_use_underline: false,
-            #[watch]
+            #[track = "model.changed_new_version()"]
             set_visible: model.new_version.is_some(),
         }
     }
@@ -94,7 +95,10 @@ impl Component for NewVersion {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = Self { new_version: None };
+        let model = Self {
+            new_version: None,
+            tracker: u8::MAX,
+        };
 
         let widgets = view_output!();
 
@@ -109,6 +113,9 @@ impl Component for NewVersion {
         _sender: ComponentSender<Self>,
         _root: &Self::Root,
     ) {
+        // Reset changes
+        self.reset();
+
         self.process_command(input);
     }
 }
@@ -191,7 +198,7 @@ impl NewVersion {
     fn process_command(&mut self, command_output: NewVersionCommandOutput) {
         match command_output {
             NewVersionCommandOutput::NewVersion(version) => {
-                self.new_version.replace(version);
+                self.get_mut_new_version().replace(version);
             }
         }
     }

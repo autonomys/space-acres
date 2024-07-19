@@ -7,6 +7,7 @@ pub enum LoadingInput {
     BackendLoading(LoadingStep),
 }
 
+#[tracker::track]
 #[derive(Debug)]
 pub struct LoadingView {
     message: String,
@@ -33,7 +34,7 @@ impl Component for LoadingView {
             },
 
             gtk::Label {
-                #[watch]
+                #[track = "model.changed_message()"]
                 set_label: &model.message,
             },
         }
@@ -46,6 +47,7 @@ impl Component for LoadingView {
     ) -> ComponentParts<Self> {
         let model = Self {
             message: String::new(),
+            tracker: u8::MAX,
         };
 
         let widgets = view_output!();
@@ -54,6 +56,9 @@ impl Component for LoadingView {
     }
 
     fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
+        // Reset changes
+        self.reset();
+
         self.process_input(input);
     }
 }
@@ -62,7 +67,7 @@ impl LoadingView {
     fn process_input(&mut self, input: LoadingInput) {
         match input {
             LoadingInput::BackendLoading(step) => {
-                self.message = match step {
+                self.set_message(match step {
                     LoadingStep::LoadingConfiguration => "Loading configuration...".to_string(),
                     LoadingStep::ReadingConfiguration => "Reading configuration...".to_string(),
                     LoadingStep::ConfigurationReadSuccessfully {
@@ -118,7 +123,7 @@ impl LoadingView {
                     LoadingStep::WipingNode { path } => {
                         format!("Wiping node at {}...", path.display())
                     }
-                };
+                });
             }
         }
     }
