@@ -49,18 +49,6 @@ pub enum ConfigurationOutput {
     Close,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum IsValid {
-    Yes,
-    No,
-}
-
-impl IsValid {
-    fn yes(&self) -> bool {
-        matches!(self, Self::Yes)
-    }
-}
-
 #[tracker::track]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct MaybeValid<T>
@@ -68,7 +56,7 @@ where
     T: PartialEq,
 {
     value: T,
-    is_valid: IsValid,
+    is_valid: bool,
 }
 
 impl<T> Deref for MaybeValid<T>
@@ -90,7 +78,7 @@ where
     fn yes(value: T) -> Self {
         Self {
             value,
-            is_valid: IsValid::Yes,
+            is_valid: true,
             tracker: u8::MAX,
         }
     }
@@ -99,15 +87,16 @@ where
     fn no(value: T) -> Self {
         Self {
             value,
-            is_valid: IsValid::No,
+            is_valid: false,
             tracker: u8::MAX,
         }
     }
 
     fn icon(&self) -> Option<&'static str> {
-        match self.is_valid {
-            IsValid::Yes => Some(icon_name::CHECKMARK),
-            IsValid::No => Some(icon_name::CROSS),
+        if self.is_valid {
+            Some(icon_name::CHECKMARK)
+        } else {
+            Some(icon_name::CROSS)
         }
     }
 }
@@ -197,7 +186,7 @@ impl Component for ConfigurationView {
                                     gtk::Entry {
                                         set_can_focus: false,
                                         #[track = "model.node_path.changed_is_valid()"]
-                                        set_css_classes: if model.node_path.is_valid.yes() {
+                                        set_css_classes: if model.node_path.is_valid {
                                             &["valid-input"]
                                         } else {
                                             &["invalid-input"]
@@ -262,7 +251,7 @@ impl Component for ConfigurationView {
                                         ));
                                     },
                                     #[track = "model.reward_address.changed_is_valid()"]
-                                    set_css_classes: if model.reward_address.is_valid.yes() {
+                                    set_css_classes: if model.reward_address.is_valid {
                                         &["valid-input"]
                                     } else {
                                         &["invalid-input"]
@@ -436,8 +425,8 @@ impl Component for ConfigurationView {
                                     add_css_class: "suggested-action",
                                     connect_clicked => ConfigurationInput::Save,
                                     #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
-                                    set_sensitive: model.reward_address.is_valid.yes()
-                                        && model.node_path.is_valid.yes()
+                                    set_sensitive: model.reward_address.is_valid
+                                        && model.node_path.is_valid
                                         && !model.farms.is_empty()
                                         && model.farms.iter().all(FarmWidget::valid),
 
@@ -466,8 +455,8 @@ impl Component for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Start,
                                     #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
                                     set_sensitive:
-                                        model.reward_address.is_valid.yes()
-                                            && model.node_path.is_valid.yes()
+                                        model.reward_address.is_valid
+                                            && model.node_path.is_valid
                                             && !model.farms.is_empty()
                                             && model.farms.iter().all(FarmWidget::valid),
 
@@ -557,7 +546,7 @@ impl ConfigurationView {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
                         self.node_path.value = path;
-                        self.node_path.set_is_valid(IsValid::Yes);
+                        self.node_path.set_is_valid(true);
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
                         self.get_mut_farms().send(
@@ -592,11 +581,8 @@ impl ConfigurationView {
             }
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();
-                if parse_ss58_reward_address(new_reward_address).is_ok() {
-                    self.reward_address.set_is_valid(IsValid::Yes);
-                } else {
-                    self.reward_address.set_is_valid(IsValid::No);
-                }
+                self.reward_address
+                    .set_is_valid(parse_ss58_reward_address(new_reward_address).is_ok());
                 self.reward_address.value = new_reward_address.to_string();
             }
             ConfigurationInput::Reconfigure(raw_config) => {

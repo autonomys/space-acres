@@ -1,5 +1,5 @@
 use crate::backend::config::Farm;
-use crate::frontend::configuration::{IsValid, MaybeValid};
+use crate::frontend::configuration::MaybeValid;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::prelude::*;
@@ -82,7 +82,7 @@ impl FactoryComponent for FarmWidget {
 
                         gtk::Entry {
                             #[track = "self.path.changed_is_valid()"]
-                            set_css_classes: if self.path.is_valid.yes() {
+                            set_css_classes: if self.path.is_valid {
                                 &["valid-input"]
                             } else {
                                 &["invalid-input"]
@@ -130,7 +130,7 @@ impl FactoryComponent for FarmWidget {
                             sender.input(FarmWidgetInput::FarmSizeChanged(entry.text().into()));
                         },
                         #[track = "self.size.changed_is_valid()"]
-                        set_css_classes: if self.size.is_valid.yes() {
+                        set_css_classes: if self.size.is_valid {
                             &["valid-input"]
                         } else {
                             &["invalid-input"]
@@ -183,18 +183,15 @@ impl FactoryComponent for FarmWidget {
 
         match input {
             FarmWidgetInput::DirectorySelected(path) => {
-                self.path.set_is_valid(IsValid::Yes);
+                self.path.set_is_valid(true);
                 self.path.value = path;
             }
             FarmWidgetInput::FarmSizeChanged(size) => {
-                if ByteSize::from_str(&size)
-                    .map(|size| size.as_u64() >= MIN_FARM_SIZE)
-                    .unwrap_or_default()
-                {
-                    self.size.set_is_valid(IsValid::Yes);
-                } else {
-                    self.size.set_is_valid(IsValid::No);
-                }
+                self.size.set_is_valid(
+                    ByteSize::from_str(&size)
+                        .map(|size| size.as_u64() >= MIN_FARM_SIZE)
+                        .unwrap_or_default(),
+                );
                 self.size.value = size;
             }
         }
@@ -214,7 +211,7 @@ impl FactoryComponent for FarmWidget {
 
 impl FarmWidget {
     pub(super) fn valid(&self) -> bool {
-        self.path.is_valid.yes() && self.size.is_valid.yes()
+        self.path.is_valid && self.size.is_valid
     }
 
     pub(super) fn farm(&self) -> Farm {
