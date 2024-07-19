@@ -51,6 +51,7 @@ pub enum RunningOutput {
     PausePlotting(bool),
 }
 
+#[tracker::track]
 #[derive(Debug)]
 struct FarmerState {
     initial_reward_address_balance: Balance,
@@ -63,14 +64,19 @@ struct FarmerState {
     slot_probability: (u64, u64),
     slot_duration: Duration,
     last_reward_received_time: Instant,
+    #[do_not_track]
     reward_eta_progress_circle: Controller<ProgressCircle>,
 }
 
+#[tracker::track]
 #[derive(Debug)]
 pub struct RunningView {
+    #[do_not_track]
     node_view: Controller<NodeView>,
     node_synced: bool,
+    #[do_not_track]
     farmer_state: FarmerState,
+    #[do_not_track]
     farms: FactoryHashMap<u8, FarmWidget>,
     plotting_paused: bool,
 }
@@ -125,7 +131,7 @@ impl Component for RunningView {
                         set_hexpand: true,
 
                         gtk::Box {
-                            #[watch]
+                            #[track = "model.changed_node_synced()"]
                             set_visible: model.node_synced,
 
                             model.farmer_state.reward_eta_progress_circle.widget().clone(),
@@ -147,7 +153,7 @@ impl Component for RunningView {
                             set_use_underline: false,
 
                             gtk::Label {
-                                #[watch]
+                                #[track = "model.farmer_state.changed_reward_address_balance() || model.farmer_state.changed_initial_reward_address_balance() || model.farmer_state.changed_token_symbol()"]
                                 set_label: &{
                                     let current_balance = model.farmer_state.reward_address_balance;
                                     let balance_increase = model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance;
@@ -177,7 +183,7 @@ impl Component for RunningView {
                         gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_spacing: 10,
-                            #[watch]
+                            #[track = "model.farmer_state.changed_piece_cache_sync_progress()"]
                             set_visible: model.farmer_state.piece_cache_sync_progress < 100.0,
 
                             gtk::Box {
@@ -186,7 +192,7 @@ impl Component for RunningView {
                                 gtk::Label {
                                     set_halign: gtk::Align::Start,
 
-                                    #[watch]
+                                    #[track = "model.farmer_state.changed_piece_cache_sync_progress()"]
                                     set_label: &format!(
                                         "Piece cache sync {:.2}%",
                                         model.farmer_state.piece_cache_sync_progress
@@ -199,7 +205,7 @@ impl Component for RunningView {
                             },
 
                             gtk::ProgressBar {
-                                #[watch]
+                                #[track = "model.farmer_state.changed_piece_cache_sync_progress()"]
                                 set_fraction: model.farmer_state.piece_cache_sync_progress as f64 / 100.0,
                             },
                         },
@@ -247,9 +253,11 @@ impl Component for RunningView {
                 slot_duration: Duration::from_secs(1),
                 last_reward_received_time: Instant::now(),
                 reward_eta_progress_circle,
+                tracker: u16::MAX,
             },
             farms,
             plotting_paused: init.plotting_paused,
+            tracker: u8::MAX,
         };
 
         let farms_box = model.farms.widget();
@@ -259,6 +267,10 @@ impl Component for RunningView {
     }
 
     fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
+        // Reset changes
+        self.reset();
+        self.farmer_state.reset();
+
         self.process_input(input, sender);
     }
 }
@@ -295,20 +307,22 @@ impl RunningView {
                     );
                 }
 
-                self.farmer_state.initial_reward_address_balance = reward_address_balance;
-                self.farmer_state.reward_address_balance = reward_address_balance;
+                self.farmer_state
+                    .set_initial_reward_address_balance(reward_address_balance);
+                self.farmer_state
+                    .set_reward_address_balance(reward_address_balance);
                 // TODO: Would be great to have `gemini-3h` in chain spec, but it is
                 //  not available in there in clean form
-                self.farmer_state.reward_address_url = format!(
+                self.farmer_state.set_reward_address_url(format!(
                     "https://explorer.subspace.network/{}/consensus/accounts/{}",
                     chain_info
                         .protocol_id
                         .strip_prefix("subspace-")
                         .unwrap_or(&chain_info.protocol_id),
                     raw_config.reward_address()
-                );
+                ));
                 self.farmer_state
-                    .token_symbol
+                    .get_mut_token_symbol()
                     .clone_from(&chain_info.token_symbol);
                 self.farmer_state.local_space_pledged = config
                     .farms
@@ -334,7 +348,7 @@ impl RunningView {
                             self.farms
                                 .broadcast(FarmWidgetInput::NodeSynced(new_synced));
                         }
-                        self.node_synced = new_synced;
+                        self.set_node_synced(new_synced);
                     }
                     NodeNotification::BlockImported(imported_block) => {
                         if !self.node_synced {
@@ -342,8 +356,9 @@ impl RunningView {
                             // farming, but preserve accumulated diff
                             let previous_diff = self.farmer_state.reward_address_balance
                                 - self.farmer_state.initial_reward_address_balance;
-                            self.farmer_state.initial_reward_address_balance =
-                                imported_block.reward_address_balance - previous_diff;
+                            self.farmer_state.set_initial_reward_address_balance(
+                                imported_block.reward_address_balance - previous_diff,
+                            );
                         }
                         // In case balance decreased, subtract it from initial balance to ignore,
                         // this typically happens due to chain reorg when reward is "disappears"
@@ -352,13 +367,14 @@ impl RunningView {
                             .reward_address_balance
                             .checked_sub(imported_block.reward_address_balance)
                         {
-                            self.farmer_state.initial_reward_address_balance -= decreased_by;
+                            *self.farmer_state.get_mut_initial_reward_address_balance() -=
+                                decreased_by;
                         }
                         if self.farmer_state.reward_address_balance
                             != imported_block.reward_address_balance
                         {
-                            self.farmer_state.reward_address_balance =
-                                imported_block.reward_address_balance;
+                            self.farmer_state
+                                .set_reward_address_balance(imported_block.reward_address_balance);
                             self.farmer_state.last_reward_received_time = Instant::now();
                         }
 
@@ -401,7 +417,7 @@ impl RunningView {
                     );
                 }
                 FarmerNotification::FarmerCacheSyncProgress { progress } => {
-                    self.farmer_state.piece_cache_sync_progress = progress;
+                    self.farmer_state.set_piece_cache_sync_progress(progress);
                 }
                 FarmerNotification::FarmError { farm_index, error } => {
                     self.farms

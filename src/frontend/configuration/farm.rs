@@ -1,5 +1,5 @@
 use crate::backend::config::Farm;
-use crate::frontend::configuration::MaybeValid;
+use crate::frontend::configuration::{IsValid, MaybeValid};
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::prelude::*;
@@ -32,6 +32,7 @@ pub(super) enum FarmWidgetOutput {
 
 #[derive(Debug)]
 pub(super) struct FarmWidget {
+    // TODO: Track changes for dynamic index
     index: DynamicIndex,
     path: MaybeValid<PathBuf>,
     size: MaybeValid<String>,
@@ -84,11 +85,11 @@ impl FactoryComponent for FarmWidget {
                             set_primary_icon_name: Some(icon_name::SSD),
                             set_primary_icon_activatable: false,
                             set_primary_icon_sensitive: false,
-                            #[watch]
+                            #[track = "self.path.changed_is_valid()"]
                             set_secondary_icon_name: self.path.icon(),
                             set_secondary_icon_activatable: false,
                             set_secondary_icon_sensitive: false,
-                            #[watch]
+                            #[track = "self.path.changed_value()"]
                             set_text: self.path.display().to_string().as_str(),
                             set_tooltip_markup: Some(
                                 "Absolute path where farm files will be stored, any \
@@ -119,11 +120,11 @@ impl FactoryComponent for FarmWidget {
                         set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
                         set_primary_icon_activatable: false,
                         set_primary_icon_sensitive: false,
-                        #[watch]
+                        #[track = "self.size.changed_is_valid()"]
                         set_secondary_icon_name: self.size.icon(),
                         set_secondary_icon_activatable: false,
                         set_secondary_icon_sensitive: false,
-                        #[track = "self.size.unknown()"]
+                        #[track = "self.size.changed_value()"]
                         set_text: self.size.as_str(),
                         set_tooltip_markup: Some(
                             "Size of the farm in whichever units you prefer, any \
@@ -155,20 +156,25 @@ impl FactoryComponent for FarmWidget {
     }
 
     fn update(&mut self, input: Self::Input, sender: FactorySender<Self>) {
+        // Reset changes
+        self.path.reset();
+        self.size.reset();
+
         match input {
             FarmWidgetInput::DirectorySelected(path) => {
-                self.path = MaybeValid::Valid(path);
+                self.path.set_is_valid(IsValid::Yes);
+                self.path.value = path;
             }
             FarmWidgetInput::FarmSizeChanged(size) => {
-                let size = if ByteSize::from_str(&size)
+                if ByteSize::from_str(&size)
                     .map(|size| size.as_u64() >= MIN_FARM_SIZE)
                     .unwrap_or_default()
                 {
-                    MaybeValid::Valid(size)
+                    self.size.set_is_valid(IsValid::Yes);
                 } else {
-                    MaybeValid::Invalid(size)
-                };
-                self.size = size;
+                    self.size.set_is_valid(IsValid::No);
+                }
+                self.size.value = size;
             }
         }
 
@@ -187,7 +193,7 @@ impl FactoryComponent for FarmWidget {
 
 impl FarmWidget {
     pub(super) fn valid(&self) -> bool {
-        self.path.valid() && self.size.valid()
+        self.path.is_valid.yes() && self.size.is_valid.yes()
     }
 
     pub(super) fn farm(&self) -> Farm {

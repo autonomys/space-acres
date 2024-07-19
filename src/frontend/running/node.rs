@@ -39,13 +39,16 @@ pub enum NodeCommandOutput {
     FreeDiskSpace(ByteSize),
 }
 
+#[tracker::track]
 #[derive(Debug)]
 pub struct NodeView {
     best_block_number: BlockNumber,
     sync_state: SyncState,
     free_disk_space: Option<ByteSize>,
     chain_name: String,
+    #[no_eq]
     node_path: Arc<Mutex<PathBuf>>,
+    #[no_eq]
     block_import_time: SingleSumSMA<Duration, u32, BLOCK_IMPORT_TIME_TRACKING_WINDOW>,
     last_block_import_time: Option<Instant>,
 }
@@ -71,7 +74,7 @@ impl Component for NodeView {
                     add_css_class: "heading",
                     set_halign: gtk::Align::Start,
                     set_has_frame: false,
-                    #[watch]
+                    #[track = "model.changed_chain_name()"]
                     set_label: &model.chain_name,
                     set_tooltip: "Click to open in file manager",
                 },
@@ -84,14 +87,14 @@ impl Component for NodeView {
 
                     gtk::Box {
                         set_spacing: 10,
-                        #[watch]
+                        #[track = "model.changed_free_disk_space()"]
                         set_tooltip: &format!(
                             "Free disk space: {} remaining",
                             model.free_disk_space
                                 .map(|bytes| bytes.to_string_as(true))
                                 .unwrap_or_default()
                         ),
-                        #[watch]
+                        #[track = "model.changed_free_disk_space()"]
                         set_visible: model.free_disk_space
                             .map(|bytes| bytes.as_u64() <= FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD)
                             .unwrap_or_default(),
@@ -103,7 +106,7 @@ impl Component for NodeView {
                         gtk::LevelBar {
                             add_css_class: "free-disk-space",
                             set_min_value: 0.1,
-                            #[watch]
+                            #[track = "model.changed_free_disk_space()"]
                             set_value: {
                                 let free_space = model.free_disk_space
                                     .map(|bytes| bytes.as_u64())
@@ -120,7 +123,7 @@ impl Component for NodeView {
             match model.sync_state {
                 SyncState::Unknown => gtk::Box {
                     gtk::Label {
-                        #[watch]
+                        #[track = "model.changed_best_block_number()"]
                         set_label: &format!(
                             "Connecting to the network, best block #{}",
                             model.best_block_number
@@ -137,7 +140,8 @@ impl Component for NodeView {
                         gtk::Label {
                             set_halign: gtk::Align::Start,
 
-                            #[watch]
+                            // TODO: Optimize rendering here, it will update on every block here
+                            #[track = "model.changed_sync_state() || model.changed_best_block_number()"]
                             set_label: &{
                                 let kind = match kind {
                                     SyncKind::Dsn => "Syncing from DSN",
@@ -190,13 +194,13 @@ impl Component for NodeView {
                     },
 
                     gtk::ProgressBar {
-                        #[watch]
+                        #[track = "model.changed_best_block_number()"]
                         set_fraction: model.best_block_number as f64 / target as f64,
                     },
                 },
                 SyncState::Idle => gtk::Box {
                     gtk::Label {
-                        #[watch]
+                        #[track = "model.changed_best_block_number()"]
                         set_label: &format!("Synced, best block #{}", model.best_block_number),
                     }
                 },
@@ -218,6 +222,7 @@ impl Component for NodeView {
             node_path: node_path.clone(),
             block_import_time: SingleSumSMA::from_zero(Duration::ZERO),
             last_block_import_time: None,
+            tracker: u8::MAX,
         };
 
         let widgets = view_output!();
@@ -230,6 +235,9 @@ impl Component for NodeView {
     }
 
     fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
+        // Reset changes
+        self.reset();
+
         self.process_input(input);
     }
 
@@ -239,6 +247,9 @@ impl Component for NodeView {
         _sender: ComponentSender<Self>,
         _root: &Self::Root,
     ) {
+        // Reset changes
+        self.reset();
+
         self.process_command(input);
     }
 }
@@ -251,15 +262,15 @@ impl NodeView {
                 chain_info,
                 node_path,
             } => {
-                self.best_block_number = best_block_number;
-                self.chain_name = format!(
+                self.set_best_block_number(best_block_number);
+                self.set_chain_name(format!(
                     "{} consensus node",
                     chain_info
                         .chain_name
                         .strip_prefix("Subspace ")
                         .unwrap_or(&chain_info.chain_name)
-                );
-                *self.node_path.lock() = node_path;
+                ));
+                *self.get_mut_node_path().lock() = node_path;
             }
             NodeInput::NodeNotification(node_notification) => match node_notification {
                 NodeNotification::SyncStateUpdate(mut new_sync_state) => {
@@ -289,10 +300,10 @@ impl NodeView {
                         self.block_import_time = SingleSumSMA::from_zero(Duration::ZERO);
                         self.last_block_import_time.take();
                     }
-                    self.sync_state = new_sync_state;
+                    self.set_sync_state(new_sync_state);
                 }
                 NodeNotification::BlockImported(imported_block) => {
-                    self.best_block_number = imported_block.number;
+                    self.set_best_block_number(imported_block.number);
                     // Ensure target is never below current block
                     if let SyncState::Syncing { target, .. } = &mut self.sync_state {
                         *target = (*target).max(self.best_block_number);
@@ -316,7 +327,7 @@ impl NodeView {
     fn process_command(&mut self, command_output: NodeCommandOutput) {
         match command_output {
             NodeCommandOutput::FreeDiskSpace(bytes) => {
-                self.free_disk_space.replace(bytes);
+                self.get_mut_free_disk_space().replace(bytes);
             }
         }
     }

@@ -19,11 +19,14 @@ pub(in super::super) enum ProgressCircleInput {
     },
 }
 
+#[tracker::track]
 #[derive(Debug, Clone)]
 pub(in super::super) struct ProgressCircle {
     /// 0.0..=1.0
+    #[do_not_track]
     pub(in super::super) progress: Rc<RefCell<f64>>,
     pub(in super::super) tooltip: String,
+    #[do_not_track]
     pub(in super::super) size: u16,
 }
 
@@ -84,7 +87,7 @@ impl Component for ProgressCircle {
                     let _ = cr.fill();
                 }
             },
-            #[watch]
+            #[track = "model.changed_tooltip()"]
             set_tooltip_text: Some(&model.tooltip),
         }
     }
@@ -98,6 +101,7 @@ impl Component for ProgressCircle {
             progress: Rc::new(RefCell::new(0.0)),
             tooltip: init.tooltip,
             size: init.size,
+            tracker: u8::MAX,
         };
 
         let widgets = view_output!();
@@ -105,6 +109,9 @@ impl Component for ProgressCircle {
     }
 
     fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, root: &Self::Root) {
+        // Reset changes
+        self.reset();
+
         match input {
             ProgressCircleInput::Update { progress, tooltip } => {
                 let old_progress = *self.progress.borrow();
@@ -115,7 +122,7 @@ impl Component for ProgressCircle {
                     }
                 }
 
-                self.tooltip = tooltip;
+                self.set_tooltip(tooltip);
             }
         }
     }

@@ -14,7 +14,7 @@ const DEFAULT_SUBSTRATE_PORT: u16 = 30333;
 const DEFAULT_SUBSPACE_PORT: u16 = 30433;
 
 // TODO: Replace with `DiskFarm`
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Farm {
     pub path: PathBuf,
@@ -39,7 +39,7 @@ pub enum RawConfigError {
     FailedToDeserialize(serde_json::Error),
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NetworkConfiguration {
     pub substrate_port: u16,
     pub subspace_port: u16,
@@ -58,7 +58,7 @@ impl Default for NetworkConfiguration {
 }
 
 // TODO: This config is not necessarily valid, probably combine with valid config
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "version")]
 pub enum RawConfig {
     #[serde(rename = "0", rename_all = "camelCase")]

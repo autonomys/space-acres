@@ -93,22 +93,28 @@ pub(super) enum FarmWidgetInput {
     },
 }
 
+#[tracker::track]
 #[derive(Debug)]
 pub(super) struct FarmWidget {
     path: PathBuf,
     size: String,
+    #[no_eq]
     auditing_time: SingleSumSMA<Duration, u32, AUDITING_TIME_TRACKING_WINDOW>,
+    #[no_eq]
     proving_time: SingleSumSMA<Duration, u32, PROVING_TIME_TRACKING_WINDOW>,
+    #[no_eq]
     sector_plotting_time: SingleSumSMA<Duration, u32, SECTOR_PLOTTING_TIME_TRACKING_WINDOW>,
     last_sector_plotted: Option<SectorIndex>,
     plotting_state: PlottingState,
     is_node_synced: bool,
     sector_rows: gtk::Box,
     sectors: HashMap<SectorIndex, gtk::Box>,
+    #[no_eq]
     non_fatal_farming_error: Option<Arc<FarmingError>>,
     farm_details: bool,
     encoding_sectors: usize,
     plotting_paused: bool,
+    #[no_eq]
     error: Option<Arc<anyhow::Error>>,
 }
 
@@ -135,7 +141,7 @@ impl FactoryComponent for FarmWidget {
                     set_tooltip: "Click to open in file manager",
 
                     gtk::Label {
-                        #[watch]
+                        #[track = "self.changed_error()"]
                         set_css_classes: if self.error.is_some() {
                             &["farm-error"]
                         } else {
@@ -162,15 +168,16 @@ impl FactoryComponent for FarmWidget {
                             set_margin_top: 5,
                             set_spacing: 10,
 
+                            // TODO: Optimize rendering here, it will update every second
                             gtk::Box {
                                 set_spacing: 5,
-                                #[watch]
+                                #[track = "self.changed_auditing_time()"]
                                 set_tooltip: &format!(
                                     "Auditing performance: average time {:.2}s, time limit {:.2}s",
                                     self.auditing_time.get_average().as_secs_f32(),
                                     MAX_AUDITING_TIME.as_secs_f32()
                                 ),
-                                #[watch]
+                                #[track = "self.changed_auditing_time()"]
                                 set_visible: self.auditing_time.get_num_samples() > 0,
 
                                 gtk::Image {
@@ -179,7 +186,7 @@ impl FactoryComponent for FarmWidget {
 
                                 gtk::LevelBar {
                                     add_css_class: "auditing-performance",
-                                    #[watch]
+                                    #[track = "self.changed_auditing_time()"]
                                     set_value: {
                                         let average_time = self.auditing_time.get_average();
                                         let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
@@ -192,13 +199,13 @@ impl FactoryComponent for FarmWidget {
 
                             gtk::Box {
                                 set_spacing: 5,
-                                #[watch]
+                                #[track = "self.changed_proving_time()"]
                                 set_tooltip: &format!(
                                     "Proving performance: average time {:.2}s, time limit {:.2}s",
                                     self.proving_time.get_average().as_secs_f32(),
                                     BLOCK_AUTHORING_DELAY.as_secs_f32()
                                 ),
-                                #[watch]
+                                #[track = "self.changed_proving_time()"]
                                 set_visible: self.proving_time.get_num_samples() > 0,
 
                                 gtk::Image {
@@ -207,7 +214,7 @@ impl FactoryComponent for FarmWidget {
 
                                 gtk::LevelBar {
                                     add_css_class: "proving-performance",
-                                    #[watch]
+                                    #[track = "self.changed_proving_time()"]
                                     set_value: {
                                         let average_time = self.proving_time.get_average();
                                         let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
@@ -220,6 +227,7 @@ impl FactoryComponent for FarmWidget {
 
                             gtk::Image {
                                 set_icon_name: Some(icon_name::WARNING),
+                                #[track = "self.changed_non_fatal_farming_error()"]
                                 set_tooltip: &{
                                     let last_error = self.non_fatal_farming_error
                                         .as_ref()
@@ -228,6 +236,7 @@ impl FactoryComponent for FarmWidget {
 
                                     format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
                                 },
+                                #[track = "self.changed_non_fatal_farming_error()"]
                                 set_visible: self.non_fatal_farming_error.is_some(),
                             },
                         }
@@ -241,7 +250,7 @@ impl FactoryComponent for FarmWidget {
                     gtk::Label {
                         add_css_class: "farm-error",
                         set_halign: gtk::Align::Start,
-                        #[watch]
+                        #[track = "self.changed_error()"]
                         set_label: &format!("Farm crashed: {error}"),
                     }
                 },
@@ -255,7 +264,7 @@ impl FactoryComponent for FarmWidget {
                         gtk::Label {
                             set_halign: gtk::Align::Start,
 
-                            #[watch]
+                            #[track = "self.changed_plotting_state() || self.changed_encoding_sectors() || self.changed_plotting_paused() || self.changed_is_node_synced()"]
                             set_label: &{
                                 let plotting_speed = if self.sector_plotting_time.get_num_samples() > 0 {
                                      format!(
@@ -324,13 +333,13 @@ impl FactoryComponent for FarmWidget {
                     },
 
                     gtk::ProgressBar {
-                        #[watch]
+                        #[track = "self.changed_plotting_state()"]
                         set_fraction: progress as f64 / 100.0,
                     },
                 },
                 (_, PlottingState::Idle) => gtk::Box {
                     gtk::Label {
-                        #[watch]
+                        #[track = "self.changed_is_node_synced()"]
                         set_label: if self.is_node_synced {
                             "Farming"
                         } else {
@@ -341,7 +350,7 @@ impl FactoryComponent for FarmWidget {
             },
 
             gtk::Box {
-                #[watch]
+                #[track = "self.changed_farm_details() || self.changed_error()"]
                 set_visible: self.farm_details && self.error.is_none(),
 
                 self.sector_rows.clone(),
@@ -388,10 +397,14 @@ impl FactoryComponent for FarmWidget {
             encoding_sectors: 0,
             plotting_paused: init.plotting_paused,
             error: None,
+            tracker: u16::MAX,
         }
     }
 
     fn update(&mut self, input: Self::Input, _sender: FactorySender<Self>) {
+        // Reset changes
+        self.reset();
+
         self.process_input(input);
     }
 }
@@ -409,14 +422,14 @@ impl FarmWidget {
                         replotting,
                         last_queued,
                     } => {
-                        self.plotting_state = PlottingState::Plotting {
+                        self.set_plotting_state(PlottingState::Plotting {
                             kind: if replotting {
                                 PlottingKind::Replotting
                             } else {
                                 PlottingKind::Initial
                             },
                             progress,
-                        };
+                        });
 
                         if last_queued {
                             self.last_sector_plotted.replace(sector_index);
@@ -429,11 +442,11 @@ impl FarmWidget {
                         self.remove_sector_state(sector_index, SectorState::Downloading);
                     }
                     SectorPlottingDetails::Encoding => {
-                        self.encoding_sectors += 1;
+                        *self.get_mut_encoding_sectors() += 1;
                         self.update_sector_state(sector_index, SectorState::Encoding);
                     }
                     SectorPlottingDetails::Encoded(_) => {
-                        self.encoding_sectors -= 1;
+                        *self.get_mut_encoding_sectors() -= 1;
                         self.remove_sector_state(sector_index, SectorState::Encoding);
                     }
                     SectorPlottingDetails::Writing => {
@@ -446,7 +459,7 @@ impl FarmWidget {
                         if self.last_sector_plotted == Some(sector_index) {
                             self.last_sector_plotted.take();
 
-                            self.plotting_state = PlottingState::Idle;
+                            self.set_plotting_state(PlottingState::Idle);
                         }
 
                         self.update_sector_state(sector_index, SectorState::Plotted);
@@ -473,17 +486,18 @@ impl FarmWidget {
             },
             FarmWidgetInput::FarmingNotification(notification) => match notification {
                 FarmingNotification::Auditing(auditing_details) => {
-                    self.auditing_time.add_sample(auditing_details.time);
+                    self.get_mut_auditing_time()
+                        .add_sample(auditing_details.time);
                 }
                 FarmingNotification::Proving(proving_details) => {
-                    self.proving_time.add_sample(proving_details.time);
+                    self.get_mut_proving_time().add_sample(proving_details.time);
                 }
                 FarmingNotification::NonFatalError(error) => {
-                    self.non_fatal_farming_error.replace(error);
+                    self.get_mut_non_fatal_farming_error().replace(error);
                 }
             },
             FarmWidgetInput::PausePlotting(plotting_paused) => {
-                self.plotting_paused = plotting_paused;
+                self.set_plotting_paused(plotting_paused);
             }
             FarmWidgetInput::OpenFarmFolder => {
                 if let Err(error) = open::that_detached(&self.path) {
@@ -491,13 +505,13 @@ impl FarmWidget {
                 }
             }
             FarmWidgetInput::NodeSynced(synced) => {
-                self.is_node_synced = synced;
+                self.set_is_node_synced(synced);
             }
             FarmWidgetInput::ToggleFarmDetails => {
-                self.farm_details = !self.farm_details;
+                self.set_farm_details(!self.farm_details);
             }
             FarmWidgetInput::Error { error } => {
-                self.error.replace(error);
+                self.get_mut_error().replace(error);
             }
         }
     }

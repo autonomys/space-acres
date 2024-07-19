@@ -159,7 +159,7 @@ impl View {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq)]
 enum StatusBarNotification {
     #[default]
     None,
@@ -209,22 +209,34 @@ struct AppInit {
     minimize_on_start: bool,
 }
 
-// TODO: Efficient updates with tracker
+#[tracker::track]
 struct App {
+    #[no_eq]
     current_view: View,
     current_raw_config: Option<RawConfig>,
     status_bar_notification: StatusBarNotification,
+    #[do_not_track]
     backend_action_sender: mpsc::Sender<BackendAction>,
+    #[do_not_track]
     new_version: Controller<NewVersion>,
+    #[do_not_track]
     loading_view: Controller<LoadingView>,
+    #[do_not_track]
     configuration_view: Controller<ConfigurationView>,
+    #[do_not_track]
     running_view: Controller<RunningView>,
+    #[do_not_track]
     menu_popover: gtk::Popover,
+    #[do_not_track]
     about_dialog: gtk::AboutDialog,
+    #[do_not_track]
     app_data_dir: Option<PathBuf>,
+    #[do_not_track]
     exit_status_code: Arc<Mutex<AppStatusCode>>,
+    #[do_not_track]
     tray_icon: Option<TrayIcon<TrayMenuSignal>>,
     // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
+    #[do_not_track]
     _background_tasks: Box<dyn Future<Output = ()>>,
 }
 
@@ -240,7 +252,7 @@ impl AsyncComponent for App {
             set_decorated: false,
             set_resizable: false,
             set_size_request: (800, 600),
-            #[watch]
+            #[track = "model.changed_current_view()"]
             set_title: Some(&format!("{} - Space Acres {}", model.current_view.title(), env!("CARGO_PKG_VERSION"))),
 
             gtk::Box {
@@ -273,7 +285,7 @@ impl AsyncComponent for App {
                                     gtk::Button {
                                         connect_clicked => AppInput::OpenReconfiguration,
                                         set_label: "Update configuration",
-                                        #[watch]
+                                        #[track = "model.changed_current_raw_config()"]
                                         set_visible: model.current_raw_config.is_some(),
                                     },
 
@@ -372,7 +384,7 @@ impl AsyncComponent for App {
                                     connect_clicked => AppInput::StartUpgrade,
 
                                     gtk::Label {
-                                        #[watch]
+                                        #[track = "model.changed_current_view()"]
                                         set_label: &format!("Upgrade to {chain_name}"),
                                         set_margin_all: 10,
                                     },
@@ -385,7 +397,7 @@ impl AsyncComponent for App {
                         View::Stopped(Some(error)) => {
                             // TODO: Better error handling
                             gtk::Label {
-                                #[watch]
+                                #[track = "model.changed_current_view()"]
                                 set_label: &format!("Stopped with error: {error}"),
                             }
                         }
@@ -397,7 +409,7 @@ impl AsyncComponent for App {
                         View::Error(error) => {
                             // TODO: Better error handling
                             gtk::Label {
-                                #[watch]
+                                #[track = "model.changed_current_view()"]
                                 set_label: &format!("Error: {error}"),
                             }
                         },
@@ -406,12 +418,12 @@ impl AsyncComponent for App {
                     gtk::Box {
                         set_halign: gtk::Align::Center,
                         set_spacing: 10,
-                        #[watch]
+                        #[track = "model.changed_status_bar_notification()"]
                         set_visible: !model.status_bar_notification.is_none(),
 
                         #[name(status_bar_notification_label)]
                         gtk::Label {
-                            #[track = "!status_bar_notification_label.has_css_class(model.status_bar_notification.css_class())"]
+                            #[track = "model.changed_status_bar_notification()"]
                             add_css_class: {
                                 for css_class in StatusBarNotification::css_classes() {
                                     status_bar_notification_label.remove_css_class(css_class);
@@ -419,7 +431,7 @@ impl AsyncComponent for App {
 
                                 model.status_bar_notification.css_class()
                             },
-                            #[watch]
+                            #[track = "model.changed_status_bar_notification()"]
                             set_label: model.status_bar_notification.message(),
                         },
 
@@ -427,7 +439,7 @@ impl AsyncComponent for App {
                             add_css_class: "suggested-action",
                             connect_clicked => AppInput::Restart,
                             set_label: "Restart",
-                            #[watch]
+                            #[track = "model.changed_status_bar_notification()"]
                             set_visible: model.status_bar_notification.restart_button(),
                         },
                     },
@@ -593,6 +605,7 @@ impl AsyncComponent for App {
                     }
                 }
             }),
+            tracker: u8::MAX,
         };
 
         let widgets = view_output!();
@@ -619,6 +632,9 @@ impl AsyncComponent for App {
         sender: AsyncComponentSender<Self>,
         root: &Self::Root,
     ) {
+        // Reset changes
+        self.reset();
+
         match input {
             AppInput::OpenLogFolder => {
                 self.open_log_folder();
@@ -638,7 +654,7 @@ impl AsyncComponent for App {
                 if let Some(raw_config) = self.current_raw_config.clone() {
                     self.configuration_view
                         .emit(ConfigurationInput::Reconfigure(raw_config));
-                    self.current_view = View::Reconfiguration;
+                    self.set_current_view(View::Reconfiguration);
                 }
             }
             AppInput::OpenFeedbackLink => {
@@ -652,7 +668,7 @@ impl AsyncComponent for App {
                 self.about_dialog.show();
             }
             AppInput::InitialConfiguration => {
-                self.current_view = View::Configuration;
+                self.set_current_view(View::Configuration);
             }
             AppInput::StartUpgrade => {
                 let raw_config = self
@@ -662,7 +678,7 @@ impl AsyncComponent for App {
                 sender.command(move |sender, shutdown_receiver| async move {
                     Self::do_upgrade(sender, shutdown_receiver, raw_config).await;
                 });
-                self.current_view = View::Loading;
+                self.set_current_view(View::Loading);
             }
             AppInput::Restart => {
                 *self.exit_status_code.lock() = AppStatusCode::Restart;
@@ -683,6 +699,9 @@ impl AsyncComponent for App {
         _sender: AsyncComponentSender<Self>,
         _root: &Self::Root,
     ) {
+        // Reset changes
+        self.reset();
+
         self.process_command(input);
     }
 }
@@ -700,39 +719,40 @@ impl App {
         match notification {
             // TODO: Render progress
             BackendNotification::Loading { step, progress: _ } => {
-                self.current_view = View::Loading;
-                self.status_bar_notification = StatusBarNotification::None;
+                self.set_current_view(View::Loading);
+                self.set_status_bar_notification(StatusBarNotification::None);
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
             BackendNotification::IncompatibleChain {
                 raw_config,
                 compatible_chain,
             } => {
-                self.current_raw_config.replace(raw_config);
-                self.current_view = View::Upgrade {
+                self.get_mut_current_raw_config().replace(raw_config);
+                self.set_current_view(View::Upgrade {
                     chain_name: compatible_chain,
-                };
+                });
             }
             BackendNotification::NotConfigured => {
-                self.current_view = View::Welcome;
+                self.set_current_view(View::Welcome);
             }
             BackendNotification::ConfigurationIsInvalid { error, .. } => {
-                self.status_bar_notification =
-                    StatusBarNotification::Error(format!("Configuration is invalid: {error}"));
+                self.set_status_bar_notification(StatusBarNotification::Error(format!(
+                    "Configuration is invalid: {error}"
+                )));
             }
             BackendNotification::ConfigSaveResult(result) => match result {
                 Ok(()) => {
-                    self.status_bar_notification = StatusBarNotification::Warning {
+                    self.set_status_bar_notification(StatusBarNotification::Warning {
                         message:
                             "Application restart is needed for configuration changes to take effect"
                                 .to_string(),
                         restart: true,
-                    };
+                    });
                 }
                 Err(error) => {
-                    self.status_bar_notification = StatusBarNotification::Error(format!(
+                    self.set_status_bar_notification(StatusBarNotification::Error(format!(
                         "Failed to save configuration changes: {error}"
-                    ));
+                    )));
                 }
             },
             BackendNotification::Running {
@@ -744,8 +764,9 @@ impl App {
                 chain_info,
                 chain_constants,
             } => {
-                self.current_raw_config.replace(raw_config.clone());
-                self.current_view = View::Running;
+                self.get_mut_current_raw_config()
+                    .replace(raw_config.clone());
+                self.set_current_view(View::Running);
                 self.running_view.emit(RunningInput::Initialize {
                     best_block_number,
                     reward_address_balance,
@@ -765,10 +786,10 @@ impl App {
                     .emit(RunningInput::FarmerNotification(farmer_notification));
             }
             BackendNotification::Stopped { error } => {
-                self.current_view = View::Stopped(error);
+                self.set_current_view(View::Stopped(error));
             }
             BackendNotification::IrrecoverableError { error } => {
-                self.current_view = View::Error(error);
+                self.set_current_view(View::Error(error));
             }
         }
     }
@@ -781,30 +802,33 @@ impl App {
                     .send(BackendAction::NewConfig { raw_config })
                     .await
                 {
-                    self.current_view =
-                        View::Error(anyhow::anyhow!("Failed to send config to backend: {error}"));
+                    self.set_current_view(View::Error(anyhow::anyhow!(
+                        "Failed to send config to backend: {error}"
+                    )));
                 }
             }
             ConfigurationOutput::ConfigUpdate(raw_config) => {
-                self.current_raw_config.replace(raw_config.clone());
+                self.get_mut_current_raw_config()
+                    .replace(raw_config.clone());
                 // Config is updated when application is already running, switch to corresponding screen
-                self.current_view = View::Running;
+                self.set_current_view(View::Running);
                 if let Err(error) = self
                     .backend_action_sender
                     .send(BackendAction::NewConfig { raw_config })
                     .await
                 {
-                    self.current_view =
-                        View::Error(anyhow::anyhow!("Failed to send config to backend: {error}"));
+                    self.set_current_view(View::Error(anyhow::anyhow!(
+                        "Failed to send config to backend: {error}"
+                    )));
                 }
             }
             ConfigurationOutput::Back => {
                 // Back to welcome screen
-                self.current_view = View::Welcome;
+                self.set_current_view(View::Welcome);
             }
             ConfigurationOutput::Close => {
                 // Configuration view is closed when application is already running, switch to corresponding screen
-                self.current_view = View::Running;
+                self.set_current_view(View::Running);
             }
         }
     }
@@ -819,9 +843,9 @@ impl App {
                     )))
                     .await
                 {
-                    self.current_view = View::Error(anyhow::anyhow!(
+                    self.set_current_view(View::Error(anyhow::anyhow!(
                         "Failed to send pause plotting to backend: {error}"
-                    ));
+                    )));
                 }
             }
         }
