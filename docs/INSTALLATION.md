@@ -101,4 +101,8 @@ Consider contributing to Linux packaging though!
 
 ## macOS
 
-macOS 14+ is supported on Apple Silicon hardware. Simply download `.dmg` file and install it as any other application.
+For **macOS 14 or newer** (older versions not supported) on Apple Silicon hardware (Intel CPUs are not supported) go to
+[the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached file with `.dmg`
+extension.
+
+Open it install it as any other Mac application.
