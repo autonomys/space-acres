@@ -183,8 +183,7 @@ impl FactoryComponent for FarmWidget {
 
         match input {
             FarmWidgetInput::DirectorySelected(path) => {
-                self.path.set_is_valid(true);
-                self.path.value = path;
+                self.path = MaybeValid::yes(path);
             }
             FarmWidgetInput::FarmSizeChanged(size) => {
                 self.size.set_is_valid(

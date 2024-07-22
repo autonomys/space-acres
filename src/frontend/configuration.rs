@@ -564,8 +564,7 @@ impl ConfigurationView {
             ConfigurationInput::DirectorySelected(path) => {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
-                        self.node_path.value = path;
-                        self.node_path.set_is_valid(true);
+                        self.node_path = MaybeValid::yes(path);
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
                         self.get_mut_farms().send(
