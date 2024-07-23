@@ -185,13 +185,14 @@ pub enum BackendNotification {
         /// Progress in %: 0.0..=100.0
         progress: f32,
     },
-    IncompatibleChain {
+    ConfigurationFound {
         raw_config: RawConfig,
+    },
+    IncompatibleChain {
         compatible_chain: String,
     },
     NotConfigured,
     ConfigurationIsInvalid {
-        raw_config: RawConfig,
         error: ConfigError,
     },
     ConfigSaveResult(anyhow::Result<()>),
@@ -236,10 +237,7 @@ struct LoadedBackend {
 
 enum BackendLoadingResult {
     Success(LoadedBackend),
-    IncompatibleChain {
-        raw_config: RawConfig,
-        compatible_chain: String,
-    },
+    IncompatibleChain { compatible_chain: String },
 }
 
 // NOTE: this is an async function, but it might do blocking operations and should be running on a
@@ -269,10 +267,7 @@ pub async fn create(
                     BackendAction::NewConfig { raw_config } => {
                         if let Err(error) = Config::try_from_raw_config(&raw_config).await {
                             notifications_sender
-                                .send(BackendNotification::ConfigurationIsInvalid {
-                                    raw_config: raw_config.clone(),
-                                    error,
-                                })
+                                .send(BackendNotification::ConfigurationIsInvalid { error })
                                 .await?;
                         }
 
@@ -309,15 +304,9 @@ pub async fn create(
             // Loaded successfully
             loaded_backend
         }
-        Ok(BackendLoadingResult::IncompatibleChain {
-            raw_config,
-            compatible_chain,
-        }) => {
+        Ok(BackendLoadingResult::IncompatibleChain { compatible_chain }) => {
             if let Err(error) = notifications_sender
-                .send(BackendNotification::IncompatibleChain {
-                    raw_config,
-                    compatible_chain,
-                })
+                .send(BackendNotification::IncompatibleChain { compatible_chain })
                 .await
             {
                 error!(%error, "Failed to send incompatible chain notification");
@@ -421,7 +410,6 @@ async fn load(
         LoadedConsensusChainNode::Compatible(consensus_node) => consensus_node,
         LoadedConsensusChainNode::Incompatible { compatible_chain } => {
             return Ok(Some(BackendLoadingResult::IncompatibleChain {
-                raw_config,
                 compatible_chain,
             }));
         }
@@ -614,24 +602,23 @@ async fn load_configuration(
         })
         .await?;
 
-    // TODO: Make configuration errors recoverable
-    let maybe_config = RawConfig::read_from_path(&config_file_path).await?;
+    let maybe_raw_config = RawConfig::read_from_path(&config_file_path).await?;
 
     notifications_sender
         .send(BackendNotification::Loading {
             step: LoadingStep::ConfigurationReadSuccessfully {
-                configuration_exists: maybe_config.is_some(),
+                configuration_exists: maybe_raw_config.is_some(),
             },
             progress: 0.0,
         })
         .await?;
 
-    Ok((config_file_path, maybe_config))
+    Ok((config_file_path, maybe_raw_config))
 }
 
 /// Returns `Ok(None)` if configuration failed validation
 async fn check_configuration(
-    config: &RawConfig,
+    raw_config: &RawConfig,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<Option<Config>> {
     notifications_sender
@@ -641,7 +628,13 @@ async fn check_configuration(
         })
         .await?;
 
-    match Config::try_from_raw_config(config).await {
+    notifications_sender
+        .send(BackendNotification::ConfigurationFound {
+            raw_config: raw_config.clone(),
+        })
+        .await?;
+
+    match Config::try_from_raw_config(raw_config).await {
         Ok(config) => {
             notifications_sender
                 .send(BackendNotification::Loading {
@@ -653,10 +646,7 @@ async fn check_configuration(
         }
         Err(error) => {
             notifications_sender
-                .send(BackendNotification::ConfigurationIsInvalid {
-                    raw_config: config.clone(),
-                    error,
-                })
+                .send(BackendNotification::ConfigurationIsInvalid { error })
                 .await?;
 
             Ok(None)

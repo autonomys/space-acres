@@ -744,11 +744,11 @@ impl App {
                 self.set_status_bar_notification(StatusBarNotification::None);
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
-            BackendNotification::IncompatibleChain {
-                raw_config,
-                compatible_chain,
-            } => {
-                self.get_mut_current_raw_config().replace(raw_config);
+            BackendNotification::ConfigurationFound { raw_config } => {
+                self.get_mut_current_raw_config()
+                    .replace(raw_config.clone());
+            }
+            BackendNotification::IncompatibleChain { compatible_chain } => {
                 self.set_current_view(View::Upgrade {
                     chain_name: compatible_chain,
                 });
@@ -760,14 +760,14 @@ impl App {
                     self.set_current_view(View::Configuration);
                 }
             }
-            BackendNotification::ConfigurationIsInvalid { raw_config, error } => {
-                self.get_mut_current_raw_config()
-                    .replace(raw_config.clone());
-                self.configuration_view
-                    .emit(ConfigurationInput::Reinitialize {
-                        raw_config,
-                        reconfiguration: false,
-                    });
+            BackendNotification::ConfigurationIsInvalid { error } => {
+                if let Some(raw_config) = self.current_raw_config.clone() {
+                    self.configuration_view
+                        .emit(ConfigurationInput::Reinitialize {
+                            raw_config,
+                            reconfiguration: false,
+                        });
+                }
                 self.set_status_bar_notification(StatusBarNotification::Warning {
                     message: format!("Configuration is invalid: {error}",),
                     ok: true,
