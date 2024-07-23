@@ -190,11 +190,8 @@ pub enum BackendNotification {
         compatible_chain: String,
     },
     NotConfigured,
-    // TODO: Indicate what is invalid so that UI can render it properly
     ConfigurationIsInvalid {
-        // TODO: Remove suppression once used
-        #[allow(dead_code)]
-        config: RawConfig,
+        raw_config: RawConfig,
         error: ConfigError,
     },
     ConfigSaveResult(anyhow::Result<()>),
@@ -273,7 +270,7 @@ pub async fn create(
                         if let Err(error) = Config::try_from_raw_config(&raw_config).await {
                             notifications_sender
                                 .send(BackendNotification::ConfigurationIsInvalid {
-                                    config: raw_config.clone(),
+                                    raw_config: raw_config.clone(),
                                     error,
                                 })
                                 .await?;
@@ -657,7 +654,7 @@ async fn check_configuration(
         Err(error) => {
             notifications_sender
                 .send(BackendNotification::ConfigurationIsInvalid {
-                    config: config.clone(),
+                    raw_config: config.clone(),
                     error,
                 })
                 .await?;

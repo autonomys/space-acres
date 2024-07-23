@@ -123,6 +123,7 @@ enum AppInput {
     InitialConfiguration,
     StartUpgrade,
     Restart,
+    CloseStatusBarWarning,
     ShowWindow,
     Quit,
 }
@@ -165,6 +166,8 @@ enum StatusBarNotification {
     None,
     Warning {
         message: String,
+        /// Whether to show ok button
+        ok: bool,
         /// Whether to show restart button
         restart: bool,
     },
@@ -188,6 +191,13 @@ impl StatusBarNotification {
         match self {
             Self::None => "",
             Self::Warning { message, .. } | Self::Error(message) => message.as_str(),
+        }
+    }
+
+    fn ok_button(&self) -> bool {
+        match self {
+            Self::Warning { ok, .. } => *ok,
+            _ => false,
         }
     }
 
@@ -218,7 +228,7 @@ struct App {
     #[do_not_track]
     loading_view: Controller<LoadingView>,
     #[do_not_track]
-    configuration_view: Controller<ConfigurationView>,
+    configuration_view: AsyncController<ConfigurationView>,
     #[do_not_track]
     running_view: Controller<RunningView>,
     #[do_not_track]
@@ -431,6 +441,13 @@ impl AsyncComponent for App {
                             #[track = "model.changed_status_bar_notification()"]
                             set_visible: model.status_bar_notification.restart_button(),
                         },
+
+                        gtk::Button {
+                            connect_clicked => AppInput::CloseStatusBarWarning,
+                            set_label: "Ok",
+                            #[track = "model.changed_status_bar_notification()"]
+                            set_visible: model.status_bar_notification.ok_button(),
+                        },
                     },
                 },
             }
@@ -640,9 +657,18 @@ impl AsyncComponent for App {
             }
             AppInput::OpenReconfiguration => {
                 self.menu_popover.hide();
-                if let Some(raw_config) = self.current_raw_config.clone() {
+                let configuration_already_opened = matches!(
+                    self.current_view,
+                    View::Configuration | View::Reconfiguration
+                );
+                if !configuration_already_opened
+                    && let Some(raw_config) = self.current_raw_config.clone()
+                {
                     self.configuration_view
-                        .emit(ConfigurationInput::Reconfigure(raw_config));
+                        .emit(ConfigurationInput::Reinitialize {
+                            raw_config,
+                            reconfiguration: true,
+                        });
                     self.set_current_view(View::Reconfiguration);
                 }
             }
@@ -672,6 +698,9 @@ impl AsyncComponent for App {
             AppInput::Restart => {
                 *self.exit_status_code.lock() = AppStatusCode::Restart;
                 relm4::main_application().quit();
+            }
+            AppInput::CloseStatusBarWarning => {
+                self.set_status_bar_notification(StatusBarNotification::None);
             }
             AppInput::ShowWindow => {
                 root.present();
@@ -704,7 +733,10 @@ impl App {
             error!(%error, path = %app_data_dir.display(), "Failed to open logs folder");
         }
     }
+
     fn process_backend_notification(&mut self, notification: BackendNotification) {
+        debug!(?notification, "New backend notification");
+
         match notification {
             // TODO: Render progress
             BackendNotification::Loading { step, progress: _ } => {
@@ -722,12 +754,25 @@ impl App {
                 });
             }
             BackendNotification::NotConfigured => {
-                self.set_current_view(View::Welcome);
+                if self.current_raw_config.is_none() {
+                    self.set_current_view(View::Welcome);
+                } else {
+                    self.set_current_view(View::Configuration);
+                }
             }
-            BackendNotification::ConfigurationIsInvalid { error, .. } => {
-                self.set_status_bar_notification(StatusBarNotification::Error(format!(
-                    "Configuration is invalid: {error}"
-                )));
+            BackendNotification::ConfigurationIsInvalid { raw_config, error } => {
+                self.get_mut_current_raw_config()
+                    .replace(raw_config.clone());
+                self.configuration_view
+                    .emit(ConfigurationInput::Reinitialize {
+                        raw_config,
+                        reconfiguration: false,
+                    });
+                self.set_status_bar_notification(StatusBarNotification::Warning {
+                    message: format!("Configuration is invalid: {error}",),
+                    ok: true,
+                    restart: false,
+                });
             }
             BackendNotification::ConfigSaveResult(result) => match result {
                 Ok(()) => {
@@ -735,6 +780,7 @@ impl App {
                         message:
                             "Application restart is needed for configuration changes to take effect"
                                 .to_string(),
+                        ok: false,
                         restart: true,
                     });
                 }

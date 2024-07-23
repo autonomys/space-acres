@@ -11591,6 +11591,7 @@ dependencies = [
  "subspace-runtime-primitives",
  "subspace-service",
  "supports-color",
+ "tempfile",
  "thiserror",
  "thread-priority",
  "tokio",

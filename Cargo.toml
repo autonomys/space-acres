@@ -105,6 +105,7 @@ subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = 
 subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "18dd43ab3ca9666aec256fb99c6cb7b8e4eeaea5" }
 subspace-service = { git = "https://github.com/subspace/subspace", rev = "18dd43ab3ca9666aec256fb99c6cb7b8e4eeaea5" }
 supports-color = "3.0.0"
+tempfile = "3.10.1"
 thiserror = "1.0.61"
 thread-priority = "1.1.0"
 tokio = { version = "1.38.0", features = ["fs", "time"] }
