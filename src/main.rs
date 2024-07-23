@@ -21,6 +21,7 @@ use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
 use parking_lot::Mutex;
+use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver, RELM_THREADS};
 use relm4_icons::icon_name;
@@ -116,8 +117,8 @@ enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
     Running(RunningOutput),
-    OpenLogFolder,
-    OpenReconfiguration,
+    OpenLogsFolder,
+    ChangeConfiguration,
     OpenFeedbackLink,
     ShowAboutDialog,
     InitialConfiguration,
@@ -215,6 +216,16 @@ struct AppInit {
     minimize_on_start: bool,
 }
 
+relm4::new_action_group!(MainMenu, "main_menu");
+relm4::new_stateless_action!(MainMenuShowLogs, MainMenu, "show_logs");
+relm4::new_stateless_action!(
+    MainMenuChangeConfiguration,
+    MainMenu,
+    "change_configuration"
+);
+relm4::new_stateless_action!(MainMenuShareFeedback, MainMenu, "share_feedback");
+relm4::new_stateless_action!(MainMenuAbout, MainMenu, "about");
+
 #[tracker::track]
 struct App {
     #[no_eq]
@@ -232,8 +243,6 @@ struct App {
     #[do_not_track]
     running_view: Controller<RunningView>,
     #[do_not_track]
-    menu_popover: gtk::Popover,
-    #[do_not_track]
     about_dialog: gtk::AboutDialog,
     #[do_not_track]
     app_data_dir: Option<PathBuf>,
@@ -241,6 +250,8 @@ struct App {
     exit_status_code: Arc<Mutex<AppStatusCode>>,
     #[do_not_track]
     tray_icon: Option<TrayIcon<TrayMenuSignal>>,
+    #[do_not_track]
+    loaded: bool,
     // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
     #[do_not_track]
     _background_tasks: Box<dyn Future<Output = ()>>,
@@ -270,42 +281,22 @@ impl AsyncComponent for App {
 
                         model.new_version.widget().clone(),
 
+                        // TODO: Two menu buttons is a hack for not showing configuration in some
+                        //  cases, would be nice to just hide corresponding menu item instead
                         gtk::MenuButton {
                             set_direction: gtk::ArrowType::None,
                             set_icon_name: icon_name::MENU_LARGE,
-                            #[wrap(Some)]
-                            set_popover: menu_popover = &gtk::Popover {
-                                set_halign: gtk::Align::End,
-                                set_position: gtk::PositionType::Bottom,
+                            set_popover: Some(&gtk::PopoverMenu::from_model(Some(&main_menu_without_change_configuration))),
+                            #[track = "model.changed_current_raw_config()"]
+                            set_visible: model.current_raw_config.is_none(),
+                        },
 
-                                gtk::Box {
-                                    set_orientation: gtk::Orientation::Vertical,
-                                    set_spacing: 5,
-
-                                    gtk::Button {
-                                        connect_clicked => AppInput::OpenLogFolder,
-                                        set_label: "Show logs in file manager",
-                                        set_visible: model.app_data_dir.is_some(),
-                                    },
-
-                                    gtk::Button {
-                                        connect_clicked => AppInput::OpenReconfiguration,
-                                        set_label: "Update configuration",
-                                        #[track = "model.changed_current_raw_config()"]
-                                        set_visible: model.current_raw_config.is_some(),
-                                    },
-
-                                    gtk::Button {
-                                        connect_clicked => AppInput::OpenFeedbackLink,
-                                        set_label: "Share feedback",
-                                    },
-
-                                    gtk::Button {
-                                        connect_clicked => AppInput::ShowAboutDialog,
-                                        set_label: "About",
-                                    },
-                                },
-                            },
+                        gtk::MenuButton {
+                            set_direction: gtk::ArrowType::None,
+                            set_icon_name: icon_name::MENU_LARGE,
+                            set_popover: Some(&gtk::PopoverMenu::from_model(Some(&main_menu))),
+                            #[track = "model.changed_current_raw_config()"]
+                            set_visible: model.current_raw_config.is_some(),
                         },
                     },
                 },
@@ -454,6 +445,21 @@ impl AsyncComponent for App {
         }
     }
 
+    menu! {
+        main_menu_without_change_configuration: {
+            "Show logs in file manager" => MainMenuShowLogs,
+            "Share feedback" => MainMenuShareFeedback,
+            "About" => MainMenuAbout,
+        },
+
+        main_menu: {
+            "Show logs in file manager" => MainMenuShowLogs,
+            "Change configuration" => MainMenuChangeConfiguration,
+            "Share feedback" => MainMenuShareFeedback,
+            "About" => MainMenuAbout,
+        }
+    }
+
     async fn init(
         init: Self::Init,
         root: Self::Root,
@@ -584,7 +590,7 @@ impl AsyncComponent for App {
                 .ok()
         };
 
-        let mut model = Self {
+        let model = Self {
             current_view: View::Loading,
             current_raw_config: None,
             status_bar_notification: StatusBarNotification::None,
@@ -593,12 +599,11 @@ impl AsyncComponent for App {
             loading_view,
             configuration_view,
             running_view,
-            // Hack to initialize a field before this data structure is used
-            menu_popover: gtk::Popover::default(),
             about_dialog,
             app_data_dir: init.app_data_dir,
             exit_status_code: init.exit_status_code,
             tray_icon: tray,
+            loaded: false,
             _background_tasks: Box::new(async move {
                 // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
                 // notification forwarder sending notification to the component that is already shut down
@@ -616,7 +621,36 @@ impl AsyncComponent for App {
 
         let widgets = view_output!();
 
-        model.menu_popover = widgets.menu_popover.clone();
+        let mut menu_actions_group = RelmActionGroup::<MainMenu>::new();
+        menu_actions_group.add_action(RelmAction::<MainMenuShowLogs>::new_stateless({
+            let sender = sender.clone();
+
+            move |_| {
+                sender.input(AppInput::OpenLogsFolder);
+            }
+        }));
+        menu_actions_group.add_action(RelmAction::<MainMenuChangeConfiguration>::new_stateless({
+            let sender = sender.clone();
+
+            move |_| {
+                sender.input(AppInput::ChangeConfiguration);
+            }
+        }));
+        menu_actions_group.add_action(RelmAction::<MainMenuShareFeedback>::new_stateless({
+            let sender = sender.clone();
+
+            move |_| {
+                sender.input(AppInput::OpenFeedbackLink);
+            }
+        }));
+        menu_actions_group.add_action(RelmAction::<MainMenuAbout>::new_stateless({
+            let sender = sender.clone();
+
+            move |_| {
+                sender.input(AppInput::ShowAboutDialog);
+            }
+        }));
+        menu_actions_group.register_for_widget(&root);
 
         if init.minimize_on_start {
             match model.tray_icon {
@@ -642,7 +676,7 @@ impl AsyncComponent for App {
         self.reset();
 
         match input {
-            AppInput::OpenLogFolder => {
+            AppInput::OpenLogsFolder => {
                 self.open_log_folder();
             }
             AppInput::BackendNotification(notification) => {
@@ -655,8 +689,7 @@ impl AsyncComponent for App {
             AppInput::Running(running_output) => {
                 self.process_running_output(running_output).await;
             }
-            AppInput::OpenReconfiguration => {
-                self.menu_popover.hide();
+            AppInput::ChangeConfiguration => {
                 let configuration_already_opened = matches!(
                     self.current_view,
                     View::Configuration | View::Reconfiguration
@@ -673,13 +706,11 @@ impl AsyncComponent for App {
                 }
             }
             AppInput::OpenFeedbackLink => {
-                self.menu_popover.hide();
                 if let Err(error) = open::that_detached("https://linktr.ee/subspace_network") {
                     error!(%error, "Failed to open share feedback page in default browser");
                 }
             }
             AppInput::ShowAboutDialog => {
-                self.menu_popover.hide();
                 self.about_dialog.show();
             }
             AppInput::InitialConfiguration => {
@@ -799,6 +830,7 @@ impl App {
                 chain_info,
                 chain_constants,
             } => {
+                self.loaded = true;
                 self.get_mut_current_raw_config()
                     .replace(raw_config.clone());
                 self.set_current_view(View::Running);
@@ -862,8 +894,13 @@ impl App {
                 self.set_current_view(View::Welcome);
             }
             ConfigurationOutput::Close => {
-                // Configuration view is closed when application is already running, switch to corresponding screen
-                self.set_current_view(View::Running);
+                // Configuration view is closed when application is already running, switch to
+                // corresponding screen
+                if self.loaded {
+                    self.set_current_view(View::Running);
+                } else {
+                    self.set_current_view(View::Loading);
+                }
             }
         }
     }
