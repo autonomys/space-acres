@@ -51,7 +51,7 @@ frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "562615
 fs4 = "0.8.4"
 futures = "0.3.30"
 futures-timer = "3.0.3"
-gtk = { version = "0.7.3", package = "gtk4" }
+gtk = { version = "0.8", package = "gtk4" }
 hex = "0.4.3"
 image = { version = "0.25", default-features = false, features = ["png"] }
 mimalloc = "0.1.43"
@@ -61,9 +61,9 @@ open = "5.2.0"
 pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
 parity-scale-codec = "3.6.12"
 parking_lot = "0.12.3"
-relm4 = "0.7.0-rc.1"
-relm4-components = { version = "0.7.0-rc.1", default-features = false }
-relm4-icons = { version = "0.7.0-alpha.2", features = ["checkmark", "cross", "grid-filled", "menu-large", "pause", "processor", "puzzle-piece", "size-horizontally", "speedometer2", "speedometer3", "speedometer4", "ssd", "wallet2", "warning"] }
+relm4 = "0.8.0"
+relm4-components = { version = "0.8.0", default-features = false }
+relm4-icons = { path = "../icons" }
 reqwest = { version = "0.12.4", default-features = false, features = ["json", "rustls-tls"] }
 sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
 sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
@@ -124,6 +124,7 @@ ksni = "0.2.2"
 
 [build-dependencies]
 fluent-static-codegen = "0.3.2"
+relm4-icons-build = { path = "../icons/build_icons" }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"

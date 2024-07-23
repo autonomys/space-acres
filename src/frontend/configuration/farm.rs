@@ -1,5 +1,6 @@
 use crate::backend::config::{Farm, MIN_FARM_SIZE};
 use crate::frontend::configuration::MaybeValid;
+use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use std::fmt;
@@ -11,7 +12,6 @@ use crate::frontend::configuration::utils::is_directory_writable;
 use crate::frontend::translations::{AsDefaultStr, T};
 use relm4::AsyncFactorySender;
 use relm4_components::simple_combo_box::SimpleComboBox;
-use relm4_icons::icon_name;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tracing::warn;
@@ -154,7 +154,7 @@ impl AsyncFactoryComponent for FarmWidget {
                                     )
                                     .as_str(),
                             ),
-                            set_primary_icon_name: Some(icon_name::SSD),
+                            set_primary_icon_name: Some(icon_names::SSD),
                             set_primary_icon_activatable: false,
                             set_primary_icon_sensitive: false,
                             #[track = "self.path.changed_is_valid()"]
@@ -199,7 +199,7 @@ impl AsyncFactoryComponent for FarmWidget {
                             set_placeholder_text: Some(
                                 &T.configuration_farm_fixed_size_placeholder(),
                             ),
-                            set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
+                            set_primary_icon_name: Some(icon_names::SIZE_HORIZONTALLY),
                             set_primary_icon_activatable: false,
                             set_primary_icon_sensitive: false,
                             #[track = "self.fixed_size.changed_is_valid()"]
@@ -231,7 +231,7 @@ impl AsyncFactoryComponent for FarmWidget {
                             set_placeholder_text: Some(
                                 &T.configuration_farm_free_percentage_size_placeholder(),
                             ),
-                            set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
+                            set_primary_icon_name: Some(icon_names::SIZE_HORIZONTALLY),
                             set_primary_icon_activatable: false,
                             set_primary_icon_sensitive: false,
                             #[track = "self.free_percentage_size.changed_is_valid()"]
@@ -254,7 +254,7 @@ impl AsyncFactoryComponent for FarmWidget {
                                 warn!("Can't send delete output");
                             }
                         },
-                        set_icon_name: icon_name::CROSS,
+                        set_icon_name: icon_names::CROSS,
                         set_tooltip: &T.configuration_farm_delete(),
                     },
                 },

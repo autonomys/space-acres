@@ -1,4 +1,5 @@
 use fluent_static_codegen::{generate, MessageBundleCodeGenerator};
+use relm4_icons_build::Config;
 use std::path::Path;
 use std::{env, fs};
 
@@ -28,4 +29,33 @@ fn main() {
         res.set_icon("res\\windows\\space-acres.ico");
         res.compile().unwrap();
     }
+
+    let config = Config {
+        icons: Some(
+            vec![
+                "ssd",
+                "size-horizontally",
+                "cross",
+                "checkmark",
+                "wallet2",
+                "warning",
+                "puzzle-piece",
+                "pause",
+                "menu-large",
+                "processor",
+                "speedometer2",
+                "speedometer3",
+                "speedometer4",
+                "grid-filled",
+            ]
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
+        ),
+        app_id: Some("com.github.autonomys.space-acres".to_string()),
+        base_resource_path: None,
+        icons_folder: None,
+    };
+
+    relm4_icons_build::bundle_icons(config);
 }
