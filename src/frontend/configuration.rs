@@ -1,11 +1,13 @@
 mod farm;
+mod utils;
 
 use crate::backend::config::{NetworkConfiguration, RawConfig};
 use crate::frontend::configuration::farm::{
     FarmWidget, FarmWidgetInit, FarmWidgetInput, FarmWidgetOutput,
 };
+use crate::frontend::configuration::utils::is_directory_writable;
 use gtk::prelude::*;
-use relm4::factory::FactoryVecDeque;
+use relm4::factory::AsyncFactoryVecDeque;
 use relm4::prelude::*;
 use relm4_components::open_dialog::{
     OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
@@ -32,7 +34,10 @@ pub enum ConfigurationInput {
     SubspacePortChanged(u16),
     FasterNetworkingChanged(bool),
     Delete(DynamicIndex),
-    Reconfigure(RawConfig),
+    Reinitialize {
+        raw_config: RawConfig,
+        reconfiguration: bool,
+    },
     Help,
     Start,
     Back,
@@ -135,7 +140,7 @@ pub struct ConfigurationView {
     #[do_not_track]
     node_path: MaybeValid<PathBuf>,
     #[no_eq]
-    farms: FactoryVecDeque<FarmWidget>,
+    farms: AsyncFactoryVecDeque<FarmWidget>,
     #[do_not_track]
     network_configuration: NetworkConfigurationWrapper,
     #[do_not_track]
@@ -146,8 +151,8 @@ pub struct ConfigurationView {
     reconfiguration: bool,
 }
 
-#[relm4::component(pub)]
-impl Component for ConfigurationView {
+#[relm4::component(pub async)]
+impl AsyncComponent for ConfigurationView {
     type Init = gtk::Window;
     type Input = ConfigurationInput;
     type Output = ConfigurationOutput;
@@ -223,6 +228,14 @@ impl Component for ConfigurationView {
                                         ),
                                         set_label: "Select",
                                     },
+                                },
+
+                                gtk::Label {
+                                    add_css_class: "error-label",
+                                    set_halign: gtk::Align::Start,
+                                    set_label: "Folder doesn't exist or user is lacking write permissions",
+                                    #[track = "self.node_path.changed_is_valid()"]
+                                    set_visible: !model.node_path.is_valid && model.node_path.value != PathBuf::new(),
                                 },
                             },
                         },
@@ -435,10 +448,11 @@ impl Component for ConfigurationView {
                                     add_css_class: "suggested-action",
                                     connect_clicked => ConfigurationInput::Save,
                                     #[track = "model.reward_address.changed_is_valid() || model.node_path.changed_is_valid() || model.changed_farms()"]
-                                    set_sensitive: model.reward_address.is_valid
-                                        && model.node_path.is_valid
-                                        && !model.farms.is_empty()
-                                        && model.farms.iter().all(FarmWidget::valid),
+                                    set_sensitive:
+                                        model.reward_address.is_valid
+                                            && model.node_path.is_valid
+                                            && !model.farms.is_empty()
+                                            && model.farms.iter().all(|maybe_farm| maybe_farm.map(FarmWidget::valid).unwrap_or_default()),
 
                                     gtk::Label {
                                         set_label: "Save",
@@ -477,7 +491,7 @@ impl Component for ConfigurationView {
                                         model.reward_address.is_valid
                                             && model.node_path.is_valid
                                             && !model.farms.is_empty()
-                                            && model.farms.iter().all(FarmWidget::valid),
+                                            && model.farms.iter().all(|maybe_farm| maybe_farm.map(FarmWidget::valid).unwrap_or_default()),
 
                                     gtk::Label {
                                         set_label: "Start",
@@ -492,11 +506,11 @@ impl Component for ConfigurationView {
         }
     }
 
-    fn init(
+    async fn init(
         parent_root: Self::Init,
         root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> ComponentParts<Self> {
+        sender: AsyncComponentSender<Self>,
+    ) -> AsyncComponentParts<Self> {
         let open_dialog = OpenDialog::builder()
             .transient_for_native(&parent_root)
             .launch(OpenDialogSettings {
@@ -509,7 +523,7 @@ impl Component for ConfigurationView {
                 OpenDialogResponse::Cancel => ConfigurationInput::Ignore,
             });
 
-        let mut farms = FactoryVecDeque::builder()
+        let mut farms = AsyncFactoryVecDeque::builder()
             .launch(gtk::ListBox::new())
             .forward(sender.input_sender(), |output| match output {
                 FarmWidgetOutput::OpenDirectory(index) => {
@@ -535,22 +549,31 @@ impl Component for ConfigurationView {
         let configuration_list_box = model.farms.widget();
         let widgets = view_output!();
 
-        ComponentParts { model, widgets }
+        AsyncComponentParts { model, widgets }
     }
 
-    fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
+    async fn update(
+        &mut self,
+        input: Self::Input,
+        sender: AsyncComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
         // Reset changes
         self.reset();
         self.reward_address.reset();
         self.node_path.reset();
         self.network_configuration.reset();
 
-        self.process_input(input, sender);
+        self.process_input(input, sender).await;
     }
 }
 
 impl ConfigurationView {
-    fn process_input(&mut self, input: ConfigurationInput, sender: ComponentSender<Self>) {
+    async fn process_input(
+        &mut self,
+        input: ConfigurationInput,
+        sender: AsyncComponentSender<Self>,
+    ) {
         match input {
             ConfigurationInput::AddFarm => {
                 self.get_mut_farms()
@@ -564,7 +587,11 @@ impl ConfigurationView {
             ConfigurationInput::DirectorySelected(path) => {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
-                        self.node_path = MaybeValid::yes(path);
+                        self.node_path = if is_directory_writable(path.clone()).await {
+                            MaybeValid::yes(path)
+                        } else {
+                            MaybeValid::no(path)
+                        };
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
                         self.get_mut_farms().send(
@@ -603,22 +630,34 @@ impl ConfigurationView {
                     .set_is_valid(parse_ss58_reward_address(new_reward_address).is_ok());
                 self.reward_address.value = new_reward_address.to_string();
             }
-            ConfigurationInput::Reconfigure(raw_config) => {
-                self.reward_address = MaybeValid::yes(raw_config.reward_address().to_string());
-                self.node_path = MaybeValid::yes(raw_config.node_path().clone());
+            ConfigurationInput::Reinitialize {
+                raw_config,
+                reconfiguration,
+            } => {
+                let new_reward_address = raw_config.reward_address().trim();
+                self.reward_address
+                    .set_is_valid(parse_ss58_reward_address(new_reward_address).is_ok());
+                self.reward_address
+                    .set_value(new_reward_address.to_string());
+
+                self.node_path = if is_directory_writable(raw_config.node_path().clone()).await {
+                    MaybeValid::yes(raw_config.node_path().clone())
+                } else {
+                    MaybeValid::no(raw_config.node_path().clone())
+                };
                 {
                     let mut farms = self.get_mut_farms().guard();
                     farms.clear();
                     for farm in raw_config.farms() {
                         farms.push_back(FarmWidgetInit {
-                            path: MaybeValid::yes(farm.path.clone()),
-                            size: MaybeValid::yes(farm.size.clone()),
+                            path: farm.path.clone(),
+                            size: farm.size.clone(),
                         });
                     }
                 }
                 self.network_configuration =
                     NetworkConfigurationWrapper::from(raw_config.network());
-                self.reconfiguration = true;
+                self.reconfiguration = reconfiguration;
             }
             ConfigurationInput::Help => {
                 if let Err(error) = open::that_detached(
@@ -628,11 +667,10 @@ impl ConfigurationView {
                 }
             }
             ConfigurationInput::Start => {
-                if sender
-                    .output(ConfigurationOutput::StartWithNewConfig(
-                        self.create_raw_config(),
-                    ))
-                    .is_err()
+                if let Some(raw_config) = self.create_raw_config()
+                    && sender
+                        .output(ConfigurationOutput::StartWithNewConfig(raw_config))
+                        .is_err()
                 {
                     debug!("Failed to send ConfigurationOutput::StartWithNewConfig");
                 }
@@ -648,9 +686,10 @@ impl ConfigurationView {
                 }
             }
             ConfigurationInput::Save => {
-                if sender
-                    .output(ConfigurationOutput::ConfigUpdate(self.create_raw_config()))
-                    .is_err()
+                if let Some(raw_config) = self.create_raw_config()
+                    && sender
+                        .output(ConfigurationOutput::ConfigUpdate(raw_config))
+                        .is_err()
                 {
                     debug!("Failed to send ConfigurationOutput::ConfigUpdate");
                 }
@@ -666,16 +705,20 @@ impl ConfigurationView {
     }
 
     /// Create raw config from own state
-    fn create_raw_config(&self) -> RawConfig {
-        RawConfig::V0 {
+    fn create_raw_config(&self) -> Option<RawConfig> {
+        Some(RawConfig::V0 {
             reward_address: String::clone(&self.reward_address),
             node_path: PathBuf::clone(&self.node_path),
-            farms: self.farms.iter().map(FarmWidget::farm).collect(),
+            farms: self
+                .farms
+                .iter()
+                .map(|maybe_farm_widget| Some(maybe_farm_widget?.farm()))
+                .collect::<Option<Vec<_>>>()?,
             network: NetworkConfiguration {
                 substrate_port: self.network_configuration.substrate_port,
                 subspace_port: self.network_configuration.subspace_port,
                 faster_networking: self.network_configuration.faster_networking,
             },
-        }
+        })
     }
 }

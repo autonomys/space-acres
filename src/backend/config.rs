@@ -6,9 +6,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use subspace_core_primitives::PublicKey;
 use subspace_farmer::utils::ss58::{parse_ss58_reward_address, Ss58ParsingError};
-use tokio::fs;
-use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
+use tokio::task;
 
 const DEFAULT_SUBSTRATE_PORT: u16 = 30333;
 const DEFAULT_SUBSPACE_PORT: u16 = 30433;
@@ -90,7 +89,7 @@ impl RawConfig {
         };
 
         let app_config_dir = config_local_dir.join(env!("CARGO_PKG_NAME"));
-        let config_file_path = match fs::create_dir(&app_config_dir).await {
+        let config_file_path = match tokio::fs::create_dir(&app_config_dir).await {
             Ok(()) => app_config_dir.join("config.json"),
             Err(error) => {
                 if error.kind() == io::ErrorKind::AlreadyExists {
@@ -105,7 +104,7 @@ impl RawConfig {
     }
 
     pub async fn read_from_path(config_file_path: &Path) -> Result<Option<Self>, RawConfigError> {
-        match fs::read_to_string(config_file_path).await {
+        match tokio::fs::read_to_string(config_file_path).await {
             Ok(config) => serde_json::from_str::<Self>(&config)
                 .map(Some)
                 .map_err(RawConfigError::FailedToDeserialize),
@@ -120,7 +119,7 @@ impl RawConfig {
     }
 
     pub async fn write_to_path(&self, config_file_path: &Path) -> io::Result<()> {
-        let mut options = OpenOptions::new();
+        let mut options = tokio::fs::OpenOptions::new();
         options.write(true).truncate(true).create(true);
         #[cfg(unix)]
         options.mode(0o600);
@@ -198,14 +197,14 @@ impl Config {
         })?;
 
         let node_path = raw_config.node_path().clone();
-        check_path(&node_path).await?;
+        check_path(node_path.clone()).await?;
 
         let mut farms = Vec::with_capacity(raw_config.farms().len());
 
         for farm in raw_config.farms() {
             let path = PathBuf::from(&farm.path);
 
-            check_path(&path).await?;
+            check_path(path.clone()).await?;
 
             let size = ByteSize::from_str(&farm.size)
                 .map_err(|error| ConfigError::InvalidSizeFormat {
@@ -229,35 +228,62 @@ impl Config {
     }
 }
 
-async fn check_path(path: &Path) -> Result<(), ConfigError> {
-    let exists = fs::try_exists(&path)
-        .await
-        .map_err(|error| ConfigError::PathError {
+async fn check_path(path: PathBuf) -> Result<(), ConfigError> {
+    let path_string = path.display().to_string();
+    task::spawn_blocking(move || {
+        let exists = path.try_exists().map_err(|error| ConfigError::PathError {
             path: path.display().to_string(),
             error,
         })?;
 
-    if !exists {
-        let Some(parent) = path.parent() else {
-            return Err(ConfigError::InvalidPath {
+        if exists {
+            // Try to create a temporary file to check if path is writable
+            tempfile::tempfile_in(&path).map_err(|error| ConfigError::PathError {
                 path: path.display().to_string(),
-            });
-        };
+                error: io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("Path not writable: {error}"),
+                ),
+            })?;
+        } else {
+            let Some(parent) = path.parent() else {
+                return Err(ConfigError::InvalidPath {
+                    path: path.display().to_string(),
+                });
+            };
 
-        let parent_exists =
-            fs::try_exists(parent)
-                .await
+            let parent_exists = parent
+                .try_exists()
                 .map_err(|error| ConfigError::PathError {
                     path: path.display().to_string(),
                     error,
                 })?;
 
-        if !parent_exists {
-            return Err(ConfigError::InvalidPath {
-                path: path.display().to_string(),
-            });
-        }
-    }
+            if !parent_exists {
+                return Err(ConfigError::InvalidPath {
+                    path: path.display().to_string(),
+                });
+            }
 
-    Ok(())
+            // Try to create a temporary file in parent directory to check if path is writable, and
+            // it would be possible to create a parent directory later
+            tempfile::tempfile_in(parent).map_err(|error| ConfigError::PathError {
+                path: path.display().to_string(),
+                error: io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("Path doesn't exist and can't be created: {error}"),
+                ),
+            })?;
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|error| ConfigError::PathError {
+        path: path_string,
+        error: io::Error::new(
+            io::ErrorKind::Other,
+            format!("Failed to spawn tokio task: {error}"),
+        ),
+    })?
 }
