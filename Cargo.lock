@@ -8596,7 +8596,7 @@ checksum = "c6891c5cdb090a76e5eb3ec525dafe0171a751cb54156b6d62e1e43e6d2188db"
 dependencies = [
  "once_cell",
  "relm4",
- "tracker 0.2.1",
+ "tracker",
 ]
 
 [[package]]
@@ -11596,7 +11596,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "tracker 0.2.2",
+ "tracker",
  "winres",
 ]
 
@@ -12701,36 +12701,18 @@ dependencies = [
 
 [[package]]
 name = "tracker"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9636d15e370187f6bf55b79ce62ebf4221998bc0ba1774d7fa208b007f6bf8"
-dependencies = [
- "tracker-macros 0.2.1",
-]
-
-[[package]]
-name = "tracker"
 version = "0.2.2"
-source = "git+https://github.com/AaronErhardt/Tracker?rev=a672f1eb2aa46479f83a136b07a7abf79aa85157#a672f1eb2aa46479f83a136b07a7abf79aa85157"
-dependencies = [
- "tracker-macros 0.2.2",
-]
-
-[[package]]
-name = "tracker-macros"
-version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca029746fbe0efda3298205de77bf759d7fef23ac97902641e0b49a623b0455f"
+checksum = "ce5c98457ff700aaeefcd4a4a492096e78a2af1dd8523c66e94a3adb0fdbd415"
 dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.68",
+ "tracker-macros",
 ]
 
 [[package]]
 name = "tracker-macros"
 version = "0.2.2"
-source = "git+https://github.com/AaronErhardt/Tracker?rev=a672f1eb2aa46479f83a136b07a7abf79aa85157#a672f1eb2aa46479f83a136b07a7abf79aa85157"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc19eb2373ccf3d1999967c26c3d44534ff71ae5d8b9dacf78f4b13132229e48"
 dependencies = [
  "proc-macro2",
  "quote",
