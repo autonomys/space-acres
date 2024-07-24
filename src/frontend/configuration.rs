@@ -28,6 +28,7 @@ pub enum DirectoryKind {
 pub enum ConfigurationInput {
     AddFarm,
     RewardAddressChanged(String),
+    CreateWallet,
     OpenDirectory(DirectoryKind),
     DirectorySelected(PathBuf),
     SubstratePortChanged(u16),
@@ -253,40 +254,50 @@ impl AsyncComponent for ConfigurationView {
                                     set_label: "Rewards address",
                                 },
 
-                                gtk::Entry {
-                                    connect_activate[sender] => move |entry| {
-                                        sender.input(ConfigurationInput::RewardAddressChanged(
-                                            entry.text().into()
-                                        ));
+                                gtk::Box {
+                                    add_css_class: "linked",
+
+                                    gtk::Entry {
+                                        connect_activate[sender] => move |entry| {
+                                            sender.input(ConfigurationInput::RewardAddressChanged(
+                                                entry.text().into()
+                                            ));
+                                        },
+                                        connect_changed[sender] => move |entry| {
+                                            sender.input(ConfigurationInput::RewardAddressChanged(
+                                                entry.text().into()
+                                            ));
+                                        },
+                                        #[track = "model.reward_address.changed_is_valid()"]
+                                        set_css_classes: if model.reward_address.is_valid {
+                                            &["valid-input"]
+                                        } else {
+                                            &["invalid-input"]
+                                        },
+                                        set_hexpand: true,
+                                        set_placeholder_text: Some(
+                                            "Example: stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                        ),
+                                        set_primary_icon_name: Some(icon_name::WALLET2),
+                                        set_primary_icon_activatable: false,
+                                        set_primary_icon_sensitive: false,
+                                        #[track = "model.reward_address.changed_is_valid()"]
+                                        set_secondary_icon_name: model.reward_address.icon(),
+                                        set_secondary_icon_activatable: false,
+                                        set_secondary_icon_sensitive: false,
+                                        #[track = "model.reward_address.changed_value()"]
+                                        set_text: &model.reward_address,
+                                        set_tooltip_markup: Some(
+                                            "Use Subwallet or polkadot{.js} extension or any other \
+                                            Substrate wallet to create it first (address for any Substrate \
+                                            chain in SS58 format works)"
+                                        ),
                                     },
-                                    connect_changed[sender] => move |entry| {
-                                        sender.input(ConfigurationInput::RewardAddressChanged(
-                                            entry.text().into()
-                                        ));
+
+                                    gtk::Button {
+                                        connect_clicked => ConfigurationInput::CreateWallet,
+                                        set_label: "Create wallet",
                                     },
-                                    #[track = "model.reward_address.changed_is_valid()"]
-                                    set_css_classes: if model.reward_address.is_valid {
-                                        &["valid-input"]
-                                    } else {
-                                        &["invalid-input"]
-                                    },
-                                    set_placeholder_text: Some(
-                                        "Example: stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
-                                    ),
-                                    set_primary_icon_name: Some(icon_name::WALLET2),
-                                    set_primary_icon_activatable: false,
-                                    set_primary_icon_sensitive: false,
-                                    #[track = "model.reward_address.changed_is_valid()"]
-                                    set_secondary_icon_name: model.reward_address.icon(),
-                                    set_secondary_icon_activatable: false,
-                                    set_secondary_icon_sensitive: false,
-                                    #[track = "model.reward_address.changed_value()"]
-                                    set_text: &model.reward_address,
-                                    set_tooltip_markup: Some(
-                                        "Use Subwallet or polkadot{.js} extension or any other \
-                                        Substrate wallet to create it first (address for any Substrate \
-                                        chain in SS58 format works)"
-                                    ),
                                 },
                             },
                         },
@@ -623,6 +634,13 @@ impl ConfigurationView {
                 farms.iter_mut().for_each(|_| {
                     // Nothing
                 });
+            }
+            ConfigurationInput::CreateWallet => {
+                if let Err(error) =
+                    open::that_detached("https://docs.subspace.network/docs/category/wallets")
+                {
+                    error!(%error, "Failed to open create wallet page in default browser");
+                }
             }
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();
