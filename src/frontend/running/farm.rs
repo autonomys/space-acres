@@ -9,10 +9,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::SectorIndex;
 use subspace_farmer::farm::{
-    FarmingError, FarmingNotification, SectorExpirationDetails, SectorPlottingDetails, SectorUpdate,
+    FarmingError, FarmingNotification, ProvingResult, SectorExpirationDetails,
+    SectorPlottingDetails, SectorUpdate,
 };
 use tracing::error;
 
+const INVALID_SCORE_VALUE: f64 = -1.0;
 /// Experimentally found number that is good for default window size to not have horizontal scroll
 const SECTORS_PER_ROW: usize = 108;
 /// Number of samples over which to track auditing time, 1 minute in slots
@@ -108,6 +110,8 @@ pub(super) struct FarmWidget {
     proving_time_average: Duration,
     /// 0.0..=1.0
     proving_time_score: f64,
+    /// (success, total)
+    proving_result: (u64, u64),
     #[no_eq]
     sector_plotting_time: SingleSumSMA<Duration, u32, SECTOR_PLOTTING_TIME_TRACKING_WINDOW>,
     last_sector_plotted: Option<SectorIndex>,
@@ -172,67 +176,102 @@ impl FactoryComponent for FarmWidget {
                             set_halign: gtk::Align::End,
                             set_hexpand: true,
                             set_margin_top: 5,
-                            set_spacing: 10,
 
                             gtk::Box {
-                                set_spacing: 5,
-                                #[track = "self.changed_auditing_time_average()"]
-                                set_tooltip: &format!(
-                                    "Auditing performance: average time {:.2}s, time limit {:.2}s",
-                                    self.auditing_time_average.as_secs_f32(),
-                                    MAX_AUDITING_TIME.as_secs_f32()
-                                ),
-                                #[track = "self.changed_farm_details() || self.changed_auditing_time_score()"]
-                                set_visible: self.farm_details && self.auditing_time.get_num_samples() > 0,
+                                set_spacing: 10,
+                                #[track = "self.changed_is_node_synced()"]
+                                set_visible: self.is_node_synced,
+
+                                gtk::Box {
+                                    #[track = "self.changed_proving_result() || self.changed_auditing_time_score() || self.changed_proving_time_score()"]
+                                    set_css_classes: &[match self.farm_score() {
+                                        ..=0.4 => "error-label",
+                                        ..=0.8 => "warning-label",
+                                        _ => "success-label",
+                                    }],
+                                    set_spacing: 5,
+                                    #[track = "self.changed_proving_result()"]
+                                    set_tooltip: &format!(
+                                        "{}/{} successful reward signatures, expand farm details to see more information",
+                                        self.proving_result.0,
+                                        self.proving_result.1
+                                    ),
+
+                                    gtk::Label {
+                                        #[track = "self.changed_proving_result()"]
+                                        set_label: &format!("{}/{}", self.proving_result.0, self.proving_result.1),
+                                    },
+
+                                    gtk::Image {
+                                        #[track = "self.changed_proving_result() || self.changed_auditing_time_score() || self.changed_proving_time_score()"]
+                                        set_icon_name: Some(match self.farm_score() {
+                                            ..=0.4 => icon_name::SPEEDOMETER4,
+                                            ..=0.8 => icon_name::SPEEDOMETER3,
+                                            _ => icon_name::SPEEDOMETER2,
+                                        }),
+                                    },
+                                },
+
+                                gtk::Box {
+                                    set_spacing: 5,
+                                    #[track = "self.changed_auditing_time_average()"]
+                                    set_tooltip: &format!(
+                                        "Auditing performance: average time {:.2}s, time limit {:.2}s",
+                                        self.auditing_time_average.as_secs_f32(),
+                                        MAX_AUDITING_TIME.as_secs_f32()
+                                    ),
+                                    #[track = "self.changed_farm_details() || self.changed_auditing_time_score()"]
+                                    set_visible: self.farm_details && self.auditing_time.get_num_samples() > 0,
+
+                                    gtk::Image {
+                                        set_icon_name: Some(icon_name::PUZZLE_PIECE),
+                                    },
+
+                                    gtk::LevelBar {
+                                        add_css_class: "auditing-performance",
+                                        #[track = "self.changed_auditing_time_score()"]
+                                        set_value: self.auditing_time_score,
+                                        set_width_request: 70,
+                                    },
+                                },
+
+                                gtk::Box {
+                                    set_spacing: 5,
+                                    #[track = "self.changed_proving_time_average()"]
+                                    set_tooltip: &format!(
+                                        "Proving performance: average time {:.2}s, time limit {:.2}s",
+                                        self.proving_time_average.as_secs_f32(),
+                                        BLOCK_AUTHORING_DELAY.as_secs_f32()
+                                    ),
+                                    #[track = "self.changed_farm_details() || self.changed_proving_time_score()"]
+                                    set_visible: self.farm_details && self.proving_time.get_num_samples() > 0,
+
+                                    gtk::Image {
+                                        set_icon_name: Some(icon_name::PROCESSOR),
+                                    },
+
+                                    gtk::LevelBar {
+                                        add_css_class: "proving-performance",
+                                        #[track = "self.changed_proving_time_score()"]
+                                        set_value: self.proving_time_score,
+                                        set_width_request: 70,
+                                    },
+                                },
 
                                 gtk::Image {
-                                    set_icon_name: Some(icon_name::PUZZLE_PIECE),
+                                    set_icon_name: Some(icon_name::WARNING),
+                                    #[track = "self.changed_non_fatal_farming_error()"]
+                                    set_tooltip: &{
+                                        let last_error = self.non_fatal_farming_error
+                                            .as_ref()
+                                            .map(|error| error.to_string())
+                                            .unwrap_or_default();
+
+                                        format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
+                                    },
+                                    #[track = "self.changed_non_fatal_farming_error()"]
+                                    set_visible: self.non_fatal_farming_error.is_some(),
                                 },
-
-                                gtk::LevelBar {
-                                    add_css_class: "auditing-performance",
-                                    #[track = "self.changed_auditing_time_score()"]
-                                    set_value: self.auditing_time_score,
-                                    set_width_request: 70,
-                                },
-                            },
-
-                            gtk::Box {
-                                set_spacing: 5,
-                                #[track = "self.changed_proving_time_average()"]
-                                set_tooltip: &format!(
-                                    "Proving performance: average time {:.2}s, time limit {:.2}s",
-                                    self.proving_time_average.as_secs_f32(),
-                                    BLOCK_AUTHORING_DELAY.as_secs_f32()
-                                ),
-                                #[track = "self.changed_farm_details() || self.changed_proving_time_score()"]
-                                set_visible: self.farm_details && self.proving_time.get_num_samples() > 0,
-
-                                gtk::Image {
-                                    set_icon_name: Some(icon_name::PROCESSOR),
-                                },
-
-                                gtk::LevelBar {
-                                    add_css_class: "proving-performance",
-                                    #[track = "self.changed_proving_time_score()"]
-                                    set_value: self.proving_time_score,
-                                    set_width_request: 70,
-                                },
-                            },
-
-                            gtk::Image {
-                                set_icon_name: Some(icon_name::WARNING),
-                                #[track = "self.changed_non_fatal_farming_error()"]
-                                set_tooltip: &{
-                                    let last_error = self.non_fatal_farming_error
-                                        .as_ref()
-                                        .map(|error| error.to_string())
-                                        .unwrap_or_default();
-
-                                    format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
-                                },
-                                #[track = "self.changed_non_fatal_farming_error()"]
-                                set_visible: self.non_fatal_farming_error.is_some(),
                             },
                         }
                     },
@@ -381,12 +420,11 @@ impl FactoryComponent for FarmWidget {
             size: init.farm.size,
             auditing_time: SingleSumSMA::from_zero(Duration::ZERO),
             auditing_time_average: Duration::ZERO,
-            // Invalid value so it is re-rendered on first update
-            auditing_time_score: -1.0,
+            auditing_time_score: INVALID_SCORE_VALUE,
             proving_time: SingleSumSMA::from_zero(Duration::ZERO),
             proving_time_average: Duration::ZERO,
-            // Invalid value so it is re-rendered on first update
-            proving_time_score: -1.0,
+            proving_time_score: INVALID_SCORE_VALUE,
+            proving_result: (0, 0),
             sector_plotting_time: SingleSumSMA::from_zero(Duration::ZERO),
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
@@ -524,6 +562,12 @@ impl FarmWidget {
                         self.set_proving_time_score(score_rounded);
                         self.set_proving_time_average(average_time);
                     }
+
+                    let proving_result = self.get_mut_proving_result();
+                    if matches!(proving_details.result, ProvingResult::Success) {
+                        proving_result.0 += 1;
+                    }
+                    proving_result.1 += 1;
                 }
                 FarmingNotification::NonFatalError(error) => {
                     self.get_mut_non_fatal_farming_error().replace(error);
@@ -594,5 +638,31 @@ impl FarmWidget {
                 "Sector {sector_index}: waiting to be plotted"
             )));
         }
+    }
+
+    /// 0.0..=1.0
+    fn farm_score(&self) -> f64 {
+        // 95% success rate with signing is good
+        let proving_result_score = if self.proving_result.1 == 0 {
+            1.0
+        } else {
+            match self.proving_result.0 as f64 / self.proving_result.1 as f64 {
+                0.95.. => 1.0,
+                0.9.. => 0.5,
+                _ => 0.0,
+            }
+        };
+        let auditing_time_score = if self.auditing_time_score == INVALID_SCORE_VALUE {
+            1.0
+        } else {
+            self.auditing_time_score
+        };
+        let proving_time_score = if self.proving_time_score == INVALID_SCORE_VALUE {
+            1.0
+        } else {
+            self.proving_time_score
+        };
+
+        (proving_result_score + auditing_time_score + proving_time_score) / 3.0
     }
 }
