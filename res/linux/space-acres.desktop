@@ -2,9 +2,9 @@
 Type=Application
 Name=Space Acres
 Categories=Network
-GenericName=Subspace Network Farming Software
-Comment=Space Acres is an opinionated GUI application for farming on Subspace Network
-Keywords=subspace;farmer;farming
+GenericName=Autonomys Network Farming Software
+Comment=Space Acres is an opinionated GUI application for farming on Autonomys Network
+Keywords=subspace;autonomys;farmer;farming
 Icon=space-acres
 Exec=space-acres
 Terminal=false

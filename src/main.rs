@@ -323,7 +323,7 @@ impl AsyncComponent for App {
 
                             gtk::Label {
                                 set_label: indoc::indoc! {"
-                                    Space Acres is an opinionated GUI application for farming on Subspace Network.
+                                    Space Acres is an opinionated GUI application for farming on Autonomys Network.
 
                                     Before continuing you need 3 things:
                                     ✔ Wallet address where you'll receive rewards (use Subwallet, polkadot{.js} extension or any other wallet compatible with Substrate chain)
@@ -365,7 +365,7 @@ impl AsyncComponent for App {
                                 set_label: indoc::indoc! {"
                                     Thanks for choosing Space Acres again!
 
-                                    The chain you were running before upgrade is no longer compatible with this release of Space Acres, likely because you were participating in the previous version of Subspace Network.
+                                    The chain you were running before upgrade is no longer compatible with this release of Space Acres, likely because you were participating in the previous version of Autonomys.
 
                                     But fear not, you can upgrade to currently supported network with a single click of a button!"
                                 },
@@ -1089,7 +1089,7 @@ impl Cli {
             )
             .expect("The first thing in the app, is not set; qed");
 
-        let app = RelmApp::new("network.subspace.space_acres");
+        let app = RelmApp::new("xyz.autonomys.space_acres");
         let app = app.with_args({
             let mut args = self.gtk_arguments;
             // Application itself is expected as the first argument

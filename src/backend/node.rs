@@ -62,7 +62,7 @@ const NODE_NAME_MAX_LENGTH: usize = 64;
 #[derive(Debug, thiserror::Error)]
 pub(super) enum ConsensusNodeCreationError {
     /// Substrate service error
-    #[error("Substate service error: {0}")]
+    #[error("Substrate service error: {0}")]
     Service(#[from] sc_service::Error),
     /// Incompatible chain
     #[error("Incompatible chain, only {compatible_chain} is supported")]

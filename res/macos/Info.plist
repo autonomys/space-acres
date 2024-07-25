@@ -11,7 +11,7 @@
         <key>CFBundleIconFile</key>
         <string>space-acres.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>network.subspace.space-acres</string>
+        <string>xyz.autonomys.space-acres</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleName</key>
