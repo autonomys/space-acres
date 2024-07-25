@@ -114,6 +114,7 @@ impl Component for RunningView {
                     gtk::Box {
                         gtk::ToggleButton {
                             connect_clicked => RunningInput::ToggleFarmDetails,
+                            set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
                             set_icon_name: icon_name::GRID_FILLED,
                             set_tooltip: "Expand details about each farm",
@@ -121,6 +122,7 @@ impl Component for RunningView {
                         gtk::ToggleButton {
                             connect_clicked => RunningInput::TogglePausePlotting,
                             set_active: model.plotting_paused,
+                            set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
                             set_icon_name: icon_name::PAUSE,
                             set_tooltip: "Pause plotting/replotting, note that currently encoding sectors will not be interrupted",
@@ -144,6 +146,7 @@ impl Component for RunningView {
                             //  for macOS
                             connect_clicked => RunningInput::OpenRewardAddressInExplorer,
                             remove_css_class: "link",
+                            set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
                             set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
                             // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
