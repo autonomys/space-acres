@@ -72,6 +72,7 @@ impl Component for NodeView {
                     connect_clicked => NodeInput::OpenNodeFolder,
                     add_css_class: "folder-button",
                     add_css_class: "heading",
+                    set_cursor_from_name: Some("pointer"),
                     set_halign: gtk::Align::Start,
                     set_has_frame: false,
                     #[track = "model.changed_chain_name()"]

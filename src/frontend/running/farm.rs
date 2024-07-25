@@ -146,6 +146,7 @@ impl FactoryComponent for FarmWidget {
                 gtk::Button {
                     add_css_class: "folder-button",
                     connect_clicked => FarmWidgetInput::OpenFarmFolder,
+                    set_cursor_from_name: Some("pointer"),
                     set_halign: gtk::Align::Start,
                     set_has_frame: false,
                     set_tooltip: "Click to open in file manager",
