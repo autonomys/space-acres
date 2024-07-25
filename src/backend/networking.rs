@@ -34,7 +34,7 @@ pub struct NetworkOptions {
     pub keypair: Keypair,
     /// Multiaddrs of bootstrap nodes to connect to on startup, multiple are supported
     pub bootstrap_nodes: Vec<Multiaddr>,
-    /// Multiaddr to listen on for subspace networking, for instance `/ip4/0.0.0.0/tcp/0`,
+    /// Multiaddr to listen on for Autonomysing, for instance `/ip4/0.0.0.0/tcp/0`,
     /// multiple are supported
     pub listen_on: Vec<Multiaddr>,
     /// Determines whether we allow keeping non-global (private, shared, loopback..) addresses in

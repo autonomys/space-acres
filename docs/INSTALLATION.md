@@ -28,8 +28,8 @@ ways to accelerate it, you'll be 100% disappointed and just waste your time.
 reputable manufacturer with decent endurance is recommended.
 
 **Farmer side can work with pretty much any SSD whatsoever that is not fake and not outright broken**, dedicating high
-quality high endurance SSD is pointless unless you already have it for reasons unrelated to Subspace. Software writes to
-disk in near-perfect for SSD way, effectively doing write leveling if SSD is solely dedicated to farming.
+quality high endurance SSD is pointless unless you already have it for reasons unrelated to Autonomys. Software writes
+to disk in near-perfect for SSD way, effectively doing write leveling if SSD is solely dedicated to farming.
 
 **RAID of any kind is pointless and can only harm** performance and/or rewards. RAID0 will most likely make things
 slower rather than faster (application benefits from knowing underlying hardware topology). RAID1 or any other
@@ -46,7 +46,7 @@ this application may sometimes work fine and sometimes have a hard time syncing 
 
 ## Windows
 
-For Windows go to [the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached
+For Windows go to [the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached
 file with `.msi` extension. It is not digitally signed, so you'll have to agree to accept the risk when downloading and
 installing it for now. Note that while things might work on other versions of Windows, **only Windows 10 and 11** with
 latest updates supported.
@@ -55,21 +55,25 @@ latest updates supported.
 
 In most cases you don't need to install anything else, but on fresh Windows installation Microsoft Visual C++
 Redistributable might be missing, in which case application will show an error about some DLL files missing. If you see
-that, install [Microsoft Visual C++ Redistributable packages for Visual Studio 2015, 2017, 2019, and 2022](https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022)
+that,
+install [Microsoft Visual C++ Redistributable packages for Visual Studio 2015, 2017, 2019, and 2022](https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022)
 for your architecture (most likely X64).
 
 ## Linux
 
 Currently, there are two ways to get Space Acres on Linux:
+
 * by installing `.deb` package on Ubuntu
 * by running `.AppImage` bundle directly on any modern Linux distribution (including Ubuntu if you want to)
 
 ### Ubuntu
 
-For **Ubuntu 22.04 or newer** (older versions not supported) go to [the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached
+For **Ubuntu 22.04 or newer** (older versions not supported) go
+to [the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached
 file with `.deb` extension for your architecture (most likely `amd64`).
 
 Then open terminal and run following commands to switch to downloads directory and install an app:
+
 ```bash
 cd Downloads
 sudo apt install ./space-acres*.deb
@@ -81,10 +85,12 @@ replace `space-acres*.deb` with a full name of the file you've downloaded.
 
 ### Other Linux
 
-For other distributions AppImage is available too, go to [the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached
+For other distributions AppImage is available too, go
+to [the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached
 file with `.AppImage` extension for your architecture (most likely `x86_64`).
 
 Then open terminal and run following commands to switch to downloads directory and make it executable:
+
 ```bash
 cd Downloads
 chmod +x space-acres-*.AppImage
@@ -102,7 +108,7 @@ Consider contributing to Linux packaging though!
 ## macOS
 
 For **macOS 14 or newer** (older versions not supported) on Apple Silicon hardware (Intel CPUs are not supported) go to
-[the latest release](https://github.com/subspace/space-acres/releases/latest) and download attached file with `.dmg`
+[the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached file with `.dmg`
 extension.
 
 Open it install it as any other Mac application.

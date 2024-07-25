@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Space Acres
-Comment=Space Acres is an opinionated GUI application for farming on Subspace Network
+Comment=Space Acres is an opinionated GUI application for farming on Autonomys Network
 Icon=space-acres
 Exec=space-acres --startup
