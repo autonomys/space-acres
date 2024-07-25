@@ -98,10 +98,16 @@ pub(super) enum FarmWidgetInput {
 pub(super) struct FarmWidget {
     path: PathBuf,
     size: String,
-    #[no_eq]
+    #[do_not_track]
     auditing_time: SingleSumSMA<Duration, u32, AUDITING_TIME_TRACKING_WINDOW>,
-    #[no_eq]
+    auditing_time_average: Duration,
+    /// 0.0..=1.0
+    auditing_time_score: f64,
+    #[do_not_track]
     proving_time: SingleSumSMA<Duration, u32, PROVING_TIME_TRACKING_WINDOW>,
+    proving_time_average: Duration,
+    /// 0.0..=1.0
+    proving_time_score: f64,
     #[no_eq]
     sector_plotting_time: SingleSumSMA<Duration, u32, SECTOR_PLOTTING_TIME_TRACKING_WINDOW>,
     last_sector_plotted: Option<SectorIndex>,
@@ -168,17 +174,16 @@ impl FactoryComponent for FarmWidget {
                             set_margin_top: 5,
                             set_spacing: 10,
 
-                            // TODO: Optimize rendering here, it will update every second
                             gtk::Box {
                                 set_spacing: 5,
-                                #[track = "self.changed_auditing_time()"]
+                                #[track = "self.changed_auditing_time_average()"]
                                 set_tooltip: &format!(
                                     "Auditing performance: average time {:.2}s, time limit {:.2}s",
-                                    self.auditing_time.get_average().as_secs_f32(),
+                                    self.auditing_time_average.as_secs_f32(),
                                     MAX_AUDITING_TIME.as_secs_f32()
                                 ),
-                                #[track = "self.changed_auditing_time()"]
-                                set_visible: self.auditing_time.get_num_samples() > 0,
+                                #[track = "self.changed_farm_details() || self.changed_auditing_time_score()"]
+                                set_visible: self.farm_details && self.auditing_time.get_num_samples() > 0,
 
                                 gtk::Image {
                                     set_icon_name: Some(icon_name::PUZZLE_PIECE),
@@ -186,27 +191,22 @@ impl FactoryComponent for FarmWidget {
 
                                 gtk::LevelBar {
                                     add_css_class: "auditing-performance",
-                                    #[track = "self.changed_auditing_time()"]
-                                    set_value: {
-                                        let average_time = self.auditing_time.get_average();
-                                        let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
-                                        let excellent_time_fraction_remaining = 1.0 - EXCELLENT_AUDITING_TIME.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
-                                        (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
-                                    },
+                                    #[track = "self.changed_auditing_time_score()"]
+                                    set_value: self.auditing_time_score,
                                     set_width_request: 70,
                                 },
                             },
 
                             gtk::Box {
                                 set_spacing: 5,
-                                #[track = "self.changed_proving_time()"]
+                                #[track = "self.changed_proving_time_average()"]
                                 set_tooltip: &format!(
                                     "Proving performance: average time {:.2}s, time limit {:.2}s",
-                                    self.proving_time.get_average().as_secs_f32(),
+                                    self.proving_time_average.as_secs_f32(),
                                     BLOCK_AUTHORING_DELAY.as_secs_f32()
                                 ),
-                                #[track = "self.changed_proving_time()"]
-                                set_visible: self.proving_time.get_num_samples() > 0,
+                                #[track = "self.changed_farm_details() || self.changed_proving_time_score()"]
+                                set_visible: self.farm_details && self.proving_time.get_num_samples() > 0,
 
                                 gtk::Image {
                                     set_icon_name: Some(icon_name::PROCESSOR),
@@ -214,13 +214,8 @@ impl FactoryComponent for FarmWidget {
 
                                 gtk::LevelBar {
                                     add_css_class: "proving-performance",
-                                    #[track = "self.changed_proving_time()"]
-                                    set_value: {
-                                        let average_time = self.proving_time.get_average();
-                                        let slot_time_fraction_remaining = 1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
-                                        let excellent_time_fraction_remaining = 1.0 - EXCELLENT_PROVING_TIME.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
-                                        (slot_time_fraction_remaining / excellent_time_fraction_remaining).clamp(0.0, 1.0)
-                                    },
+                                    #[track = "self.changed_proving_time_score()"]
+                                    set_value: self.proving_time_score,
                                     set_width_request: 70,
                                 },
                             },
@@ -385,7 +380,13 @@ impl FactoryComponent for FarmWidget {
             path: init.farm.path,
             size: init.farm.size,
             auditing_time: SingleSumSMA::from_zero(Duration::ZERO),
+            auditing_time_average: Duration::ZERO,
+            // Invalid value so it is re-rendered on first update
+            auditing_time_score: -1.0,
             proving_time: SingleSumSMA::from_zero(Duration::ZERO),
+            proving_time_average: Duration::ZERO,
+            // Invalid value so it is re-rendered on first update
+            proving_time_score: -1.0,
             sector_plotting_time: SingleSumSMA::from_zero(Duration::ZERO),
             last_sector_plotted: None,
             plotting_state: PlottingState::Idle,
@@ -397,7 +398,7 @@ impl FactoryComponent for FarmWidget {
             encoding_sectors: 0,
             plotting_paused: init.plotting_paused,
             error: None,
-            tracker: u16::MAX,
+            tracker: u32::MAX,
         }
     }
 
@@ -486,11 +487,43 @@ impl FarmWidget {
             },
             FarmWidgetInput::FarmingNotification(notification) => match notification {
                 FarmingNotification::Auditing(auditing_details) => {
-                    self.get_mut_auditing_time()
-                        .add_sample(auditing_details.time);
+                    self.auditing_time.add_sample(auditing_details.time);
+
+                    let average_time = self.auditing_time.get_average();
+                    let slot_time_fraction_remaining =
+                        1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                    let excellent_time_fraction_remaining = 1.0
+                        - EXCELLENT_AUDITING_TIME.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                    let score = (slot_time_fraction_remaining / excellent_time_fraction_remaining)
+                        .clamp(0.0, 1.0);
+                    // Round to 5% precision
+                    let score_rounded = (score * 20.0).round() / 20.0;
+                    // Only update when there is a meaningful change, not all the time (accounting
+                    // for hysteresis would be nice, but will make code significantly more complex)
+                    if self.auditing_time_score != score_rounded {
+                        self.set_auditing_time_score(score_rounded);
+                        self.set_auditing_time_average(average_time);
+                    }
                 }
                 FarmingNotification::Proving(proving_details) => {
-                    self.get_mut_proving_time().add_sample(proving_details.time);
+                    self.proving_time.add_sample(proving_details.time);
+
+                    let average_time = self.proving_time.get_average();
+                    let slot_time_fraction_remaining =
+                        1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                    let excellent_time_fraction_remaining = 1.0
+                        - EXCELLENT_PROVING_TIME.as_secs_f64()
+                            / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                    let score = (slot_time_fraction_remaining / excellent_time_fraction_remaining)
+                        .clamp(0.0, 1.0);
+                    // Round to 5% precision
+                    let score_rounded = (score * 20.0).round() / 20.0;
+                    // Only update when there is a meaningful change, not all the time (accounting
+                    // for hysteresis would be nice, but will make code significantly more complex)
+                    if self.proving_time_score != score_rounded {
+                        self.set_proving_time_score(score_rounded);
+                        self.set_proving_time_average(average_time);
+                    }
                 }
                 FarmingNotification::NonFatalError(error) => {
                     self.get_mut_non_fatal_farming_error().replace(error);
