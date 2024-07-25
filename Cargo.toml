@@ -66,7 +66,7 @@ parity-scale-codec = "3.6.12"
 parking_lot = "0.12.3"
 relm4 = "0.7.0-rc.1"
 relm4-components = { version = "0.7.0-rc.1", default-features = false }
-relm4-icons = { version = "0.7.0-alpha.2", features = ["checkmark", "cross", "grid-filled", "menu-large", "pause", "processor", "puzzle-piece", "size-horizontally", "ssd", "wallet2", "warning"] }
+relm4-icons = { version = "0.7.0-alpha.2", features = ["checkmark", "cross", "grid-filled", "menu-large", "pause", "processor", "puzzle-piece", "size-horizontally", "speedometer2", "speedometer3", "speedometer4", "ssd", "wallet2", "warning"] }
 reqwest = { version = "0.12.4", default-features = false, features = ["json", "rustls-tls"] }
 sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "0cbfcb0232bbf71ac5b14cc8c99bf043cec420ef", default-features = false }
 sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "0cbfcb0232bbf71ac5b14cc8c99bf043cec420ef", default-features = false }

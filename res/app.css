@@ -11,6 +11,10 @@ progressbar progress {
     min-height: inherit;
 }
 
+.success-label {
+    color: #499249;
+}
+
 .warning-label {
     color: #ffA400;
 }
