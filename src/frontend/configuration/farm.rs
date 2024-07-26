@@ -103,6 +103,8 @@ impl AsyncFactoryComponent for FarmWidget {
                             set_placeholder_text: Some(
                                 if cfg!(windows) {
                                     "Example: D:\\subspace-farm"
+                                } else if cfg!(macos) {
+                                    "Example: /Volumes/Farm/subspace-farm"
                                 } else {
                                     "Example: /media/subspace-farm"
                                 },
