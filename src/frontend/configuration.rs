@@ -203,6 +203,8 @@ impl AsyncComponent for ConfigurationView {
                                         set_placeholder_text: Some(
                                             if cfg!(windows) {
                                                 "Example: D:\\subspace-node"
+                                            } else if cfg!(macos) {
+                                                "Example: /Volumes/Subspace/subspace-node"
                                             } else {
                                                 "Example: /media/subspace-node"
                                             },
