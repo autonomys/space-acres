@@ -190,9 +190,9 @@ impl AsyncFactoryComponent for FarmWidget {
     async fn init_model(
         value: Self::Init,
         index: &DynamicIndex,
-        _sender: AsyncFactorySender<Self>,
+        sender: AsyncFactorySender<Self>,
     ) -> Self {
-        Self {
+        let instance = Self {
             index: index.clone(),
             path: if is_directory_writable(value.path.clone()).await {
                 MaybeValid::yes(value.path)
@@ -204,7 +204,15 @@ impl AsyncFactoryComponent for FarmWidget {
             } else {
                 MaybeValid::no(value.size)
             },
+        };
+
+        // Send notification up that validity was updated, such that parent view can re-render
+        // view if necessary, this is necessary due to async initialization of the model
+        if sender.output(FarmWidgetOutput::ValidityUpdate).is_err() {
+            warn!("Can't send validity update output");
         }
+
+        instance
     }
 
     async fn update(&mut self, input: Self::Input, sender: AsyncFactorySender<Self>) {
