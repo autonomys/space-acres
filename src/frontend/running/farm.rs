@@ -25,8 +25,6 @@ const MAX_AUDITING_TIME: Duration = Duration::from_secs(1);
 const EXCELLENT_AUDITING_TIME: Duration = Duration::from_millis(500);
 /// Number of samples over which to track proving time
 const PROVING_TIME_TRACKING_WINDOW: usize = 10;
-/// TODO: Ideally this would come from node's chain constants, but this will do for now
-const BLOCK_AUTHORING_DELAY: Duration = Duration::from_secs(4);
 /// 1800ms proving time is excellent, anything larger will result in proving performance indicator decrease
 const EXCELLENT_PROVING_TIME: Duration = Duration::from_millis(1800);
 /// Number of samples over which to track sector plotting time
@@ -77,6 +75,7 @@ pub(super) struct FarmWidgetInit {
     pub(super) total_sectors: SectorIndex,
     pub(super) plotted_total_sectors: SectorIndex,
     pub(super) plotting_paused: bool,
+    pub(super) block_authoring_delay: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +123,7 @@ pub(super) struct FarmWidget {
     farm_details: bool,
     encoding_sectors: usize,
     plotting_paused: bool,
+    block_authoring_delay: Duration,
     #[no_eq]
     error: Option<Arc<anyhow::Error>>,
 }
@@ -242,7 +242,7 @@ impl FactoryComponent for FarmWidget {
                                     set_tooltip: &format!(
                                         "Proving performance: average time {:.2}s, time limit {:.2}s",
                                         self.proving_time_average.as_secs_f32(),
-                                        BLOCK_AUTHORING_DELAY.as_secs_f32()
+                                        self.block_authoring_delay.as_secs_f32()
                                     ),
                                     #[track = "self.changed_farm_details() || self.changed_proving_time_score()"]
                                     set_visible: self.farm_details && self.proving_time.get_num_samples() > 0,
@@ -436,6 +436,7 @@ impl FactoryComponent for FarmWidget {
             farm_details: false,
             encoding_sectors: 0,
             plotting_paused: init.plotting_paused,
+            block_authoring_delay: init.block_authoring_delay,
             error: None,
             tracker: u32::MAX,
         }
@@ -549,10 +550,10 @@ impl FarmWidget {
 
                     let average_time = self.proving_time.get_average();
                     let slot_time_fraction_remaining =
-                        1.0 - average_time.as_secs_f64() / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                        1.0 - average_time.as_secs_f64() / self.block_authoring_delay.as_secs_f64();
                     let excellent_time_fraction_remaining = 1.0
                         - EXCELLENT_PROVING_TIME.as_secs_f64()
-                            / BLOCK_AUTHORING_DELAY.as_secs_f64();
+                            / self.block_authoring_delay.as_secs_f64();
                     let score = (slot_time_fraction_remaining / excellent_time_fraction_remaining)
                         .clamp(0.0, 1.0);
                     // Round to 5% precision
