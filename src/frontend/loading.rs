@@ -10,7 +10,10 @@ pub enum LoadingInput {
 #[tracker::track]
 #[derive(Debug)]
 pub struct LoadingView {
+    title: String,
     message: String,
+    /// Progress in %: 0.0..=100.0
+    progress: f32,
 }
 
 #[relm4::component(pub)]
@@ -27,15 +30,21 @@ impl Component for LoadingView {
             set_valign: gtk::Align::Center,
             set_vexpand: true,
             set_orientation: gtk::Orientation::Vertical,
+            set_spacing: 10,
 
-            gtk::Spinner {
-                start: (),
-                set_size_request: (50, 50),
+            gtk::Label {
+               #[track = "model.changed_title()"]
+               set_markup: &format!("<span size=\"medium\" weight=\"medium\">{}</span>", &model.title),
+            },
+
+            gtk::ProgressBar {
+                #[track = "model.changed_progress()"]
+                set_fraction: f64::from(model.progress / 100.0),
             },
 
             gtk::Label {
                 #[track = "model.changed_message()"]
-                set_label: &model.message,
+                set_markup: &format!("<span color=\"grey\">{}</span>", &model.message),
             },
         }
     }
@@ -46,7 +55,9 @@ impl Component for LoadingView {
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let model = Self {
+            title: String::new(),
             message: String::new(),
+            progress: 0.0,
             tracker: u8::MAX,
         };
 
@@ -67,6 +78,42 @@ impl LoadingView {
     fn process_input(&mut self, input: LoadingInput) {
         match input {
             LoadingInput::BackendLoading(step) => {
+                self.set_title(match &step {
+                    LoadingStep::LoadingConfiguration
+                    | LoadingStep::ReadingConfiguration
+                    | LoadingStep::ConfigurationReadSuccessfully { .. }
+                    | LoadingStep::CheckingConfiguration
+                    | LoadingStep::ConfigurationIsValid
+                    | LoadingStep::DecodingChainSpecification
+                    | LoadingStep::DecodedChainSpecificationSuccessfully => {
+                        "Loading configuration".to_string()
+                    }
+                    LoadingStep::CheckingNodePath
+                    | LoadingStep::CreatingNodePath
+                    | LoadingStep::NodePathReady
+                    | LoadingStep::PreparingNetworkingStack
+                    | LoadingStep::ReadingNetworkKeypair
+                    | LoadingStep::GeneratingNetworkKeypair
+                    | LoadingStep::WritingNetworkKeypair
+                    | LoadingStep::InstantiatingNetworkingStack
+                    | LoadingStep::NetworkingStackCreatedSuccessfully => {
+                        "Initializing networking stack".to_string()
+                    }
+                    LoadingStep::CreatingConsensusNode
+                    | LoadingStep::ConsensusNodeCreatedSuccessfully => {
+                        "Initializing consensus node".to_string()
+                    }
+                    LoadingStep::InitializingFarms { .. }
+                    | LoadingStep::FarmInitialized { .. }
+                    | LoadingStep::FarmerCreatedSuccessfully => "Instantiating farmer".to_string(),
+                    LoadingStep::WipingFarm { .. } | LoadingStep::WipedFarmsSuccessfully => {
+                        "Wiping farmer data".to_string()
+                    }
+                    LoadingStep::WipingNode { .. } | LoadingStep::WipedNodeSuccessfully => {
+                        "Wiping node data".to_string()
+                    }
+                });
+                self.set_progress(step.progress());
                 self.set_message(match step {
                     LoadingStep::LoadingConfiguration => "Loading configuration...".to_string(),
                     LoadingStep::ReadingConfiguration => "Reading configuration...".to_string(),
@@ -113,15 +160,39 @@ impl LoadingView {
                     LoadingStep::ConsensusNodeCreatedSuccessfully => {
                         "Consensus node created successfully".to_string()
                     }
-                    LoadingStep::CreatingFarmer => "Creating farmer...".to_string(),
+                    LoadingStep::InitializingFarms { farms_total } => {
+                        format!("Initializing farms 0/{farms_total}...")
+                    }
+                    LoadingStep::FarmInitialized {
+                        farm_index,
+                        farms_total,
+                    } => format!(
+                        "Initializing farms {}/{farms_total}...",
+                        u16::from(farm_index) + 1
+                    ),
                     LoadingStep::FarmerCreatedSuccessfully => {
                         "Farmer created successfully".to_string()
                     }
-                    LoadingStep::WipingFarm { farm_index, path } => {
-                        format!("Wiping farm {farm_index} at {}...", path.display())
+                    LoadingStep::WipingFarm {
+                        farm_index,
+                        farms_total,
+                        path,
+                    } => {
+                        format!(
+                            "Wiping farm {}/{} at {}...",
+                            u16::from(farm_index) + 1,
+                            farms_total,
+                            path.display()
+                        )
+                    }
+                    LoadingStep::WipedFarmsSuccessfully => {
+                        "All farms wiped successfully".to_string()
                     }
                     LoadingStep::WipingNode { path } => {
                         format!("Wiping node at {}...", path.display())
+                    }
+                    LoadingStep::WipedNodeSuccessfully => {
+                        "Node data wiped successfully".to_string()
                     }
                 });
             }

@@ -769,8 +769,7 @@ impl App {
         debug!(?notification, "New backend notification");
 
         match notification {
-            // TODO: Render progress
-            BackendNotification::Loading { step, progress: _ } => {
+            BackendNotification::Loading(step) => {
                 self.set_current_view(View::Loading);
                 self.set_status_bar_notification(StatusBarNotification::None);
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
