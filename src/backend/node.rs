@@ -437,18 +437,11 @@ fn create_consensus_chain_config(
             listen_on: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, RPC_PORT)),
             // Substrate's default
             max_connections: 100,
-            // TODO: Replace with `Some(Vec::new())` once node client for farmer is rewritten
-            cors: Some(vec![
-                "http://localhost:*".to_string(),
-                "http://127.0.0.1:*".to_string(),
-                "https://localhost:*".to_string(),
-                "https://127.0.0.1:*".to_string(),
-                "https://polkadot.js.org".to_string(),
-            ]),
+            cors: Some(Vec::new()),
             methods: Default::default(),
             // Substrate's default
             rate_limit: None,
-            rate_limit_whitelisted_ips: vec![],
+            rate_limit_whitelisted_ips: Vec::new(),
             rate_limit_trust_proxy_headers: false,
             max_subscriptions_per_connection: 1024,
             message_buffer_capacity_per_connection: 64,
