@@ -706,7 +706,7 @@ impl AsyncComponent for App {
                 }
             }
             AppInput::OpenFeedbackLink => {
-                if let Err(error) = open::that_detached("https://linktr.ee/subspace_network") {
+                if let Err(error) = open::that_detached("https://linktr.ee/autonomys_network") {
                     error!(%error, "Failed to open share feedback page in default browser");
                 }
             }
