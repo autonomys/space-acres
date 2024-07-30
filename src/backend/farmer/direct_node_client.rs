@@ -414,8 +414,6 @@ where
     ) -> Result<(), Error> {
         let reward_signature_senders = self.reward_signature_senders.clone();
 
-        // TODO: This doesn't track what client sent a solution, allowing some clients to send
-        //  multiple (https://github.com/paritytech/jsonrpsee/issues/452)
         let mut reward_signature_senders = reward_signature_senders.lock();
 
         if reward_signature_senders.current_hash == reward_signature.hash.into() {
