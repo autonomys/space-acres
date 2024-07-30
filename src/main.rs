@@ -769,19 +769,10 @@ impl App {
         debug!(?notification, "New backend notification");
 
         match notification {
-            // TODO: Render progress
-            BackendNotification::Loading {
-                step,
-                progress,
-                message,
-            } => {
+            BackendNotification::Loading(step) => {
                 self.set_current_view(View::Loading);
                 self.set_status_bar_notification(StatusBarNotification::None);
-                self.loading_view.emit(LoadingInput::BackendLoading {
-                    step,
-                    progress,
-                    message,
-                });
+                self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
             BackendNotification::ConfigurationFound { raw_config } => {
                 self.get_mut_current_raw_config()

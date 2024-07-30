@@ -66,10 +66,6 @@ pub enum FarmerNotification<FarmIndex> {
         farm_index: FarmIndex,
         notification: FarmingNotification,
     },
-    FarmingLog {
-        farm_index: FarmIndex,
-        message: String,
-    },
     FarmerCacheSyncProgress {
         /// Progress so far in %
         progress: f32,
@@ -86,7 +82,7 @@ pub enum FarmerAction {
     PausePlotting(bool),
 }
 
-pub(super) type Notifications<FarmIndex> = Handler<FarmerNotification<FarmIndex>>;
+type Notifications<FarmIndex> = Handler<FarmerNotification<FarmIndex>>;
 
 pub(super) struct Farmer<FarmIndex>
 where
@@ -182,10 +178,7 @@ pub struct DiskFarm {
 
 /// Arguments for farmer
 #[derive(Debug)]
-pub(super) struct FarmerOptions<FarmIndex>
-where
-    FarmIndex: 'static,
-{
+pub(super) struct FarmerOptions<FarmIndex, OnFarmInitialized> {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
     pub(super) node_client: MaybeNodeClient,
@@ -194,16 +187,17 @@ where
     pub(super) farmer_cache: FarmerCache,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
     pub(super) kzg: Kzg,
-    pub(super) notifications: Arc<Notifications<FarmIndex>>,
+    pub(super) on_farm_initialized: OnFarmInitialized,
 }
 
-pub(super) async fn create_farmer<FarmIndex>(
-    farmer_options: FarmerOptions<FarmIndex>,
+pub(super) async fn create_farmer<FarmIndex, OnFarmInitialized>(
+    farmer_options: FarmerOptions<FarmIndex, OnFarmInitialized>,
 ) -> anyhow::Result<Farmer<FarmIndex>>
 where
     FarmIndex:
         Hash + Eq + Copy + fmt::Display + fmt::Debug + TryFrom<usize> + Send + Sync + 'static,
     usize: From<FarmIndex>,
+    OnFarmInitialized: Fn(FarmIndex),
 {
     let span = info_span!("Farmer");
     let _enter = span.enter();
@@ -217,7 +211,7 @@ where
         farmer_cache,
         farmer_cache_worker,
         kzg,
-        notifications,
+        on_farm_initialized,
     } = farmer_options;
 
     if disk_farms.is_empty() {
@@ -326,15 +320,16 @@ where
     ));
 
     let (farms, plotting_delay_senders) = {
+        let farms_total = disk_farms.len();
         let info_mutex = &AsyncMutex::new(());
-        let faster_read_sector_record_chunks_mode_barrier =
-            Arc::new(Barrier::new(disk_farms.len()));
+        let faster_read_sector_record_chunks_mode_barrier = Arc::new(Barrier::new(farms_total));
         let faster_read_sector_record_chunks_mode_concurrency = Arc::new(Semaphore::new(1));
-        let (plotting_delay_senders, plotting_delay_receivers) = (0..disk_farms.len())
+        let (plotting_delay_senders, plotting_delay_receivers) = (0..farms_total)
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
+        let on_farm_initialized = &on_farm_initialized;
 
-        let mut farms = Vec::with_capacity(disk_farms.len());
+        let mut farms = Vec::with_capacity(farms_total);
         let mut farms_stream = disk_farms
             .into_iter()
             .zip(plotting_delay_receivers)
@@ -344,7 +339,6 @@ where
                 let farmer_app_info = farmer_app_info.clone();
                 let max_pieces_in_sector = farmer_app_info.protocol_info.max_pieces_in_sector;
                 let kzg = kzg.clone();
-                let notifications = notifications.clone();
                 let erasure_coding = erasure_coding.clone();
                 let plotter_legacy = Arc::clone(&legacy_cpu_plotter);
                 let plotter = Arc::clone(&modern_cpu_plotter);
@@ -419,14 +413,16 @@ where
                     );
                     info!("  Directory: {}", disk_farm.directory.display());
 
-                    if let Ok(farm_index_generic) = farm_index.try_into() {
-                        notifications.call_simple(&FarmerNotification::FarmingLog {
-                            farm_index: farm_index_generic,
-                            message: format!(
-                                "create farm {farm_index} at {} successfully",
-                                disk_farm.directory.display()
-                            ),
-                        });
+                    {
+                        let Ok(farm_index) = farm_index.try_into() else {
+                            return (
+                                farm_index,
+                                Err(anyhow!(
+                                    "More than 256 plots are not supported by Space Acres"
+                                )),
+                            );
+                        };
+                        on_farm_initialized(farm_index);
                     }
                     (farm_index, Ok(farm))
                 }
@@ -533,6 +529,8 @@ where
     }
 
     info!("Finished collecting already plotted pieces successfully");
+
+    let notifications = Arc::new(Notifications::default());
 
     farmer_cache
         .on_sync_progress(Arc::new({
