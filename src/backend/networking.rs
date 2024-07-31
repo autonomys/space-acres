@@ -72,7 +72,7 @@ impl Default for NetworkOptions {
 }
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn create_network<FarmIndex, NC>(
+pub fn create_network<FarmIndex, CacheIndex, NC>(
     protocol_prefix: String,
     base_path: &Path,
     NetworkOptions {
@@ -89,12 +89,15 @@ pub fn create_network<FarmIndex, NC>(
     }: NetworkOptions,
     weak_plotted_pieces: Weak<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     node_client: NC,
-    farmer_cache: FarmerCache,
-) -> Result<(Node, NodeRunner<FarmerCache>), anyhow::Error>
+    farmer_cache: FarmerCache<CacheIndex>,
+) -> Result<(Node, NodeRunner<FarmerCache<CacheIndex>>), anyhow::Error>
 where
     FarmIndex: Hash + Eq + Copy + fmt::Debug + Send + Sync + 'static,
     usize: From<FarmIndex>,
     NC: NodeClientExt + Clone,
+    CacheIndex: Hash + Eq + Copy + fmt::Debug + fmt::Display + Send + Sync + 'static,
+    usize: From<CacheIndex>,
+    CacheIndex: TryFrom<usize>,
 {
     let span = info_span!("Network");
     let _enter = span.enter();
