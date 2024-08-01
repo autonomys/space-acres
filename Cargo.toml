@@ -46,6 +46,8 @@ duct = "0.13.7"
 event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
 file-rotate = "0.7.6"
+fluent-langneg = "0.13.0"
+fluent-static = "0.2.4"
 frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "0cbfcb0232bbf71ac5b14cc8c99bf043cec420ef", default-features = false }
 fs4 = "0.8.4"
 futures = "0.3.30"
@@ -53,7 +55,6 @@ futures-timer = "3.0.3"
 gtk = { version = "0.7.3", package = "gtk4" }
 hex = "0.4.3"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
-indoc = "2.0.5"
 mimalloc = "0.1.41"
 names = "0.14.0"
 open = "5.2.0"
@@ -101,6 +102,7 @@ subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = 
 subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "55066638508daa4e323ce01e567ec8be1417ea07" }
 subspace-service = { git = "https://github.com/subspace/subspace", rev = "55066638508daa4e323ce01e567ec8be1417ea07" }
 supports-color = "3.0.0"
+sys-locale = "0.3.1"
 tempfile = "3.10.1"
 thiserror = "1.0.61"
 thread-priority = "1.1.0"
@@ -111,6 +113,10 @@ tracker = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"
+
+[build-dependencies]
+# TODO: Switch to 0.3.0 once https://github.com/zaytsev/fluent-static/pull/7 is merged
+fluent-static-codegen = { git = "https://github.com/zaytsev/fluent-static", rev = "06dd20b7f525a80fa86398f665cff1ae3993f470" }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"

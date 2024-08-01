@@ -1,4 +1,5 @@
 use crate::backend::LoadingStep;
+use crate::frontend::translations::{AsDefaultStr, T};
 use gtk::prelude::*;
 use relm4::prelude::*;
 
@@ -78,7 +79,7 @@ impl LoadingView {
     fn process_input(&mut self, input: LoadingInput) {
         match input {
             LoadingInput::BackendLoading(step) => {
-                self.set_title(match &step {
+                let title = match &step {
                     LoadingStep::LoadingConfiguration
                     | LoadingStep::ReadingConfiguration
                     | LoadingStep::ConfigurationReadSuccessfully { .. }
@@ -86,7 +87,7 @@ impl LoadingView {
                     | LoadingStep::ConfigurationIsValid
                     | LoadingStep::DecodingChainSpecification
                     | LoadingStep::DecodedChainSpecificationSuccessfully => {
-                        "Loading configuration".to_string()
+                        T.loading_configuration_title()
                     }
                     LoadingStep::CheckingNodePath
                     | LoadingStep::CreatingNodePath
@@ -97,104 +98,121 @@ impl LoadingView {
                     | LoadingStep::WritingNetworkKeypair
                     | LoadingStep::InstantiatingNetworkingStack
                     | LoadingStep::NetworkingStackCreatedSuccessfully => {
-                        "Initializing networking stack".to_string()
+                        T.loading_networking_stack_title()
                     }
                     LoadingStep::CreatingConsensusNode
                     | LoadingStep::ConsensusNodeCreatedSuccessfully => {
-                        "Initializing consensus node".to_string()
+                        T.loading_consensus_node_title()
                     }
                     LoadingStep::InitializingFarms { .. }
                     | LoadingStep::FarmInitialized { .. }
-                    | LoadingStep::FarmerCreatedSuccessfully => "Instantiating farmer".to_string(),
+                    | LoadingStep::FarmerCreatedSuccessfully => T.loading_farmer_title(),
                     LoadingStep::WipingFarm { .. } | LoadingStep::WipedFarmsSuccessfully => {
-                        "Wiping farmer data".to_string()
+                        T.loading_wiping_farmer_data_title()
                     }
                     LoadingStep::WipingNode { .. } | LoadingStep::WipedNodeSuccessfully => {
-                        "Wiping node data".to_string()
+                        T.loading_wiping_node_data_title()
                     }
-                });
+                };
+                self.set_title(title.to_string());
                 self.set_progress(step.progress());
-                self.set_message(match step {
-                    LoadingStep::LoadingConfiguration => "Loading configuration...".to_string(),
-                    LoadingStep::ReadingConfiguration => "Reading configuration...".to_string(),
+                let message = match step {
+                    LoadingStep::LoadingConfiguration => {
+                        T.loading_configuration_step_loading().to_string()
+                    }
+                    LoadingStep::ReadingConfiguration => {
+                        T.loading_configuration_step_reading().to_string()
+                    }
                     LoadingStep::ConfigurationReadSuccessfully {
                         configuration_exists,
                     } => {
-                        format!(
-                            "Configuration {}",
-                            if configuration_exists {
-                                "found"
-                            } else {
-                                "not found"
-                            }
-                        )
+                        if configuration_exists {
+                            T.loading_configuration_step_configuration_exists()
+                                .to_string()
+                        } else {
+                            T.loading_configuration_step_configuration_not_found()
+                                .to_string()
+                        }
                     }
-                    LoadingStep::CheckingConfiguration => "Checking configuration...".to_string(),
-                    LoadingStep::ConfigurationIsValid => "Configuration is valid".to_string(),
-                    LoadingStep::DecodingChainSpecification => {
-                        "Decoding chain specification...".to_string()
-                    }
-                    LoadingStep::DecodedChainSpecificationSuccessfully => {
-                        "Decoded chain specification successfully".to_string()
-                    }
-                    LoadingStep::CheckingNodePath => "Checking node path...".to_string(),
-                    LoadingStep::CreatingNodePath => "Creating node path...".to_string(),
-                    LoadingStep::NodePathReady => "Node path ready".to_string(),
+                    LoadingStep::CheckingConfiguration => T
+                        .loading_configuration_step_configuration_checking()
+                        .to_string(),
+                    LoadingStep::ConfigurationIsValid => T
+                        .loading_configuration_step_configuration_valid()
+                        .to_string(),
+                    LoadingStep::DecodingChainSpecification => T
+                        .loading_configuration_step_decoding_chain_spec()
+                        .to_string(),
+                    LoadingStep::DecodedChainSpecificationSuccessfully => T
+                        .loading_configuration_step_decoded_chain_spec()
+                        .to_string(),
+                    LoadingStep::CheckingNodePath => T
+                        .loading_networking_stack_step_checking_node_path()
+                        .to_string(),
+                    LoadingStep::CreatingNodePath => T
+                        .loading_networking_stack_step_creating_node_path()
+                        .to_string(),
+                    LoadingStep::NodePathReady => T
+                        .loading_networking_stack_step_node_path_ready()
+                        .to_string(),
                     LoadingStep::PreparingNetworkingStack => {
-                        "Preparing networking stack...".to_string()
+                        T.loading_networking_stack_step_preparing().to_string()
                     }
-                    LoadingStep::ReadingNetworkKeypair => "Reading network keypair...".to_string(),
-                    LoadingStep::GeneratingNetworkKeypair => {
-                        "Generating network keypair...".to_string()
-                    }
-                    LoadingStep::WritingNetworkKeypair => {
-                        "Writing network keypair to disk...".to_string()
-                    }
+                    LoadingStep::ReadingNetworkKeypair => T
+                        .loading_networking_stack_step_reading_keypair()
+                        .to_string(),
+                    LoadingStep::GeneratingNetworkKeypair => T
+                        .loading_networking_stack_step_generating_keypair()
+                        .to_string(),
+                    LoadingStep::WritingNetworkKeypair => T
+                        .loading_networking_stack_step_writing_keypair_to_disk()
+                        .to_string(),
                     LoadingStep::InstantiatingNetworkingStack => {
-                        "Instantiating networking stack...".to_string()
+                        T.loading_networking_stack_step_instantiating().to_string()
                     }
-                    LoadingStep::NetworkingStackCreatedSuccessfully => {
-                        "Networking stack created successfully".to_string()
+                    LoadingStep::NetworkingStackCreatedSuccessfully => T
+                        .loading_networking_stack_step_created_successfully()
+                        .to_string(),
+                    LoadingStep::CreatingConsensusNode => {
+                        T.loading_consensus_node_step_creating().to_string()
                     }
-                    LoadingStep::CreatingConsensusNode => "Creating consensus node...".to_string(),
-                    LoadingStep::ConsensusNodeCreatedSuccessfully => {
-                        "Consensus node created successfully".to_string()
-                    }
-                    LoadingStep::InitializingFarms { farms_total } => {
-                        format!("Initializing farms 0/{farms_total}...")
-                    }
+                    LoadingStep::ConsensusNodeCreatedSuccessfully => T
+                        .loading_consensus_node_step_created_successfully()
+                        .to_string(),
+                    LoadingStep::InitializingFarms { farms_total } => T
+                        .loading_farmer_step_initializing(0, farms_total)
+                        .to_string(),
                     LoadingStep::FarmInitialized {
                         farm_index,
                         farms_total,
-                    } => format!(
-                        "Initializing farms {}/{farms_total}...",
-                        u16::from(farm_index) + 1
-                    ),
+                    } => T
+                        .loading_farmer_step_initializing(u16::from(farm_index) + 1, farms_total)
+                        .to_string(),
                     LoadingStep::FarmerCreatedSuccessfully => {
-                        "Farmer created successfully".to_string()
+                        T.loading_farmer_step_created_successfully().to_string()
                     }
                     LoadingStep::WipingFarm {
                         farm_index,
                         farms_total,
                         path,
-                    } => {
-                        format!(
-                            "Wiping farm {}/{} at {}...",
-                            u16::from(farm_index) + 1,
+                    } => T
+                        .loading_wiping_farmer_data_step_wiping_farm(
+                            farm_index,
                             farms_total,
-                            path.display()
+                            path.display().to_string(),
                         )
-                    }
+                        .to_string(),
                     LoadingStep::WipedFarmsSuccessfully => {
-                        "All farms wiped successfully".to_string()
+                        T.loading_wiping_farmer_data_step_success().to_string()
                     }
-                    LoadingStep::WipingNode { path } => {
-                        format!("Wiping node at {}...", path.display())
-                    }
+                    LoadingStep::WipingNode { path } => T
+                        .loading_wiping_node_data_step_wiping_node(path.display().to_string())
+                        .to_string(),
                     LoadingStep::WipedNodeSuccessfully => {
-                        "Node data wiped successfully".to_string()
+                        T.loading_wiping_node_data_step_success().to_string()
                     }
-                });
+                };
+                self.set_message(message);
             }
         }
     }

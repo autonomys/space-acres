@@ -96,6 +96,15 @@ pub enum SyncKind {
     Regular,
 }
 
+impl SyncKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SyncKind::Dsn => "dsn",
+            SyncKind::Regular => "regular",
+        }
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub enum SyncState {
     #[default]
