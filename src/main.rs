@@ -11,13 +11,13 @@ use file_rotate::compression::Compression;
 use file_rotate::suffix::AppendCount;
 use file_rotate::{ContentLimit, FileRotate};
 use futures::channel::mpsc;
-use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::RELM_THREADS;
+use std::cell::Cell;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
-use std::sync::Arc;
+use std::rc::Rc;
 use std::thread::available_parallelism;
 use std::{env, fs, io, process};
 use subspace_farmer::utils::run_future_in_dedicated_thread;
@@ -225,11 +225,11 @@ impl Cli {
             }
         }
 
-        let exit_status_code = Arc::new(Mutex::new(AppStatusCode::Exit));
+        let exit_status_code = Rc::new(Cell::new(AppStatusCode::Exit));
 
         app.run_async::<App>(AppInit {
             app_data_dir: maybe_app_data_dir,
-            exit_status_code: Arc::clone(&exit_status_code),
+            exit_status_code: Rc::clone(&exit_status_code),
             minimize_on_start: self.startup,
             run_backend: || {
                 let (backend_action_sender, backend_action_receiver) = mpsc::channel(1);
@@ -251,7 +251,7 @@ impl Cli {
             },
         });
 
-        let exit_status_code = *exit_status_code.lock();
+        let exit_status_code = exit_status_code.get();
         info!(
             ?exit_status_code,
             "Exiting {} {}",

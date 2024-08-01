@@ -16,16 +16,16 @@ use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::prelude::*;
-use parking_lot::Mutex;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use relm4_icons::icon_name;
+use std::cell::Cell;
 use std::env;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::rc::Rc;
 use subspace_farmer::utils::AsyncJoinOnDrop;
 use tracing::{debug, error, warn};
 
@@ -148,7 +148,7 @@ pub(super) struct RunBackendResult {
 
 pub(super) struct AppInit {
     pub(super) app_data_dir: Option<PathBuf>,
-    pub(super) exit_status_code: Arc<Mutex<AppStatusCode>>,
+    pub(super) exit_status_code: Rc<Cell<AppStatusCode>>,
     pub(super) minimize_on_start: bool,
     pub(super) run_backend: fn() -> RunBackendResult,
 }
@@ -184,7 +184,7 @@ pub(super) struct App {
     #[do_not_track]
     app_data_dir: Option<PathBuf>,
     #[do_not_track]
-    exit_status_code: Arc<Mutex<AppStatusCode>>,
+    exit_status_code: Rc<Cell<AppStatusCode>>,
     #[do_not_track]
     tray_icon: Option<TrayIcon<TrayMenuSignal>>,
     #[do_not_track]
@@ -707,7 +707,7 @@ impl AsyncComponent for App {
                 self.set_current_view(View::Loading);
             }
             AppInput::Restart => {
-                *self.exit_status_code.lock() = AppStatusCode::Restart;
+                self.exit_status_code.set(AppStatusCode::Restart);
                 relm4::main_application().quit();
             }
             AppInput::CloseStatusBarWarning => {
@@ -908,7 +908,7 @@ impl App {
                 self.process_backend_notification(notification);
             }
             AppCommandOutput::Restart => {
-                *self.exit_status_code.lock() = AppStatusCode::Restart;
+                self.exit_status_code.set(AppStatusCode::Restart);
                 relm4::main_application().quit();
             }
         }
