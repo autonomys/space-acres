@@ -37,6 +37,10 @@ redundancy level is 100% pointless too since farms are stateless and can be remo
 on other disks, it'll just make thing slower and reduce effective capacity that can be used for farming, *reducing
 farming rewards for literally no benefit in exchange*.
 
+### Networking
+
+We recommend using a wired Ethernet connection. Some routers and OSes handle large numbers of Wifi connections poorly.
+
 ### Required ports
 
 Application uses **TCP and UDP ports 30333 and 30433** for P2P communication with the rest of the network, both should
