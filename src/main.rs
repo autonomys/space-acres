@@ -120,6 +120,7 @@ enum AppInput {
     OpenLogsFolder,
     ChangeConfiguration,
     OpenFeedbackLink,
+    OpenCommunityHelpLink,
     ShowAboutDialog,
     InitialConfiguration,
     StartUpgrade,
@@ -391,24 +392,60 @@ impl AsyncComponent for App {
                         View::Loading => model.loading_view.widget().clone(),
                         View::Configuration | View::Reconfiguration => model.configuration_view.widget().clone(),
                         View::Running=> model.running_view.widget().clone(),
-                        View::Stopped(Some(error)) => {
-                            // TODO: Better error handling
+                        View::Stopped(Some(error)) => gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 20,
+                            set_valign: gtk::Align::Center,
+
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
                                 set_label: &format!("Stopped with error: {error}"),
-                            }
-                        }
+                            },
+
+                            gtk::Box {
+                                set_halign: gtk::Align::Center,
+                                set_spacing: 10,
+
+                                gtk::Button {
+                                    set_label: "Show logs",
+                                    connect_clicked => AppInput::OpenLogsFolder,
+                                },
+
+                                gtk::Button {
+                                    set_label: "Help from community",
+                                    connect_clicked => AppInput::OpenCommunityHelpLink,
+                                },
+                            },
+                        },
                         View::Stopped(None) => {
                             gtk::Label {
                                 set_label: "Stopped 🛑",
                             }
-                        }
-                        View::Error(error) => {
-                            // TODO: Better error handling
+                        },
+                        View::Error(error) => gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 20,
+                            set_valign: gtk::Align::Center,
+
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
                                 set_label: &format!("Error: {error}"),
-                            }
+                            },
+
+                            gtk::Box {
+                                set_halign: gtk::Align::Center,
+                                set_spacing: 10,
+
+                                gtk::Button {
+                                    set_label: "Show logs",
+                                    connect_clicked => AppInput::OpenLogsFolder,
+                                },
+
+                                gtk::Button {
+                                    set_label: "Help from community",
+                                    connect_clicked => AppInput::OpenCommunityHelpLink,
+                                },
+                            },
                         },
                     },
 
@@ -708,6 +745,11 @@ impl AsyncComponent for App {
             AppInput::OpenFeedbackLink => {
                 if let Err(error) = open::that_detached("https://linktr.ee/autonomys_network") {
                     error!(%error, "Failed to open share feedback page in default browser");
+                }
+            }
+            AppInput::OpenCommunityHelpLink => {
+                if let Err(error) = open::that_detached("https://discord.gg/subspace-network") {
+                    error!(%error, "Failed to open share community help in default browser");
                 }
             }
             AppInput::ShowAboutDialog => {
