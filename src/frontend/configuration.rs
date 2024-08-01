@@ -301,6 +301,14 @@ impl AsyncComponent for ConfigurationView {
                                         set_label: "Create wallet",
                                     },
                                 },
+
+                                gtk::Label {
+                                    add_css_class: "error-label",
+                                    set_halign: gtk::Align::Start,
+                                    set_label: "This should be a Substrate (SS58) address (any chain will do), not EVM address",
+                                    #[track = "model.reward_address.changed_value() || self.reward_address.changed_is_valid()"]
+                                    set_visible: !model.reward_address.is_valid && model.reward_address.value.starts_with("0x"),
+                                },
                             },
                         },
                     },
@@ -646,8 +654,9 @@ impl ConfigurationView {
             }
             ConfigurationInput::RewardAddressChanged(new_reward_address) => {
                 let new_reward_address = new_reward_address.trim();
-                self.reward_address
-                    .set_is_valid(parse_ss58_reward_address(new_reward_address).is_ok());
+                // Force change so it is possible to render updates as the input changes
+                *self.reward_address.get_mut_is_valid() =
+                    parse_ss58_reward_address(new_reward_address).is_ok();
                 self.reward_address.value = new_reward_address.to_string();
             }
             ConfigurationInput::Reinitialize {
