@@ -7,6 +7,7 @@ use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
+use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
@@ -109,7 +110,7 @@ impl Component for RunningView {
                     gtk::Label {
                         add_css_class: "heading",
                         set_halign: gtk::Align::Start,
-                        set_label: "Farmer",
+                        set_label: &T.running_farmer_title(),
                     },
                     gtk::Box {
                         gtk::ToggleButton {
@@ -117,7 +118,7 @@ impl Component for RunningView {
                             set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
                             set_icon_name: icon_name::GRID_FILLED,
-                            set_tooltip: "Expand details about each farm",
+                            set_tooltip: &T.running_farmer_button_expand_details(),
                         },
                         gtk::ToggleButton {
                             connect_clicked => RunningInput::TogglePausePlotting,
@@ -125,7 +126,7 @@ impl Component for RunningView {
                             set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
                             set_icon_name: icon_name::PAUSE,
-                            set_tooltip: "Pause plotting/replotting, note that currently encoding sectors will not be interrupted",
+                            set_tooltip: &T.running_farmer_button_pause_plotting(),
                         },
                     },
                     gtk::Box {
@@ -148,7 +149,7 @@ impl Component for RunningView {
                             remove_css_class: "link",
                             set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
-                            set_tooltip: "Total account balance and coins farmed since application started, click to see details in Astral",
+                            set_tooltip: &T.running_farmer_account_balance_tooltip(),
                             // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
                             //  for macOS
                             // #[watch]
@@ -196,10 +197,11 @@ impl Component for RunningView {
                                     set_halign: gtk::Align::Start,
 
                                     #[track = "model.farmer_state.changed_piece_cache_sync_progress()"]
-                                    set_label: &format!(
-                                        "Piece cache sync {:.2}%",
-                                        model.farmer_state.piece_cache_sync_progress
-                                    ),
+                                    set_label: T
+                                        .running_farmer_piece_cache_sync(
+                                            model.farmer_state.piece_cache_sync_progress
+                                        )
+                                        .as_str(),
                                 },
 
                                 gtk::Spinner {
@@ -483,15 +485,15 @@ impl RunningView {
         let eta_seconds = eta.as_secs();
         let progress = 1.0 - eta.as_secs_f64() / expected_reward_interval.as_secs_f64();
         let eta_string = if eta_seconds < 10 * 60 {
-            "any time now"
+            "any_time_now"
         } else if eta_seconds <= 3600 {
-            "less than an hour"
+            "less_than_an_hour"
         } else if eta_seconds <= 24 * 3600 {
             "today"
         } else if eta_seconds <= 7 * 24 * 3600 {
-            "this week"
+            "this_week"
         } else {
-            "more than a week"
+            "more_than_a_week"
         };
 
         self.farmer_state
@@ -499,7 +501,10 @@ impl RunningView {
             .emit(ProgressCircleInput::Update {
                 // Clamp upper bound to make sure something is being shown all the time
                 progress: progress.clamp(0.05, 0.95),
-                tooltip: format!("Next reward estimate: {eta_string}"),
+                tooltip: T
+                    .running_farmer_next_reward_estimate(eta_string)
+                    .as_str()
+                    .to_string(),
             });
     }
 }

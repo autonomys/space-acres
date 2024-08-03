@@ -6,6 +6,7 @@ use crate::frontend::configuration::farm::{
     FarmWidget, FarmWidgetInit, FarmWidgetInput, FarmWidgetOutput,
 };
 use crate::frontend::configuration::utils::is_directory_writable;
+use crate::frontend::translations::{AsDefaultStr, T};
 use gtk::prelude::*;
 use relm4::factory::AsyncFactoryVecDeque;
 use relm4::prelude::*;
@@ -184,7 +185,7 @@ impl AsyncComponent for ConfigurationView {
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "Node path",
+                                    set_label: &T.configuration_node_path(),
                                 },
 
                                 gtk::Box {
@@ -201,13 +202,17 @@ impl AsyncComponent for ConfigurationView {
                                         set_editable: false,
                                         set_hexpand: true,
                                         set_placeholder_text: Some(
-                                            if cfg!(windows) {
-                                                "Example: D:\\subspace-node"
-                                            } else if cfg!(target_os = "macos") {
-                                                "Example: /Volumes/Subspace/subspace-node"
-                                            } else {
-                                                "Example: /media/subspace-node"
-                                            },
+                                            T
+                                                .configuration_node_path_placeholder(
+                                                    if cfg!(windows) {
+                                                        "D:\\subspace-node"
+                                                    } else if cfg!(target_os = "macos") {
+                                                        "/Volumes/Subspace/subspace-node"
+                                                    } else {
+                                                        "/media/subspace-node"
+                                                    },
+                                                )
+                                                .as_str(),
                                         ),
                                         set_primary_icon_name: Some(icon_name::SSD),
                                         set_primary_icon_activatable: false,
@@ -219,9 +224,7 @@ impl AsyncComponent for ConfigurationView {
                                         #[track = "model.node_path.changed_value()"]
                                         set_text: model.node_path.display().to_string().as_str(),
                                         set_tooltip_markup: Some(
-                                            "Absolute path where node files will be stored, prepare to \
-                                            dedicate at least 100 GiB of space for it, good quality SSD \
-                                            recommended"
+                                            &T.configuration_node_path_tooltip()
                                         ),
                                     },
 
@@ -229,14 +232,14 @@ impl AsyncComponent for ConfigurationView {
                                         connect_clicked => ConfigurationInput::OpenDirectory(
                                             DirectoryKind::NodePath
                                         ),
-                                        set_label: "Select",
+                                        set_label: &T.configuration_node_path_button_select(),
                                     },
                                 },
 
                                 gtk::Label {
                                     add_css_class: "error-label",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "Folder doesn't exist or user is lacking write permissions",
+                                    set_label: &T.configuration_node_path_error_doesnt_exist_or_write_permissions(),
                                     #[track = "self.node_path.changed_is_valid()"]
                                     set_visible: !model.node_path.is_valid && model.node_path.value != PathBuf::new(),
                                 },
@@ -253,7 +256,7 @@ impl AsyncComponent for ConfigurationView {
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "Rewards address",
+                                    set_label: &T.configuration_reward_address(),
                                 },
 
                                 gtk::Box {
@@ -278,7 +281,11 @@ impl AsyncComponent for ConfigurationView {
                                         },
                                         set_hexpand: true,
                                         set_placeholder_text: Some(
-                                            "Example: stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K",
+                                            T
+                                                .configuration_reward_address_placeholder(
+                                                    "stB4S14whneyomiEa22Fu2PzVoibMB7n5PvBFUwafbCbRkC1K"
+                                                )
+                                                .as_str(),
                                         ),
                                         set_primary_icon_name: Some(icon_name::WALLET2),
                                         set_primary_icon_activatable: false,
@@ -290,22 +297,20 @@ impl AsyncComponent for ConfigurationView {
                                         #[track = "model.reward_address.changed_value()"]
                                         set_text: &model.reward_address,
                                         set_tooltip_markup: Some(
-                                            "Use Subwallet or polkadot{.js} extension or any other \
-                                            Substrate wallet to create it first (address for any Substrate \
-                                            chain in SS58 format works)"
+                                            &T.configuration_reward_address_tooltip()
                                         ),
                                     },
 
                                     gtk::Button {
                                         connect_clicked => ConfigurationInput::CreateWallet,
-                                        set_label: "Create wallet",
+                                        set_label: &T.configuration_reward_address_button_create_wallet(),
                                     },
                                 },
 
                                 gtk::Label {
                                     add_css_class: "error-label",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "This should be a Substrate (SS58) address (any chain will do), not EVM address",
+                                    set_label: &T.configuration_reward_address_error_evm_address(),
                                     #[track = "model.reward_address.changed_value() || self.reward_address.changed_is_valid()"]
                                     set_visible: !model.reward_address.is_valid && model.reward_address.value.starts_with("0x"),
                                 },
@@ -320,7 +325,7 @@ impl AsyncComponent for ConfigurationView {
                     },
 
                     gtk::Expander {
-                        set_label: Some("Advanced configuration"),
+                        set_label: Some(&T.configuration_advanced()),
 
                         gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
@@ -334,7 +339,7 @@ impl AsyncComponent for ConfigurationView {
                                 gtk::Label {
                                     add_css_class: "heading",
                                     set_halign: gtk::Align::Start,
-                                    set_label: "Network configuration",
+                                    set_label: &T.configuration_advanced_network(),
                                 },
 
                                 gtk::Box {
@@ -345,7 +350,7 @@ impl AsyncComponent for ConfigurationView {
                                         set_spacing: 10,
 
                                         gtk::Label {
-                                            set_label: "Substrate (blockchain) P2P port (TCP):"
+                                            set_label: &T.configuration_advanced_network_substrate_port()
                                         },
                                         gtk::SpinButton {
                                             connect_value_changed[sender] => move |entry| {
@@ -361,10 +366,11 @@ impl AsyncComponent for ConfigurationView {
                                                 0.0,
                                                 0.0,
                                             ),
-                                            set_tooltip: &format!(
-                                                "Default port number is {}",
-                                                NetworkConfiguration::default().substrate_port
-                                            ),
+                                            set_tooltip: T
+                                                .configuration_advanced_network_default_port_number_tooltip(
+                                                    NetworkConfiguration::default().substrate_port
+                                                )
+                                                .as_str(),
                                             #[track = "model.network_configuration.changed_substrate_port()"]
                                             set_value: model.network_configuration.substrate_port as f64,
                                             set_width_chars: 5,
@@ -375,7 +381,7 @@ impl AsyncComponent for ConfigurationView {
                                         set_spacing: 10,
 
                                         gtk::Label {
-                                            set_label: "Subspace (DSN) P2P port (TCP):"
+                                            set_label: &T.configuration_advanced_network_subspace_port(),
                                         },
                                         gtk::SpinButton {
                                             connect_value_changed[sender] => move |entry| {
@@ -391,10 +397,11 @@ impl AsyncComponent for ConfigurationView {
                                                 0.0,
                                                 0.0,
                                             ),
-                                            set_tooltip: &format!(
-                                                "Default port number is {}",
-                                                NetworkConfiguration::default().subspace_port
-                                            ),
+                                            set_tooltip: T
+                                                .configuration_advanced_network_default_port_number_tooltip(
+                                                    NetworkConfiguration::default().subspace_port
+                                                )
+                                                .as_str(),
                                             #[track = "model.network_configuration.changed_subspace_port()"]
                                             set_value: model.network_configuration.subspace_port as f64,
                                             set_width_chars: 5,
@@ -405,7 +412,7 @@ impl AsyncComponent for ConfigurationView {
                                         set_spacing: 10,
 
                                         gtk::Label {
-                                            set_label: "Faster networking:"
+                                            set_label: &T.configuration_advanced_network_faster_networking(),
                                         },
                                         gtk::Switch {
                                             connect_state_set[sender] => move |_switch, state| {
@@ -417,8 +424,7 @@ impl AsyncComponent for ConfigurationView {
                                             },
                                             #[track = "model.network_configuration.changed_faster_networking()"]
                                             set_active: model.network_configuration.faster_networking,
-                                            set_tooltip:
-                                                "By default networking is optimized for consumer routers, but if you have more powerful setup, faster networking may improve sync speed and other processes",
+                                            set_tooltip: &T.configuration_advanced_network_faster_networking_tooltip(),
                                         },
                                     },
                                 },
@@ -436,7 +442,7 @@ impl AsyncComponent for ConfigurationView {
                                 connect_clicked => ConfigurationInput::AddFarm,
 
                                 gtk::Label {
-                                    set_label: "Add farm",
+                                    set_label: &T.configuration_button_add_farm(),
                                     set_margin_all: 10,
                                 },
                             },
@@ -451,7 +457,7 @@ impl AsyncComponent for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Help,
 
                                     gtk::Label {
-                                        set_label: "Help",
+                                        set_label: &T.configuration_button_help(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -460,7 +466,7 @@ impl AsyncComponent for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Cancel,
 
                                     gtk::Label {
-                                        set_label: "Cancel",
+                                        set_label: &T.configuration_button_cancel(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -476,7 +482,7 @@ impl AsyncComponent for ConfigurationView {
                                             && model.farms.iter().all(|maybe_farm| maybe_farm.map(FarmWidget::valid).unwrap_or_default()),
 
                                     gtk::Label {
-                                        set_label: "Save",
+                                        set_label: &T.configuration_button_save(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -490,7 +496,7 @@ impl AsyncComponent for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Help,
 
                                     gtk::Label {
-                                        set_label: "Help",
+                                        set_label: &T.configuration_button_help(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -499,7 +505,7 @@ impl AsyncComponent for ConfigurationView {
                                     connect_clicked => ConfigurationInput::Back,
 
                                     gtk::Label {
-                                        set_label: "Back",
+                                        set_label: &T.configuration_button_back(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -515,7 +521,7 @@ impl AsyncComponent for ConfigurationView {
                                             && model.farms.iter().all(|maybe_farm| maybe_farm.map(FarmWidget::valid).unwrap_or_default()),
 
                                     gtk::Label {
-                                        set_label: "Start",
+                                        set_label: &T.configuration_button_start(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -536,7 +542,8 @@ impl AsyncComponent for ConfigurationView {
             .transient_for_native(&parent_root)
             .launch(OpenDialogSettings {
                 folder_mode: true,
-                accept_label: "Select".to_string(),
+                accept_label: T.configuration_dialog_button_select().to_string(),
+                cancel_label: T.configuration_dialog_button_cancel().to_string(),
                 ..OpenDialogSettings::default()
             })
             .forward(sender.input_sender(), |response| match response {

@@ -1,5 +1,6 @@
-use crate::backend::node::{ChainInfo, SyncKind, SyncState};
+use crate::backend::node::{ChainInfo, SyncState};
 use crate::backend::NodeNotification;
+use crate::frontend::translations::{AsDefaultStr, T};
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use parking_lot::Mutex;
@@ -76,8 +77,8 @@ impl Component for NodeView {
                     set_halign: gtk::Align::Start,
                     set_has_frame: false,
                     #[track = "model.changed_chain_name()"]
-                    set_label: &model.chain_name,
-                    set_tooltip: "Click to open in file manager",
+                    set_label: T.running_node_title(&model.chain_name).as_str(),
+                    set_tooltip: &T.running_node_title_tooltip(),
                 },
 
 
@@ -89,12 +90,13 @@ impl Component for NodeView {
                     gtk::Box {
                         set_spacing: 10,
                         #[track = "model.changed_free_disk_space()"]
-                        set_tooltip: &format!(
-                            "Free disk space: {} remaining",
-                            model.free_disk_space
-                                .map(|bytes| bytes.to_string_as(true))
-                                .unwrap_or_default()
-                        ),
+                        set_tooltip: T
+                            .running_node_free_disk_space_tooltip(
+                                model.free_disk_space
+                                    .map(|bytes| bytes.to_string_as(true))
+                                    .unwrap_or_default()
+                            )
+                            .as_str(),
                         #[track = "model.changed_free_disk_space()"]
                         set_visible: model.free_disk_space
                             .map(|bytes| bytes.as_u64() <= FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD)
@@ -125,10 +127,11 @@ impl Component for NodeView {
                 SyncState::Unknown => gtk::Box {
                     gtk::Label {
                         #[track = "model.changed_best_block_number()"]
-                        set_label: &format!(
-                            "Connecting to the network, best block #{}",
-                            model.best_block_number
-                        ),
+                        set_label: T
+                            .running_node_status_connecting(
+                                model.best_block_number
+                            )
+                            .as_str(),
                     }
                 },
                 SyncState::Syncing { kind, target } => gtk::Box {
@@ -144,48 +147,54 @@ impl Component for NodeView {
                             // TODO: Optimize rendering here, it will update on every block here
                             #[track = "model.changed_sync_state() || model.changed_best_block_number()"]
                             set_label: &{
-                                let kind = match kind {
-                                    SyncKind::Dsn => "Syncing from DSN",
-                                    SyncKind::Regular => "Regular sync",
-                                };
                                 let sync_speed = if model.block_import_time.get_num_samples() > 0 {
-                                     let mut sync_speed = format!(
-                                        ", {:.2} blocks/s",
-                                        1.0 / model.block_import_time.get_average().as_secs_f32(),
-                                    );
+                                     let sync_speed = 1.0 / model.block_import_time.get_average().as_secs_f32();
 
                                     if target > model.best_block_number {
                                         let time_remaining = (target - model.best_block_number) * model.block_import_time.get_average();
                                         if time_remaining > Duration::from_secs(3600) {
-                                            sync_speed += &format!(
-                                                " (~{:.2} hours remaining)",
-                                                time_remaining.as_secs_f32() / 3600.0
-                                            );
+                                            T
+                                                .running_node_status_syncing_speed_hours_eta(
+                                                    sync_speed,
+                                                    time_remaining.as_secs_f32() / 3600.0,
+                                                )
+                                                .as_str()
+                                                .to_string()
                                         } else if time_remaining > Duration::from_secs(60) {
-                                            sync_speed += &format!(
-                                                " (~{:.2} minutes remaining)",
-                                                time_remaining.as_secs_f32() / 60.0
-                                            );
+                                            T
+                                                .running_node_status_syncing_speed_minutes_eta(
+                                                    sync_speed,
+                                                    time_remaining.as_secs_f32() / 60.0,
+                                                )
+                                                .as_str()
+                                                .to_string()
                                         } else {
-                                            sync_speed += &format!(
-                                                " (~{:.2} seconds remaining)",
-                                                time_remaining.as_secs_f32()
-                                            );
+                                            T
+                                                .running_node_status_syncing_speed_seconds_eta(
+                                                    sync_speed,
+                                                    time_remaining.as_secs_f32(),
+                                                )
+                                                .as_str()
+                                                .to_string()
                                         }
+                                    } else {
+                                        T
+                                            .running_node_status_syncing_speed_no_eta(sync_speed)
+                                            .as_str()
+                                            .to_string()
                                     }
-
-                                    sync_speed
                                 } else {
                                     String::new()
                                 };
 
-                                format!(
-                                    "{} #{}/{}{}",
-                                    kind,
-                                    model.best_block_number,
-                                    target,
-                                    sync_speed,
-                                )
+                                T
+                                    .running_node_status_syncing(
+                                        kind.as_str(),
+                                        model.best_block_number,
+                                        target,
+                                        sync_speed,
+                                    )
+                                    .as_str()
                             },
                         },
 
@@ -202,7 +211,7 @@ impl Component for NodeView {
                 SyncState::Idle => gtk::Box {
                     gtk::Label {
                         #[track = "model.changed_best_block_number()"]
-                        set_label: &format!("Synced, best block #{}", model.best_block_number),
+                        set_label: T.running_node_status_synced(model.best_block_number).as_str(),
                     }
                 },
             },
@@ -264,13 +273,14 @@ impl NodeView {
                 node_path,
             } => {
                 self.set_best_block_number(best_block_number);
-                self.set_chain_name(format!(
-                    "{} consensus node",
+                self.set_chain_name(
                     chain_info
                         .chain_name
                         .strip_prefix("Subspace ")
-                        .unwrap_or(&chain_info.chain_name)
-                ));
+                        .map_or(chain_info.chain_name.clone(), |chain_name| {
+                            chain_name.to_string()
+                        }),
+                );
                 *self.get_mut_node_path().lock() = node_path;
             }
             NodeInput::NodeNotification(node_notification) => match node_notification {

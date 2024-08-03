@@ -7,6 +7,7 @@ use relm4::factory::AsyncFactoryComponent;
 use relm4::prelude::*;
 // TODO: Remove import once in prelude: https://github.com/Relm4/Relm4/issues/662
 use crate::frontend::configuration::utils::is_directory_writable;
+use crate::frontend::translations::{AsDefaultStr, T};
 use relm4::AsyncFactorySender;
 use relm4_icons::icon_name;
 use std::path::PathBuf;
@@ -81,7 +82,7 @@ impl AsyncFactoryComponent for FarmWidget {
                     add_css_class: "heading",
                     set_halign: gtk::Align::Start,
                     #[watch]
-                    set_label: &format!("Path to farm {} and its size", self.index.current_index()),
+                    set_label: T.configuration_farm(self.index.current_index()).as_str(),
                 },
 
                 gtk::Box {
@@ -101,13 +102,17 @@ impl AsyncFactoryComponent for FarmWidget {
                             set_editable: false,
                             set_hexpand: true,
                             set_placeholder_text: Some(
-                                if cfg!(windows) {
-                                    "Example: D:\\subspace-farm"
-                                } else if cfg!(target_os = "macos") {
-                                    "Example: /Volumes/Subspace/subspace-farm"
-                                } else {
-                                    "Example: /media/subspace-farm"
-                                },
+                                T
+                                    .configuration_farm_path_placeholder(
+                                        if cfg!(windows) {
+                                            "D:\\subspace-farm"
+                                        } else if cfg!(target_os = "macos") {
+                                            "/Volumes/Subspace/subspace-farm"
+                                        } else {
+                                            "/media/subspace-farm"
+                                        },
+                                    )
+                                    .as_str(),
                             ),
                             set_primary_icon_name: Some(icon_name::SSD),
                             set_primary_icon_activatable: false,
@@ -119,8 +124,7 @@ impl AsyncFactoryComponent for FarmWidget {
                             #[track = "self.path.changed_value()"]
                             set_text: self.path.display().to_string().as_str(),
                             set_tooltip_markup: Some(
-                                "Absolute path where farm files will be stored, any \
-                                SSD works, high endurance not necessary"
+                                &T.configuration_farm_path_tooltip()
                             ),
                         },
 
@@ -130,7 +134,7 @@ impl AsyncFactoryComponent for FarmWidget {
                                     warn!("Can't send open directory output");
                                 }
                             },
-                            set_label: "Select",
+                            set_label: &T.configuration_farm_path_button_select(),
                         },
                     },
 
@@ -148,7 +152,7 @@ impl AsyncFactoryComponent for FarmWidget {
                             &["invalid-input"]
                         },
                         set_placeholder_text: Some(
-                            "Example: 4T, 2.5TB, 500GiB, etc.",
+                            &T.configuration_farm_size_placeholder(),
                         ),
                         set_primary_icon_name: Some(icon_name::SIZE_HORIZONTALLY),
                         set_primary_icon_activatable: false,
@@ -160,8 +164,7 @@ impl AsyncFactoryComponent for FarmWidget {
                         #[track = "self.size.changed_value()"]
                         set_text: self.size.as_str(),
                         set_tooltip_markup: Some(
-                            "Size of the farm in whichever units you prefer, any \
-                            amount of space above 2 GB works"
+                            &T.configuration_farm_size_tooltip()
                         ),
                     },
 
@@ -172,14 +175,14 @@ impl AsyncFactoryComponent for FarmWidget {
                             }
                         },
                         set_icon_name: icon_name::CROSS,
-                        set_tooltip: "Delete this farm",
+                        set_tooltip: &T.configuration_farm_delete(),
                     },
                 },
 
                 gtk::Label {
                     add_css_class: "error-label",
                     set_halign: gtk::Align::Start,
-                    set_label: "Folder doesn't exist or user is lacking write permissions",
+                    set_label: &T.configuration_farm_path_error_doesnt_exist_or_write_permissions(),
                     #[track = "self.path.changed_is_valid()"]
                     set_visible: !self.path.is_valid && self.path.value != PathBuf::new(),
                 },

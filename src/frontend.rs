@@ -2,6 +2,7 @@ pub mod configuration;
 pub mod loading;
 pub mod new_version;
 pub mod running;
+pub mod translations;
 mod widgets;
 
 use crate::backend::config::RawConfig;
@@ -11,6 +12,7 @@ use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, Co
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
+use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
 use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use futures::channel::mpsc;
@@ -21,15 +23,15 @@ use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use relm4_icons::icon_name;
 use std::cell::Cell;
-use std::env;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::{env, fmt};
 use subspace_farmer::utils::AsyncJoinOnDrop;
 use tracing::{debug, error, warn};
 
-pub(super) const GLOBAL_CSS: &str = include_str!("../res/app.css");
+pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 const TRAY_ICON: &[u8] = include_bytes!("../res/linux/space-acres.png");
@@ -41,7 +43,7 @@ enum TrayMenuSignal {
 }
 
 #[derive(Debug)]
-pub(super) enum AppInput {
+pub enum AppInput {
     BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
     Running(RunningOutput),
@@ -59,7 +61,7 @@ pub(super) enum AppInput {
 }
 
 #[derive(Debug)]
-pub(super) enum AppCommandOutput {
+pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
     Restart,
 }
@@ -72,20 +74,20 @@ enum View {
     Reconfiguration,
     Running,
     Stopped(Option<anyhow::Error>),
-    Error(anyhow::Error),
+    Error(String),
 }
 
 impl View {
-    fn title(&self) -> &'static str {
+    fn title(&self) -> impl fmt::Display {
         match self {
-            Self::Welcome => "Welcome",
-            Self::Upgrade { .. } => "Upgrade",
-            Self::Loading => "Loading",
-            Self::Configuration => "Configuration",
-            Self::Reconfiguration => "Reconfiguration",
-            Self::Running => "Running",
-            Self::Stopped(_) => "Stopped",
-            Self::Error(_) => "Error",
+            Self::Welcome => T.welcome_title(),
+            Self::Upgrade { .. } => T.upgrade_title(),
+            Self::Loading => T.loading_title(),
+            Self::Configuration => T.configuration_title(),
+            Self::Reconfiguration => T.reconfiguration_title(),
+            Self::Running => T.running_title(),
+            Self::Stopped(_) => T.stopped_title(),
+            Self::Error(_) => T.error_title(),
         }
     }
 }
@@ -139,18 +141,17 @@ impl StatusBarNotification {
     }
 }
 
-pub(super) struct RunBackendResult {
-    pub(super) backend_fut:
-        Pin<Box<dyn Future<Output = Result<(), futures::channel::oneshot::Canceled>>>>,
-    pub(super) backend_action_sender: mpsc::Sender<BackendAction>,
-    pub(super) backend_notification_receiver: mpsc::Receiver<BackendNotification>,
+pub struct RunBackendResult {
+    pub backend_fut: Pin<Box<dyn Future<Output = Result<(), futures::channel::oneshot::Canceled>>>>,
+    pub backend_action_sender: mpsc::Sender<BackendAction>,
+    pub backend_notification_receiver: mpsc::Receiver<BackendNotification>,
 }
 
-pub(super) struct AppInit {
-    pub(super) app_data_dir: Option<PathBuf>,
-    pub(super) exit_status_code: Rc<Cell<AppStatusCode>>,
-    pub(super) minimize_on_start: bool,
-    pub(super) run_backend: fn() -> RunBackendResult,
+pub struct AppInit {
+    pub app_data_dir: Option<PathBuf>,
+    pub exit_status_code: Rc<Cell<AppStatusCode>>,
+    pub minimize_on_start: bool,
+    pub run_backend: fn() -> RunBackendResult,
 }
 
 relm4::new_action_group!(MainMenu, "main_menu");
@@ -164,7 +165,7 @@ relm4::new_stateless_action!(MainMenuShareFeedback, MainMenu, "share_feedback");
 relm4::new_stateless_action!(MainMenuAbout, MainMenu, "about");
 
 #[tracker::track]
-pub(super) struct App {
+pub struct App {
     #[no_eq]
     current_view: View,
     current_raw_config: Option<RawConfig>,
@@ -194,7 +195,7 @@ pub(super) struct App {
     _background_tasks: Box<dyn Future<Output = ()>>,
 }
 
-#[relm4::component(pub(super) async)]
+#[relm4::component(pub async)]
 impl AsyncComponent for App {
     type Init = AppInit;
     type Input = AppInput;
@@ -259,14 +260,7 @@ impl AsyncComponent for App {
                             },
 
                             gtk::Label {
-                                set_label: indoc::indoc! {"
-                                    Space Acres is an opinionated GUI application for farming on Autonomys Network.
-
-                                    Before continuing you need 3 things:
-                                    ✔ Wallet address where you'll receive rewards (use Subwallet, polkadot{.js} extension or any other wallet compatible with Substrate chain)
-                                    ✔ 100G of space on a good quality SSD to store node data
-                                    ✔ any SSDs (or multiple) with as much space as you can afford for farming purposes, this is what will generate rewards"
-                                },
+                                set_label: &T.welcome_message(),
                                 set_wrap: true,
                             },
 
@@ -279,7 +273,7 @@ impl AsyncComponent for App {
                                     connect_clicked => AppInput::InitialConfiguration,
 
                                     gtk::Label {
-                                        set_label: "Continue",
+                                        set_label: &T.button_continue(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -299,13 +293,7 @@ impl AsyncComponent for App {
                             },
 
                             gtk::Label {
-                                set_label: indoc::indoc! {"
-                                    Thanks for choosing Space Acres again!
-
-                                    The chain you were running before upgrade is no longer compatible with this release of Space Acres, likely because you were participating in the previous version of Autonomys.
-
-                                    But fear not, you can upgrade to currently supported network with a single click of a button!"
-                                },
+                                set_label: &T.upgrade_message(),
                                 set_wrap: true,
                             },
 
@@ -319,7 +307,7 @@ impl AsyncComponent for App {
 
                                     gtk::Label {
                                         #[track = "model.changed_current_view()"]
-                                        set_label: &format!("Upgrade to {chain_name}"),
+                                        set_label: T.upgrade_button_upgrade(chain_name).as_str(),
                                         set_margin_all: 10,
                                     },
                                 },
@@ -335,7 +323,7 @@ impl AsyncComponent for App {
 
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
-                                set_label: &format!("Stopped with error: {error}"),
+                                set_label: T.stopped_message_with_error(error.to_string()).as_str(),
                             },
 
                             gtk::Box {
@@ -343,19 +331,19 @@ impl AsyncComponent for App {
                                 set_spacing: 10,
 
                                 gtk::Button {
-                                    set_label: "Show logs",
+                                    set_label: &T.stopped_button_show_logs(),
                                     connect_clicked => AppInput::OpenLogsFolder,
                                 },
 
                                 gtk::Button {
-                                    set_label: "Help from community",
+                                    set_label: &T.stopped_button_help_from_community(),
                                     connect_clicked => AppInput::OpenCommunityHelpLink,
                                 },
                             },
                         },
                         View::Stopped(None) => {
                             gtk::Label {
-                                set_label: "Stopped 🛑",
+                                set_label: &T.stopped_message(),
                             }
                         },
                         View::Error(error) => gtk::Box {
@@ -365,7 +353,7 @@ impl AsyncComponent for App {
 
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
-                                set_label: &format!("Error: {error}"),
+                                set_label: &T.error_message(error.to_string()).as_str(),
                             },
 
                             gtk::Box {
@@ -373,12 +361,12 @@ impl AsyncComponent for App {
                                 set_spacing: 10,
 
                                 gtk::Button {
-                                    set_label: "Show logs",
+                                    set_label: &T.error_button_show_logs(),
                                     connect_clicked => AppInput::OpenLogsFolder,
                                 },
 
                                 gtk::Button {
-                                    set_label: "Help from community",
+                                    set_label: &T.error_button_help_from_community(),
                                     connect_clicked => AppInput::OpenCommunityHelpLink,
                                 },
                             },
@@ -401,14 +389,14 @@ impl AsyncComponent for App {
                         gtk::Button {
                             add_css_class: "suggested-action",
                             connect_clicked => AppInput::Restart,
-                            set_label: "Restart",
+                            set_label: &T.status_bar_button_restart(),
                             #[track = "model.changed_status_bar_notification()"]
                             set_visible: model.status_bar_notification.restart_button(),
                         },
 
                         gtk::Button {
                             connect_clicked => AppInput::CloseStatusBarWarning,
-                            set_label: "Ok",
+                            set_label: &T.status_bar_button_ok(),
                             #[track = "model.changed_status_bar_notification()"]
                             set_visible: model.status_bar_notification.ok_button(),
                         },
@@ -420,16 +408,16 @@ impl AsyncComponent for App {
 
     menu! {
         main_menu_without_change_configuration: {
-            "Show logs in file manager" => MainMenuShowLogs,
-            "Share feedback" => MainMenuShareFeedback,
-            "About" => MainMenuAbout,
+            &T.main_menu_show_logs() => MainMenuShowLogs,
+            &T.main_menu_share_feedback() => MainMenuShareFeedback,
+            &T.main_menu_about() => MainMenuAbout,
         },
 
         main_menu: {
-            "Show logs in file manager" => MainMenuShowLogs,
-            "Change configuration" => MainMenuChangeConfiguration,
-            "Share feedback" => MainMenuShareFeedback,
-            "About" => MainMenuAbout,
+            &T.main_menu_show_logs() => MainMenuShowLogs,
+            &T.main_menu_change_configuration() => MainMenuChangeConfiguration,
+            &T.main_menu_share_feedback() => MainMenuShareFeedback,
+            &T.main_menu_about() => MainMenuAbout,
         }
     }
 
@@ -513,10 +501,8 @@ impl AsyncComponent for App {
                     })
                     .unwrap_or_else(|| "Unknown".to_string());
 
-                format!(
-                    "Config directory: {config_directory}\n\
-                    Data directory (including logs): {data_directory}",
-                )
+                T.about_system_information(config_directory, data_directory)
+                    .as_str()
             })
             .transient_for(&root)
             .build();
@@ -559,8 +545,8 @@ impl AsyncComponent for App {
                         }
                     }
                 })
-                .map_err(|err| {
-                    warn!(%err, "Unable to create tray icon ");
+                .map_err(|error| {
+                    warn!(%error, "Unable to create tray icon");
                 })
                 .ok()
         };
@@ -779,7 +765,10 @@ impl App {
                         });
                 }
                 self.set_status_bar_notification(StatusBarNotification::Warning {
-                    message: format!("Configuration is invalid: {error}",),
+                    message: T
+                        .status_bar_message_configuration_is_invalid(error.to_string())
+                        .as_str()
+                        .to_string(),
                     ok: true,
                     restart: false,
                 });
@@ -787,17 +776,18 @@ impl App {
             BackendNotification::ConfigSaveResult(result) => match result {
                 Ok(()) => {
                     self.set_status_bar_notification(StatusBarNotification::Warning {
-                        message:
-                            "Application restart is needed for configuration changes to take effect"
-                                .to_string(),
+                        message: T
+                            .status_bar_message_restart_is_needed_for_configuration()
+                            .to_string(),
                         ok: false,
                         restart: true,
                     });
                 }
                 Err(error) => {
-                    self.set_status_bar_notification(StatusBarNotification::Error(format!(
-                        "Failed to save configuration changes: {error}"
-                    )));
+                    self.set_status_bar_notification(StatusBarNotification::Error(
+                        T.status_bar_message_failed_to_save_configuration(error.to_string())
+                            .to_string(),
+                    ));
                 }
             },
             BackendNotification::Running {
@@ -835,7 +825,7 @@ impl App {
                 self.set_current_view(View::Stopped(error));
             }
             BackendNotification::IrrecoverableError { error } => {
-                self.set_current_view(View::Error(error));
+                self.set_current_view(View::Error(error.to_string()));
             }
         }
     }
@@ -848,9 +838,10 @@ impl App {
                     .send(BackendAction::NewConfig { raw_config })
                     .await
                 {
-                    self.set_current_view(View::Error(anyhow::anyhow!(
-                        "Failed to send config to backend: {error}"
-                    )));
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_config_to_backend(error.to_string())
+                            .to_string(),
+                    ));
                 }
             }
             ConfigurationOutput::ConfigUpdate(raw_config) => {
@@ -863,9 +854,10 @@ impl App {
                     .send(BackendAction::NewConfig { raw_config })
                     .await
                 {
-                    self.set_current_view(View::Error(anyhow::anyhow!(
-                        "Failed to send config to backend: {error}"
-                    )));
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_config_to_backend(error.to_string())
+                            .to_string(),
+                    ));
                 }
             }
             ConfigurationOutput::Back => {
@@ -894,9 +886,10 @@ impl App {
                     )))
                     .await
                 {
-                    self.set_current_view(View::Error(anyhow::anyhow!(
-                        "Failed to send pause plotting to backend: {error}"
-                    )));
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_pause_plotting_to_backend(error.to_string())
+                            .to_string(),
+                    ));
                 }
             }
         }

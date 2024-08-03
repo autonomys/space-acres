@@ -1,4 +1,5 @@
 use crate::backend::config::Farm;
+use crate::frontend::translations::{AsDefaultStr, T};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
@@ -19,6 +20,7 @@ const INVALID_SCORE_VALUE: f64 = -1.0;
 const SECTORS_PER_ROW: usize = 108;
 /// Number of samples over which to track auditing time, 1 minute in slots
 const AUDITING_TIME_TRACKING_WINDOW: usize = 60;
+// TODO: Replace constant with slot duration
 /// One second to audit
 const MAX_AUDITING_TIME: Duration = Duration::from_secs(1);
 /// 500ms auditing time is excellent, anything larger will result in auditing performance indicator decrease
@@ -149,7 +151,7 @@ impl FactoryComponent for FarmWidget {
                     set_cursor_from_name: Some("pointer"),
                     set_halign: gtk::Align::Start,
                     set_has_frame: false,
-                    set_tooltip: "Click to open in file manager",
+                    set_tooltip: &T.running_farmer_farm_tooltip(),
 
                     gtk::Label {
                         #[track = "self.changed_error()"]
@@ -192,11 +194,12 @@ impl FactoryComponent for FarmWidget {
                                     }],
                                     set_spacing: 5,
                                     #[track = "self.changed_proving_result()"]
-                                    set_tooltip: &format!(
-                                        "{}/{} successful reward signatures, expand farm details to see more information",
-                                        self.proving_result.0,
-                                        self.proving_result.1
-                                    ),
+                                    set_tooltip: T
+                                        .running_farmer_farm_reward_signatures_tooltip(
+                                            self.proving_result.0,
+                                            self.proving_result.1
+                                        )
+                                        .as_str(),
 
                                     gtk::Label {
                                         #[track = "self.changed_proving_result()"]
@@ -216,11 +219,12 @@ impl FactoryComponent for FarmWidget {
                                 gtk::Box {
                                     set_spacing: 5,
                                     #[track = "self.changed_auditing_time_average()"]
-                                    set_tooltip: &format!(
-                                        "Auditing performance: average time {:.2}s, time limit {:.2}s",
-                                        self.auditing_time_average.as_secs_f32(),
-                                        MAX_AUDITING_TIME.as_secs_f32()
-                                    ),
+                                    set_tooltip: T
+                                        .running_farmer_farm_auditing_performance_tooltip(
+                                            self.auditing_time_average.as_secs_f32(),
+                                            MAX_AUDITING_TIME.as_secs_f32()
+                                        )
+                                        .as_str(),
                                     #[track = "self.changed_farm_details() || self.changed_auditing_time_score()"]
                                     set_visible: self.farm_details && self.auditing_time.get_num_samples() > 0,
 
@@ -239,11 +243,12 @@ impl FactoryComponent for FarmWidget {
                                 gtk::Box {
                                     set_spacing: 5,
                                     #[track = "self.changed_proving_time_average()"]
-                                    set_tooltip: &format!(
-                                        "Proving performance: average time {:.2}s, time limit {:.2}s",
-                                        self.proving_time_average.as_secs_f32(),
-                                        self.block_authoring_delay.as_secs_f32()
-                                    ),
+                                    set_tooltip: T
+                                        .running_farmer_farm_proving_performance_tooltip(
+                                            self.proving_time_average.as_secs_f32(),
+                                            self.block_authoring_delay.as_secs_f32()
+                                        )
+                                        .as_str(),
                                     #[track = "self.changed_farm_details() || self.changed_proving_time_score()"]
                                     set_visible: self.farm_details && self.proving_time.get_num_samples() > 0,
 
@@ -262,13 +267,15 @@ impl FactoryComponent for FarmWidget {
                                 gtk::Image {
                                     set_icon_name: Some(icon_name::WARNING),
                                     #[track = "self.changed_non_fatal_farming_error()"]
-                                    set_tooltip: &{
+                                    set_tooltip: {
                                         let last_error = self.non_fatal_farming_error
                                             .as_ref()
                                             .map(|error| error.to_string())
                                             .unwrap_or_default();
 
-                                        format!("Non-fatal farming error happened and was recovered, see logs for more details: {last_error}")
+                                        T
+                                            .running_farmer_farm_non_fatal_error_tooltip(last_error)
+                                            .as_str()
                                     },
                                     #[track = "self.changed_non_fatal_farming_error()"]
                                     set_visible: self.non_fatal_farming_error.is_some(),
@@ -286,7 +293,7 @@ impl FactoryComponent for FarmWidget {
                         add_css_class: "farm-error",
                         set_halign: gtk::Align::Start,
                         #[track = "self.changed_error()"]
-                        set_label: &format!("Farm crashed: {error}"),
+                        set_label: T.running_farmer_farm_crashed(error.to_string()).as_str(),
                     }
                 },
                 (_, PlottingState::Plotting { kind, progress }) => gtk::Box {
@@ -300,65 +307,48 @@ impl FactoryComponent for FarmWidget {
                             set_halign: gtk::Align::Start,
 
                             #[track = "self.changed_plotting_state() || self.changed_encoding_sectors() || self.changed_plotting_paused() || self.changed_is_node_synced()"]
-                            set_label: &{
+                            set_label: {
+                                let pausing_state = if self.plotting_paused {
+                                    if self.encoding_sectors > 0 {
+                                        "pausing"
+                                    } else {
+                                        "paused"
+                                    }
+                                } else {
+                                    "no"
+                                };
                                 let plotting_speed = if self.sector_plotting_time.get_num_samples() > 0 {
-                                     format!(
-                                        " ({:.2} m/sector, {:.2} sectors/h)",
-                                        self.sector_plotting_time.get_average().as_secs_f32() / 60.0,
-                                        3600.0 / self.sector_plotting_time.get_average().as_secs_f32()
-                                    )
+                                     T
+                                        .running_farmer_farm_plotting_speed(
+                                            self.sector_plotting_time.get_average().as_secs_f32() / 60.0,
+                                            3600.0 / self.sector_plotting_time.get_average().as_secs_f32()
+                                        )
+                                        .as_str()
+                                        .to_string()
                                 } else {
                                     String::new()
                                 };
+                                let farming = if self.is_node_synced {
+                                    "yes"
+                                } else {
+                                    "no"
+                                };
 
                                 match kind {
-                                    PlottingKind::Initial => {
-                                        let initial_plotting = if self.plotting_paused {
-                                            if self.encoding_sectors > 0 {
-                                                "Pausing initial plotting"
-                                            } else {
-                                                "Paused initial plotting"
-                                            }
-                                        } else {
-                                            "Initial plotting"
-                                        };
-                                        let farming = if self.is_node_synced {
-                                            "farming"
-                                        } else {
-                                            "not farming"
-                                        };
-                                        format!(
-                                            "{} {:.2}%{}, {}",
-                                            initial_plotting,
-                                            progress,
-                                            plotting_speed,
-                                            farming,
-                                        )
-                                    },
-                                    PlottingKind::Replotting => {
-                                        let replotting = if self.plotting_paused {
-                                            if self.encoding_sectors > 0 {
-                                                "Pausing replotting"
-                                            } else {
-                                                "Paused replotting"
-                                            }
-                                        } else {
-                                            "Replotting"
-                                        };
-                                        let farming = if self.is_node_synced {
-                                            "farming"
-                                        } else {
-                                            "not farming"
-                                        };
-                                        format!(
-                                            "{} {:.2}%{}, {}",
-                                            replotting,
-                                            progress,
-                                            plotting_speed,
-                                            farming,
-                                        )
-                                    },
+                                    PlottingKind::Initial => T.running_farmer_farm_plotting_initial(
+                                        pausing_state,
+                                        progress,
+                                        plotting_speed,
+                                        farming,
+                                    ),
+                                    PlottingKind::Replotting => T.running_farmer_farm_replotting(
+                                        pausing_state,
+                                        progress,
+                                        plotting_speed,
+                                        farming,
+                                    ),
                                 }
+                                    .as_str()
                             },
                         },
 
@@ -375,10 +365,10 @@ impl FactoryComponent for FarmWidget {
                 (_, PlottingState::Idle) => gtk::Box {
                     gtk::Label {
                         #[track = "self.changed_is_node_synced()"]
-                        set_label: if self.is_node_synced {
-                            "Farming"
+                        set_label: &if self.is_node_synced {
+                            T.running_farmer_farm_farming()
                         } else {
-                            "Waiting for node to sync"
+                            T.running_farmer_farm_waiting_for_node_to_sync()
                         },
                     }
                 },
@@ -398,7 +388,7 @@ impl FactoryComponent for FarmWidget {
         for sector_index in 0..init.total_sectors {
             let sector = gtk::Box::builder()
                 .css_name("farm-sector")
-                .tooltip_text(format!("Sector {sector_index}"))
+                .tooltip_text(T.running_farmer_farm_sector(sector_index).as_str())
                 .build();
             if sector_index < init.plotted_total_sectors {
                 sector.add_css_class("plotted")
@@ -619,27 +609,22 @@ impl FarmWidget {
     }
 
     fn update_sector_tooltip(sector: &gtk::Box, sector_index: SectorIndex) {
-        if sector.has_css_class(SectorState::Downloading.css_class()) {
-            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: downloading")));
+        let tooltip = if sector.has_css_class(SectorState::Downloading.css_class()) {
+            T.running_farmer_farm_sector_downloading(sector_index)
         } else if sector.has_css_class(SectorState::Encoding.css_class()) {
-            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: encoding")));
+            T.running_farmer_farm_sector_encoding(sector_index)
         } else if sector.has_css_class(SectorState::Writing.css_class()) {
-            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: writing")));
+            T.running_farmer_farm_sector_writing(sector_index)
         } else if sector.has_css_class(SectorState::Expired.css_class()) {
-            sector.set_tooltip_text(Some(&format!(
-                "Sector {sector_index}: expired, waiting to be replotted"
-            )));
+            T.running_farmer_farm_sector_expired(sector_index)
         } else if sector.has_css_class(SectorState::AboutToExpire.css_class()) {
-            sector.set_tooltip_text(Some(&format!(
-                "Sector {sector_index}: about to expire, waiting to be replotted"
-            )));
+            T.running_farmer_farm_sector_about_to_expire(sector_index)
         } else if sector.has_css_class(SectorState::Plotted.css_class()) {
-            sector.set_tooltip_text(Some(&format!("Sector {sector_index}: up to date")));
+            T.running_farmer_farm_sector_up_to_date(sector_index)
         } else {
-            sector.set_tooltip_text(Some(&format!(
-                "Sector {sector_index}: waiting to be plotted"
-            )));
-        }
+            T.running_farmer_farm_sector_waiting_to_be_plotted(sector_index)
+        };
+        sector.set_tooltip_text(Some(tooltip.as_str()));
     }
 
     /// 0.0..=1.0

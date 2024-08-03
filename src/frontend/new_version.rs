@@ -1,3 +1,4 @@
+use crate::frontend::translations::{AsDefaultStr, T};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
@@ -64,11 +65,12 @@ impl Component for NewVersion {
             remove_css_class: "link",
             remove_css_class: "text-button",
             #[track = "model.changed_new_version()"]
-            set_label: &format!(
-                "Version {} available 🎉",
-                model.new_version.as_ref().map(Version::to_string).unwrap_or_default()
-            ),
-            set_tooltip: "Open releases page",
+            set_label: T
+                .new_version_available(
+                    model.new_version.as_ref().map(Version::to_string).unwrap_or_default()
+                )
+                .as_str(),
+            set_tooltip: &T.new_version_available_button_open(),
             // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
             //  for macOS
             // set_uri: &{
