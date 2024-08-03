@@ -91,22 +91,22 @@ running_node_title = {$chain_name} consensus node
 running_node_title_tooltip = Click to open in file manager
 running_node_free_disk_space_tooltip = Free disk space: {$size} remaining
 running_node_status_connecting = Connecting to the network, best block #{$block_number}
-running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, maximumFractionDigits: 2)} blocks/s
-running_node_status_syncing_speed_hours_eta = , {NUMBER($blocks_per_second, maximumFractionDigits: 2)} blocks/s (~{NUMBER($hours_remaining, maximumFractionDigits: 2)} hours remaining)
-running_node_status_syncing_speed_minutes_eta = , {NUMBER($blocks_per_second, maximumFractionDigits: 2)} blocks/s (~{NUMBER($hours_remaining, maximumFractionDigits: 2)} minutes remaining)
-running_node_status_syncing_speed_seconds_eta = , {NUMBER($blocks_per_second, maximumFractionDigits: 2)} blocks/s (~{NUMBER($hours_remaining, maximumFractionDigits: 2)} seconds remaining)
+running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
+running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} hours remaining)
+running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} minutes remaining)
+running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} seconds remaining)
 running_node_status_syncing =
-    {$sync_kind ->
+    {$a_sync_kind ->
         [dsn] Syncing from DSN
         [regular] Regular sync
-        *[unknown] Unknown sync kind {$sync_kind}
-    } #{$best_block_number}/{$target_block}{$sync_speed}
+        *[unknown] Unknown sync kind {$a_sync_kind}
+    } #{$b_best_block_number}/{$c_target_block}{$d_sync_speed}
 running_node_status_synced = Synced, best block #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Expand details about each farm
 running_farmer_button_pause_plotting = Pause plotting/replotting, note that currently encoding sectors will not be interrupted
 running_farmer_account_balance_tooltip = Total account balance and coins farmed since application started, click to see details in Astral
-running_farmer_piece_cache_sync = Piece cache sync {NUMBER($percentage, maximumFractionDigits: 2)}%
+running_farmer_piece_cache_sync = Piece cache sync {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
     Next reward estimate: {$eta_string ->
         [any_time_now] any time now
@@ -117,27 +117,27 @@ running_farmer_next_reward_estimate =
         *[unknown] unknown
     }
 running_farmer_farm_tooltip = Click to open in file manager
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} successful reward signatures, expand farm details to see more information
-running_farmer_farm_auditing_performance_tooltip = Auditing performance: average time {NUMBER($average_time, maximumFractionDigits: 2)}s, time limit {NUMBER($time_timit, maximumFractionDigits: 2)}s
-running_farmer_farm_proving_performance_tooltip = Proving performance: average time {NUMBER($average_time, maximumFractionDigits: 2)}s, time limit {NUMBER($time_timit, maximumFractionDigits: 2)}s
+running_farmer_farm_reward_signatures_tooltip = {$a_successful_signatures}/{$b_total_signatures} successful reward signatures, expand farm details to see more information
+running_farmer_farm_auditing_performance_tooltip = Auditing performance: average time {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
+running_farmer_farm_proving_performance_tooltip = Proving performance: average time {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = Non-fatal farming error happened and was recovered, see logs for more details: {$error}
 running_farmer_farm_crashed = Farm crashed: {$error}
-running_farmer_farm_plotting_speed =  ({NUMBER($sector_time, maximumFractionDigits: 2)} m/sector, {NUMBER($sectors_per_hour, maximumFractionDigits: 2)} sectors/h)
+running_farmer_farm_plotting_speed =  ({NUMBER($a_sector_time, minimumFractionDigits: 2, maximumFractionDigits: 2)} m/sector, {NUMBER($b_sectors_per_hour, minimumFractionDigits: 2, maximumFractionDigits: 2)} sectors/h)
 running_farmer_farm_plotting_initial =
-    {$pausing_state ->
+    {$a_pausing_state ->
         [pausing] Pausing initial plotting
         [paused] Paused initial plotting
         *[no] Initial plotting
-    } {NUMBER($progress, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
         [yes] farming
         *[no] not farming
     }
 running_farmer_farm_replotting =
-    {$pausing_state ->
+    {$a_pausing_state ->
         [pausing] Pausing initial plotting
         [paused] Paused initial plotting
-        *[default] Initial plotting
-    } {NUMBER($progress, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
+        *[default] Replotting
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
         [yes] farming
         *[no] not farming
     }
@@ -180,5 +180,5 @@ status_bar_button_restart = Restart
 status_bar_button_ok = Ok
 
 about_system_information =
-    Config directory: {$config_directory}
-    Data directory (including logs): {$data_directory}
+    Config directory: {$a_config_directory}
+    Data directory (including logs): {$b_data_directory}

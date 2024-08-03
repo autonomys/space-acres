@@ -1,5 +1,24 @@
 mod messages {
     #![allow(clippy::all)]
+
+    use fluent_static::fluent_bundle::{FluentArgs, FluentValue};
+    // TODO: This is used inside the generated file and is a hack for
+    //  https://github.com/projectfluent/fluent-rs/issues/368
+    fn number<'a>(positional: &[FluentValue<'a>], named: &FluentArgs) -> FluentValue<'a> {
+        let Some(FluentValue::Number(n)) = positional.first() else {
+            return FluentValue::Error;
+        };
+
+        let mut n = n.clone();
+        n.options.merge(named);
+        if let Some(maximum_fraction_digits) = n.options.maximum_fraction_digits {
+            let multiplier = 10f64.powf(maximum_fraction_digits as f64);
+            n.value = (n.value * multiplier).round() / multiplier;
+        }
+
+        FluentValue::Number(n)
+    }
+
     pub use messages::*;
     include!(concat!(env!("OUT_DIR"), "/l10n.rs"));
 }

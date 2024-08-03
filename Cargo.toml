@@ -46,7 +46,7 @@ duct = "0.13.7"
 event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
 file-rotate = "0.7.6"
-fluent-langneg = "0.13.0"
+fluent-langneg = "0.14.1"
 fluent-static = "0.2.4"
 frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "0cbfcb0232bbf71ac5b14cc8c99bf043cec420ef", default-features = false }
 fs4 = "0.8.4"
@@ -200,6 +200,8 @@ lto = "fat"
 #  are resolved (our fork removes WebRTC support by default in order to avoid OpenSSL dependency)
 [patch.crates-io]
 litep2p = { git = "https://github.com/subspace/litep2p", rev = "331240c0184e9e8939ef9b113963dc58b43e2f92" }
+# TODO: Remove once something newer than 0.15.3 is released with support for `NUMBER()` built-in function and used in `fluent-static`
+fluent-bundle = { git = "https://github.com/projectfluent/fluent-rs", rev = "bda4736095a4a60a9a042b336d0789c22461905d" }
 
 [patch."https://github.com/paritytech/polkadot-sdk.git"]
 # TODO: https://github.com/paritytech/arkworks-substrate depends on Substrate's git commit and requires override
