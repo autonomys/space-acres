@@ -3243,15 +3243,14 @@ dependencies = [
 [[package]]
 name = "fluent-bundle"
 version = "0.15.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fe0a21ee80050c678013f82edf4b705fe2f26f1f9877593d13198612503f493"
+source = "git+https://github.com/projectfluent/fluent-rs?rev=bda4736095a4a60a9a042b336d0789c22461905d#bda4736095a4a60a9a042b336d0789c22461905d"
 dependencies = [
- "fluent-langneg",
- "fluent-syntax",
+ "fluent-langneg 0.13.0",
+ "fluent-syntax 0.11.1 (git+https://github.com/projectfluent/fluent-rs?rev=bda4736095a4a60a9a042b336d0789c22461905d)",
  "intl-memoizer",
  "intl_pluralrules",
  "rustc-hash",
- "self_cell 0.10.3",
+ "self_cell",
  "smallvec",
  "unic-langid",
 ]
@@ -3263,6 +3262,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4ad0989667548f06ccd0e306ed56b61bd4d35458d54df5ec7587c0e8ed5e94"
 dependencies = [
  "unic-langid",
+]
+
+[[package]]
+name = "fluent-langneg"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7b2da3cb6583f7e5f98d3e0e1f9ff70451398037445c8e89a0dc51594cf1736"
+dependencies = [
+ "icu_locid",
 ]
 
 [[package]]
@@ -3285,7 +3293,7 @@ dependencies = [
  "accept-language",
  "convert_case 0.6.0",
  "fluent-bundle",
- "fluent-syntax",
+ "fluent-syntax 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "proc-macro2",
  "quote",
@@ -3300,6 +3308,15 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a530c4694a6a8d528794ee9bbd8ba0122e779629ac908d15ad5a7ae7763a33d"
 dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "fluent-syntax"
+version = "0.11.1"
+source = "git+https://github.com/projectfluent/fluent-rs?rev=bda4736095a4a60a9a042b336d0789c22461905d#bda4736095a4a60a9a042b336d0789c22461905d"
+dependencies = [
+ "memchr",
  "thiserror",
 ]
 
@@ -4660,6 +4677,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "icu_locid"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13acbb8371917fc971be86fc8057c41a64b521c184808a698c02acc242dbf637"
+dependencies = [
+ "displaydoc",
+ "litemap",
+ "tinystr",
+ "writeable",
+]
+
+[[package]]
 name = "idna"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4859,8 +4888,7 @@ dependencies = [
 [[package]]
 name = "intl-memoizer"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe22e020fce238ae18a6d5d8c502ee76a52a6e880d99477657e6acc30ec57bda"
+source = "git+https://github.com/projectfluent/fluent-rs?rev=bda4736095a4a60a9a042b336d0789c22461905d#bda4736095a4a60a9a042b336d0789c22461905d"
 dependencies = [
  "type-map",
  "unic-langid",
@@ -6270,6 +6298,12 @@ dependencies = [
  "chacha",
  "keystream",
 ]
+
+[[package]]
+name = "litemap"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "643cb0b8d4fcc284004d5fd0d67ccf61dfffadb7f75e1e71bc420f4688a3a704"
 
 [[package]]
 name = "litep2p"
@@ -10374,15 +10408,6 @@ dependencies = [
 
 [[package]]
 name = "self_cell"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e14e4d63b804dc0c7ec4a1e52bcb63f02c7ac94476755aa579edac21e01f915d"
-dependencies = [
- "self_cell 1.0.4",
-]
-
-[[package]]
-name = "self_cell"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d369a96f978623eb3dc28807c4852d6cc617fed53da5d3c400feff1ef34a714a"
@@ -11695,7 +11720,7 @@ dependencies = [
  "event-listener-primitives",
  "fdlimit",
  "file-rotate",
- "fluent-langneg",
+ "fluent-langneg 0.14.1",
  "fluent-static",
  "fluent-static-codegen",
  "frame-system",
@@ -14134,6 +14159,12 @@ checksum = "b68db261ef59e9e52806f688020631e987592bd83619edccda9c47d42cde4f6c"
 dependencies = [
  "toml 0.5.11",
 ]
+
+[[package]]
+name = "writeable"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
 
 [[package]]
 name = "wyz"
