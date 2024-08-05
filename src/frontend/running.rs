@@ -433,7 +433,7 @@ impl RunningView {
                     if matches!(
                         update,
                         SectorUpdate::Plotting(SectorPlottingDetails::Finished {
-                            old_plotted_sector: Some(_),
+                            old_plotted_sector: None,
                             ..
                         })
                     ) {
