@@ -6,7 +6,7 @@ welcome_message =
     ✔ 需要准备一个钱包地址来收取奖励，该地址可由 Subwallet、polkadot 扩展或任何兼容 Substrate 链的钱包来生成
     ✔ 需要 100G 大小的高性能 SSD 硬盘来存储节点数据
     ✔ 尽你可能使用更大容量或多个的 SSD 硬盘来存储耕种数据，以获得更多奖励”
-button_continue = 继续
+welcome_button_continue = 继续
 
 upgrade_title = 升级
 upgrade_message =
@@ -89,7 +89,7 @@ configuration_dialog_button_cancel = 取消
 running_title = 运行中
 running_node_title = {$chain_name} 共识节点
 running_node_title_tooltip = 在文件管理器中打开
-running_node_free_disk_space_tooltip = 空闲磁盘大小: {$size} 
+running_node_free_disk_space_tooltip = 空闲磁盘大小: {$size}
 running_node_status_connecting = 连接网络中，最新区块 #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
 running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (预计 ~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 小时)
