@@ -16,8 +16,10 @@ use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
 use sp_consensus_subspace::ChainConstants;
+use std::num::NonZeroU8;
 use std::time::{Duration, Instant};
 use subspace_core_primitives::{solution_range_to_sectors, BlockNumber, Piece, SolutionRange};
+use subspace_farmer::farm::{SectorPlottingDetails, SectorUpdate};
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::{debug, error};
 
@@ -33,6 +35,7 @@ pub enum RunningInput {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
+        cache_percentage: NonZeroU8,
         config: Config,
         raw_config: RawConfig,
         chain_info: ChainInfo,
@@ -61,6 +64,9 @@ struct FarmerState {
     reward_address_url: String,
     token_symbol: String,
     local_space_pledged: u64,
+    sectors_total: u32,
+    sectors_plotted: u32,
+    cache_percentage: NonZeroU8,
     network_space_pledged: u128,
     slot_probability: (u64, u64),
     slot_duration: Duration,
@@ -253,6 +259,9 @@ impl Component for RunningView {
                 reward_address_url: String::new(),
                 token_symbol: String::new(),
                 local_space_pledged: 0,
+                sectors_total: 0,
+                sectors_plotted: 0,
+                cache_percentage: NonZeroU8::MIN,
                 network_space_pledged: 1,
                 slot_probability: (1, 1),
                 slot_duration: Duration::from_secs(1),
@@ -287,6 +296,7 @@ impl RunningView {
                 best_block_number,
                 reward_address_balance,
                 initial_farm_states,
+                cache_percentage,
                 config,
                 raw_config,
                 chain_info,
@@ -336,6 +346,19 @@ impl RunningView {
                     .iter()
                     .map(|farm| farm.allocated_plotting_space)
                     .sum();
+                let (total_sectors_count, plotted_sectors_count) = initial_farm_states.iter().fold(
+                    (0, 0),
+                    |(total_sectors_count, plotted_sectors_count), initial_farm_state| {
+                        (
+                            total_sectors_count + u32::from(initial_farm_state.total_sectors_count),
+                            plotted_sectors_count
+                                + u32::from(initial_farm_state.plotted_sectors_count),
+                        )
+                    },
+                );
+                self.farmer_state.sectors_total = total_sectors_count;
+                self.farmer_state.sectors_plotted = plotted_sectors_count;
+                self.farmer_state.cache_percentage = cache_percentage;
                 self.farmer_state.slot_probability = chain_constants.slot_probability();
                 self.farmer_state.slot_duration = chain_constants.slot_duration().as_duration();
                 self.node_view.emit(NodeInput::Initialize {
@@ -406,6 +429,15 @@ impl RunningView {
                     sector_index,
                     update,
                 } => {
+                    if matches!(
+                        update,
+                        SectorUpdate::Plotting(SectorPlottingDetails::Finished {
+                            old_plotted_sector: Some(_),
+                            ..
+                        })
+                    ) {
+                        self.farmer_state.sectors_plotted += 1;
+                    }
                     self.farms.send(
                         &farm_index,
                         FarmWidgetInput::SectorUpdate {
@@ -469,13 +501,20 @@ impl RunningView {
         let network_voting_space_pledged =
             u128::from(network_voting_space_pledged_sectors) * 2 * Piece::SIZE as u128;
 
+        // Take into consideration how much space was plotted so far
+        let local_space_pledged = self.farmer_state.local_space_pledged
+            * u64::from(self.farmer_state.sectors_plotted)
+            / u64::from(self.farmer_state.sectors_total)
+            * u64::from(self.farmer_state.cache_percentage.get())
+            / 100;
+
         // network_voting_space_pledged/local_space_pledged is a time multiplier based on how much
         // smaller space pledged is comparing to network space pledged, then we also account for
         // slot probability. The fact that we have votes and blocks is accounted for by using
         // solution range to calculate space pledged as explained above.
         let expected_reward_interval = self.farmer_state.slot_duration.as_millis()
             * network_voting_space_pledged
-            / u128::from(self.farmer_state.local_space_pledged)
+            / u128::from(local_space_pledged)
             / u128::from(self.farmer_state.slot_probability.0)
             * u128::from(self.farmer_state.slot_probability.1);
         let expected_reward_interval = Duration::from_millis(expected_reward_interval as u64);
