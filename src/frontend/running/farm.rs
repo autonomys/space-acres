@@ -20,9 +20,6 @@ const INVALID_SCORE_VALUE: f64 = -1.0;
 const SECTORS_PER_ROW: usize = 108;
 /// Number of samples over which to track auditing time, 1 minute in slots
 const AUDITING_TIME_TRACKING_WINDOW: usize = 60;
-// TODO: Replace constant with slot duration
-/// One second to audit
-const MAX_AUDITING_TIME: Duration = Duration::from_secs(1);
 /// 500ms auditing time is excellent, anything larger will result in auditing performance indicator decrease
 const EXCELLENT_AUDITING_TIME: Duration = Duration::from_millis(500);
 /// Number of samples over which to track proving time
@@ -77,6 +74,7 @@ pub(super) struct FarmWidgetInit {
     pub(super) total_sectors: SectorIndex,
     pub(super) plotted_total_sectors: SectorIndex,
     pub(super) plotting_paused: bool,
+    pub(super) slot_duration: Duration,
     pub(super) block_authoring_delay: Duration,
 }
 
@@ -125,6 +123,7 @@ pub(super) struct FarmWidget {
     farm_details: bool,
     encoding_sectors: usize,
     plotting_paused: bool,
+    slot_duration: Duration,
     block_authoring_delay: Duration,
     #[no_eq]
     error: Option<Arc<anyhow::Error>>,
@@ -222,7 +221,7 @@ impl FactoryComponent for FarmWidget {
                                     set_tooltip: T
                                         .running_farmer_farm_auditing_performance_tooltip(
                                             self.auditing_time_average.as_secs_f32(),
-                                            MAX_AUDITING_TIME.as_secs_f32()
+                                            self.slot_duration.as_secs_f32()
                                         )
                                         .as_str(),
                                     #[track = "self.changed_farm_details() || self.changed_auditing_time_score()"]
@@ -426,6 +425,7 @@ impl FactoryComponent for FarmWidget {
             farm_details: false,
             encoding_sectors: 0,
             plotting_paused: init.plotting_paused,
+            slot_duration: init.slot_duration,
             block_authoring_delay: init.block_authoring_delay,
             error: None,
             tracker: u32::MAX,
@@ -521,9 +521,9 @@ impl FarmWidget {
 
                     let average_time = self.auditing_time.get_average();
                     let slot_time_fraction_remaining =
-                        1.0 - average_time.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                        1.0 - average_time.as_secs_f64() / self.slot_duration.as_secs_f64();
                     let excellent_time_fraction_remaining = 1.0
-                        - EXCELLENT_AUDITING_TIME.as_secs_f64() / MAX_AUDITING_TIME.as_secs_f64();
+                        - EXCELLENT_AUDITING_TIME.as_secs_f64() / self.slot_duration.as_secs_f64();
                     let score = (slot_time_fraction_remaining / excellent_time_fraction_remaining)
                         .clamp(0.0, 1.0);
                     // Round to 5% precision
