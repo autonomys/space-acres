@@ -9,6 +9,7 @@ use crate::backend::config::{Config, ConfigError, RawConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::farmer::{
     DiskFarm, Farmer, FarmerAction, FarmerNotification, FarmerOptions, InitialFarmState,
+    CACHE_PERCENTAGE,
 };
 use crate::backend::networking::{create_network, NetworkOptions};
 use crate::backend::node::{
@@ -24,7 +25,7 @@ use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
 use sp_consensus_subspace::ChainConstants;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::{Arc, Weak};
@@ -252,6 +253,7 @@ pub enum BackendNotification {
         best_block_number: BlockNumber,
         reward_address_balance: Balance,
         initial_farm_states: Vec<InitialFarmState>,
+        cache_percentage: NonZeroU8,
         chain_info: ChainInfo,
         chain_constants: ChainConstants,
     },
@@ -519,6 +521,7 @@ async fn run(
             best_block_number: consensus_node.best_block_number(),
             reward_address_balance: consensus_node.account_balance(&reward_address),
             initial_farm_states: farmer.initial_farm_states().to_vec(),
+            cache_percentage: CACHE_PERCENTAGE,
             chain_info: consensus_node.chain_info().clone(),
             chain_constants: *consensus_node.chain_constants(),
         })

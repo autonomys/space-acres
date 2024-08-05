@@ -43,7 +43,7 @@ use tokio::sync::{watch, Barrier, Semaphore};
 use tracing::{debug, error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
-const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
+pub(super) const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
 /// NOTE: for large gaps between the plotted part and the end of the file plot cache will result in
 /// very long period of writing zeroes on Windows, see https://stackoverflow.com/q/78058306/3806795
 const MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS: u64 = 7 * 1024 * 1024 * 1024 * 1024;

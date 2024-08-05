@@ -796,6 +796,7 @@ impl App {
                 best_block_number,
                 reward_address_balance,
                 initial_farm_states,
+                cache_percentage,
                 chain_info,
                 chain_constants,
             } => {
@@ -807,6 +808,7 @@ impl App {
                     best_block_number,
                     reward_address_balance,
                     initial_farm_states,
+                    cache_percentage,
                     config,
                     raw_config,
                     chain_info,
