@@ -3,8 +3,8 @@ welcome_message =
     Space Acres 是用于在 Autonomys 网络进行耕种的图形化用户界面.
 
     开始前请阅读并知悉以下信息:
-    ✔ 需要准备一个钱包地址来收取奖励，该地址可由Subwallet、polkadot扩展或任何兼容Substrate链的钱包来生成
-    ✔ 需要100G大小的高性能SSD硬盘来存储节点数据
+    ✔ 需要准备一个钱包地址来收取奖励，该地址可由 Subwallet、polkadot 扩展或任何兼容 Substrate 链的钱包来生成
+    ✔ 需要 100G 大小的高性能 SSD 硬盘来存储节点数据
     ✔ 尽你可能使用更大容量或多个的 SSD 硬盘来存储耕种数据，以获得更多奖励”
 button_continue = 继续
 
@@ -54,7 +54,7 @@ configuration_title = 配置
 reconfiguration_title = 重新配置
 configuration_node_path = 节点路径
 configuration_node_path_placeholder = 示例: {$path}
-configuration_node_path_tooltip = 节点文件的绝对路径，建议预留不少于100G的高性能SSD空间
+configuration_node_path_tooltip = 节点文件的绝对路径，建议预留不少于 100G 的高性能 SSD 空间
 configuration_node_path_button_select = 选择
 configuration_node_path_error_doesnt_exist_or_write_permissions = 文件目录不存在或当前用户无写入权限
 configuration_reward_address = 奖励地址
@@ -64,11 +64,11 @@ configuration_reward_address_button_create_wallet = 创建钱包
 configuration_reward_address_error_evm_address = 应使用 SS58 格式的 Substrate 地址，而不是 EVM 地址
 configuration_farm = 农场 {$index} 的目录和大小
 configuration_farm_path_placeholder = 示例: {$path}
-configuration_farm_path_tooltip = 存储农场数据文件的绝对路径，可使用任何类型的SSD
+configuration_farm_path_tooltip = 存储农场数据文件的绝对路径，可使用任何类型的 SSD
 configuration_farm_path_button_select = 选择
 configuration_farm_path_error_doesnt_exist_or_write_permissions = 文件目录不存在或当前用户无写入权限
 configuration_farm_size_placeholder = 示例: 4T, 2.5TB, 500GiB, 等.
-configuration_farm_size_tooltip = 农场单元的大小，可以使用任何大于2GB的值
+configuration_farm_size_tooltip = 农场单元的大小，可以使用任何大于 2GB 的值
 configuration_farm_delete = 删除这个农场
 configuration_advanced = 高级配置
 configuration_advanced_network = 网络配置
@@ -93,11 +93,11 @@ running_node_free_disk_space_tooltip = 空闲磁盘大小: {$size}
 running_node_status_connecting = 连接网络中，最新区块 #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
 running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (预计 ~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 小时)
-running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (还需~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 分钟)
-running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (还需~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 秒)
+running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (预计 ~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 分钟)
+running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (预计 ~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 秒)
 running_node_status_syncing =
     {$a_sync_kind ->
-        [dsn] DSN网络同步
+        [dsn] DSN 网络同步
         [regular] 常规同步
         *[unknown] 未知同步类型 {$a_sync_kind}
     } #{$b_best_block_number}/{$c_target_block}{$d_sync_speed}
