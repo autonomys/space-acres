@@ -215,7 +215,7 @@ impl Config {
 
             farms.push(DiskFarm {
                 directory: path,
-                allocated_plotting_space: size,
+                allocated_space: size,
             });
         }
 

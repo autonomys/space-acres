@@ -173,7 +173,7 @@ impl<FarmIndex> fmt::Debug for Farmer<FarmIndex> {
 #[derive(Debug, Clone)]
 pub struct DiskFarm {
     pub directory: PathBuf,
-    pub allocated_plotting_space: u64,
+    pub allocated_space: u64,
 }
 
 /// Arguments for farmer
@@ -236,7 +236,7 @@ where
     let plot_cache = !cfg!(windows)
         || disk_farms
             .iter()
-            .map(|farm| farm.allocated_plotting_space)
+            .map(|farm| farm.allocated_space)
             .sum::<u64>()
             <= MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS;
 
@@ -356,7 +356,7 @@ where
                         SingleDiskFarmOptions {
                             directory: disk_farm.directory.clone(),
                             farmer_app_info,
-                            allocated_space: disk_farm.allocated_plotting_space,
+                            allocated_space: disk_farm.allocated_space,
                             max_pieces_in_sector,
                             node_client,
                             reward_address,

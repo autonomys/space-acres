@@ -342,11 +342,8 @@ impl RunningView {
                 self.farmer_state
                     .get_mut_token_symbol()
                     .clone_from(&chain_info.token_symbol);
-                self.farmer_state.local_space_pledged = config
-                    .farms
-                    .iter()
-                    .map(|farm| farm.allocated_plotting_space)
-                    .sum();
+                self.farmer_state.local_space_pledged =
+                    config.farms.iter().map(|farm| farm.allocated_space).sum();
                 let (total_sectors_count, plotted_sectors_count) = initial_farm_states.iter().fold(
                     (0, 0),
                     |(total_sectors_count, plotted_sectors_count), initial_farm_state| {
