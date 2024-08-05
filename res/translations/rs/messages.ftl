@@ -6,7 +6,7 @@ welcome_message =
     ✔ Adresa novčanika gde ćete primati nagrade (koristite Subwallet, polkadot{"{"}.js{"}"} ekstenziju ili bilo koji drugi novčanik kompatibilan sa Substrate lancom)
     ✔ 100G prostora na kvalitetnom SSD-u za skladištenje podataka o čvoru
     ✔ bilo koji SSD (ili više njih) sa što više prostora koji možete priuštiti za farmovanje, to će generisati nagrade"
-button_continue = Nastavi
+welcome_button_continue = Nastavi
 
 upgrade_title = Nadogradnja
 upgrade_message =

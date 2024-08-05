@@ -273,7 +273,7 @@ impl AsyncComponent for App {
                                     connect_clicked => AppInput::InitialConfiguration,
 
                                     gtk::Label {
-                                        set_label: &T.button_continue(),
+                                        set_label: &T.welcome_button_continue(),
                                         set_margin_all: 10,
                                     },
                                 },

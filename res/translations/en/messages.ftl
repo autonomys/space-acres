@@ -6,7 +6,7 @@ welcome_message =
     ✔ Wallet address where you'll receive rewards (use Subwallet, polkadot{"{"}.js{"}"} extension or any other wallet compatible with Substrate chain)
     ✔ 100G of space on a good quality SSD to store node data
     ✔ any SSDs (or multiple) with as much space as you can afford for farming purposes, this is what will generate rewards"
-button_continue = Continue
+welcome_button_continue = Continue
 
 upgrade_title = Upgrade
 upgrade_message =
