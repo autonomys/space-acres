@@ -318,6 +318,7 @@ impl RunningView {
                             total_sectors: initial_farm_state.total_sectors_count,
                             plotted_total_sectors: initial_farm_state.plotted_sectors_count,
                             plotting_paused: self.plotting_paused,
+                            slot_duration: chain_constants.slot_duration().as_duration(),
                             block_authoring_delay: chain_constants.slot_duration().as_duration()
                                 * u64::from(chain_constants.block_authoring_delay()) as u32,
                         },
