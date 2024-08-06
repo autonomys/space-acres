@@ -672,7 +672,7 @@ impl AsyncComponent for App {
                 }
             }
             AppInput::OpenCommunityHelpLink => {
-                if let Err(error) = open::that_detached("https://discord.gg/subspace-network") {
+                if let Err(error) = open::that_detached("https://docs.autonomys.xyz/docs/farming-&-staking/farming/space-acres/space-acres-install#troubleshooting") {
                     error!(%error, "Failed to open share community help in default browser");
                 }
             }
