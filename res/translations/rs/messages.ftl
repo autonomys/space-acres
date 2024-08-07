@@ -79,6 +79,12 @@ configuration_farm_free_percentage_size_placeholder = Primer: 100%, 1.1%, itd.
 configuration_farm_free_percentage_size_tooltip = Percentage of free disk space to occupy by this farm, anything above 0% works, but at least 2 GB of free space should remain on disk to avoid errors
 configuration_farm_delete = Obriši ovu farmu
 configuration_advanced = Napredna konfiguracija
+# TODO: Translate
+configuration_advanced_farmer = Farmer configuration
+# TODO: Translate
+configuration_advanced_farmer_reduce_plotting_cpu_load = Reduce plotting CPU load
+# TODO: Translate
+configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Initial plotting uses all CPU cores by default, while with this option it will start using half of the cores like replotting, improving system responsiveness for other tasks
 configuration_advanced_network = Konfiguracija mreže
 configuration_advanced_network_default_port_number_tooltip = Podrazumevani broj porta je {$port}
 configuration_advanced_network_substrate_port = Substrate (blockchain) P2P port (TCP):

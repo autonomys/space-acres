@@ -475,6 +475,7 @@ async fn load(
         farmer_cache_worker,
         maybe_node_client,
         kzg,
+        config.reduce_plotting_cpu_load,
         piece_getter,
         notifications_sender,
     )
@@ -964,6 +965,7 @@ async fn create_farmer(
     farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient, CacheIndex>,
     node_client: MaybeNodeClient,
     kzg: Kzg,
+    reduce_plotting_cpu_load: bool,
     piece_getter: PieceGetterWrapper,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<Farmer<FarmIndex>> {
@@ -1006,6 +1008,7 @@ async fn create_farmer(
                 }
             }
         },
+        reduce_plotting_cpu_load,
     };
 
     let farmer = farmer::create_farmer(farmer_options).await?;
