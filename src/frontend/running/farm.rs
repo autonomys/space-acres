@@ -1,5 +1,6 @@
-use crate::backend::config::Farm;
+use crate::backend::farmer::DiskFarm;
 use crate::frontend::translations::{AsDefaultStr, T};
+use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
@@ -28,6 +29,10 @@ const PROVING_TIME_TRACKING_WINDOW: usize = 10;
 const EXCELLENT_PROVING_TIME: Duration = Duration::from_millis(1800);
 /// Number of samples over which to track sector plotting time
 const SECTOR_PLOTTING_TIME_TRACKING_WINDOW: usize = 10;
+
+fn format_size(bytes: u64) -> String {
+    ByteSize::b(bytes).to_string_as(bytes % ByteSize::mb(1).as_u64() != 0)
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum PlottingKind {
@@ -70,7 +75,7 @@ impl SectorState {
 
 #[derive(Debug)]
 pub(super) struct FarmWidgetInit {
-    pub(super) farm: Farm,
+    pub(super) farm: DiskFarm,
     pub(super) total_sectors: SectorIndex,
     pub(super) plotted_total_sectors: SectorIndex,
     pub(super) plotting_paused: bool,
@@ -406,8 +411,8 @@ impl FactoryComponent for FarmWidget {
         });
 
         Self {
-            path: init.farm.path,
-            size: init.farm.size,
+            path: init.farm.directory,
+            size: format_size(init.farm.allocated_space),
             auditing_time: SingleSumSMA::from_zero(Duration::ZERO),
             auditing_time_average: Duration::ZERO,
             auditing_time_score: INVALID_SCORE_VALUE,

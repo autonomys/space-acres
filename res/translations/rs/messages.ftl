@@ -37,7 +37,8 @@ loading_networking_stack_step_generating_keypair = Generisanje mrežnog para klj
 loading_networking_stack_step_writing_keypair_to_disk = Pisanje mrežnog para ključeva na disk...
 loading_networking_stack_step_instantiating = Stvaranje mrežnog steka...
 loading_networking_stack_step_created_successfully = Mrežni stek je uspešno kreiran
-loading_consensus_node_title = Inicijalizacija mrežnog steka
+# TODO: Translate
+loading_consensus_node_title = Initializing consensus node
 loading_consensus_node_step_creating = Kreiranje konsenzus čvora...
 loading_consensus_node_step_created_successfully = Konsenzus čvor uspešno kreiran
 loading_farmer_title = Inicijalizacija farmera
@@ -67,8 +68,15 @@ configuration_farm_path_placeholder = Primer: {$path}
 configuration_farm_path_tooltip = Apsolutna putanja gde će se čuvati datoteke farme, bilo koji SSD funkcioniše, visoka izdržljivost nije neophodna
 configuration_farm_path_button_select = Izaberi
 configuration_farm_path_error_doesnt_exist_or_write_permissions = Folder ne postoji ili korisnik nema dozvolu za pisanje
-configuration_farm_size_placeholder = Primer: 4T, 2.5TB, 500GiB itd.
-configuration_farm_size_tooltip = Veličina farme u jedinicama koje preferirate, bilo koja količina prostora iznad 2 GB funkcioniše
+# TODO: Translate
+configuration_farm_size_kind_fixed = Fixed size
+# TODO: Translate
+configuration_farm_size_kind_free_percentage = % of free disk space
+configuration_farm_fixed_size_placeholder = Primer: 4T, 2.5TB, 500GiB itd.
+configuration_farm_fixed_size_tooltip = Veličina farme u jedinicama koje preferirate, bilo koja količina prostora iznad 2 GB funkcioniše
+configuration_farm_free_percentage_size_placeholder = Primer: 100%, 1.1%, itd.
+# TODO: Translate
+configuration_farm_free_percentage_size_tooltip = Percentage of free disk space to occupy by this farm, anything above 0% works, but at least 2 GB of free space should remain on disk to avoid errors
 configuration_farm_delete = Obriši ovu farmu
 configuration_advanced = Napredna konfiguracija
 configuration_advanced_network = Konfiguracija mreže

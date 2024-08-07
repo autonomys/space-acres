@@ -20,7 +20,7 @@ const MAX_IMPORTING_BLOCKS: BlockNumber = 2048;
 /// How frequently to check for free disk space
 const FREE_DISK_SPACE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 /// Free disk space below which warning must be shown
-const FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD: u64 = 10 * 1024 * 1024 * 1024;
+const FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD: u64 = ByteSize::gib(10).as_u64();
 /// Number of samples over which to track block import time, 1 minute in slots
 const BLOCK_IMPORT_TIME_TRACKING_WINDOW: usize = 1000;
 

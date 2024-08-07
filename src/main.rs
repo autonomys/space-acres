@@ -1,10 +1,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![feature(const_option, let_chains, trait_alias, try_blocks)]
+#![feature(
+    const_option,
+    let_chains,
+    result_flattening,
+    trait_alias,
+    try_blocks,
+    variant_count
+)]
 
 mod backend;
 mod frontend;
 
 use crate::frontend::{App, AppInit, RunBackendResult, GLOBAL_CSS};
+use bytesize::ByteSize;
 use clap::Parser;
 use duct::{cmd, Expression};
 use file_rotate::compression::Compression;
@@ -34,8 +42,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 /// Number of log files to keep
 const LOG_FILE_LIMIT_COUNT: usize = 5;
 /// Size of one log file
-const LOG_FILE_LIMIT_SIZE: usize = 1024 * 1024 * 10;
-const LOG_READ_BUFFER: usize = 1024 * 1024;
+const LOG_FILE_LIMIT_SIZE: usize = ByteSize::mib(10).as_u64() as usize;
+const LOG_READ_BUFFER: usize = ByteSize::mib(1).as_u64() as usize;
 /// If `true`, this means supervisor will not be able to capture logs from child application and logger needs to be in
 /// the child process itself, while supervisor will not attempt to read stdout/stderr at all
 const WINDOWS_SUBSYSTEM_WINDOWS: bool = cfg!(all(windows, not(debug_assertions)));
