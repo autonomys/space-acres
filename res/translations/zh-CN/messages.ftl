@@ -37,8 +37,7 @@ loading_networking_stack_step_generating_keypair = 生成网络密钥对...
 loading_networking_stack_step_writing_keypair_to_disk = 写入网络密钥对到磁盘...
 loading_networking_stack_step_instantiating = 实例化网络工作栈...
 loading_networking_stack_step_created_successfully = 网络工作栈创建成功
-# TODO: Translate
-loading_consensus_node_title = Initializing consensus node
+loading_consensus_node_title = 初始化共识节点
 loading_consensus_node_step_creating = 创建共识节点...
 loading_consensus_node_step_created_successfully = 共识节点创建成功
 loading_farmer_title = 实例化农民
@@ -68,15 +67,12 @@ configuration_farm_path_placeholder = 示例: {$path}
 configuration_farm_path_tooltip = 存储农场数据文件的绝对路径，可使用任何类型的 SSD
 configuration_farm_path_button_select = 选择
 configuration_farm_path_error_doesnt_exist_or_write_permissions = 文件目录不存在或当前用户无写入权限
-# TODO: Translate
-configuration_farm_size_kind_fixed = Fixed size
-# TODO: Translate
-configuration_farm_size_kind_free_percentage = % of free disk space
+configuration_farm_size_kind_fixed = 固定大小
+configuration_farm_size_kind_free_percentage = % 空闲磁盘大小
 configuration_farm_fixed_size_placeholder = 示例: 4T, 2.5TB, 500GiB, 等.
 configuration_farm_fixed_size_tooltip = 农场单元的大小，可以使用任何大于 2GB 的值
 configuration_farm_free_percentage_size_placeholder = 示例: 100%, 1.1%, 等.
-# TODO: Translate
-configuration_farm_free_percentage_size_tooltip = Percentage of free disk space to occupy by this farm, anything above 0% works, but at least 2 GB of free space should remain on disk to avoid errors
+configuration_farm_free_percentage_size_tooltip = 用于该农场的磁盘大小百分比，可以指定任意大小，但需保留最少2GB的剩余空间避免出现问题
 configuration_farm_delete = 删除这个农场
 configuration_advanced = 高级配置
 configuration_advanced_network = 网络配置
