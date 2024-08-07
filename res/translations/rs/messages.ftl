@@ -37,7 +37,8 @@ loading_networking_stack_step_generating_keypair = Generisanje mrežnog para klj
 loading_networking_stack_step_writing_keypair_to_disk = Pisanje mrežnog para ključeva na disk...
 loading_networking_stack_step_instantiating = Stvaranje mrežnog steka...
 loading_networking_stack_step_created_successfully = Mrežni stek je uspešno kreiran
-loading_consensus_node_title = Inicijalizacija mrežnog steka
+# TODO: Translate
+loading_consensus_node_title = Initializing consensus node
 loading_consensus_node_step_creating = Kreiranje konsenzus čvora...
 loading_consensus_node_step_created_successfully = Konsenzus čvor uspešno kreiran
 loading_farmer_title = Inicijalizacija farmera
