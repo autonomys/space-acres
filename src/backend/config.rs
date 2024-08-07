@@ -1,22 +1,29 @@
-use crate::backend::farmer::DiskFarm;
+use crate::backend::farmer::{DiskFarm, CACHE_PERCENTAGE};
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use subspace_core_primitives::PublicKey;
+use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::ss58::{parse_ss58_reward_address, Ss58ParsingError};
 use tokio::io::AsyncWriteExt;
 use tokio::task;
+use tracing::warn;
 
 const DEFAULT_SUBSTRATE_PORT: u16 = 30333;
 const DEFAULT_SUBSPACE_PORT: u16 = 30433;
+pub const MIN_FARM_SIZE: u64 = ByteSize::gb(2).as_u64();
+/// Marginal difference in farm size that will not trigger resizing
+const FARM_SIZE_DIFF_MARGIN: u64 = ByteSize::gib(5).as_u64();
+/// Margin for farm size allocation relatively to available space
+const FARM_SIZE_ALLOCATION_MARGIN: u64 = ByteSize::gib(2).as_u64();
 
-// TODO: Replace with `DiskFarm`
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Farm {
     pub path: PathBuf,
+    /// Could be absolute value or percentage of free disk space (when ends with `%`)
     pub size: String,
 }
 
@@ -202,19 +209,98 @@ impl Config {
         let mut farms = Vec::with_capacity(raw_config.farms().len());
 
         for farm in raw_config.farms() {
-            let path = PathBuf::from(&farm.path);
+            check_path(farm.path.clone()).await?;
 
-            check_path(path.clone()).await?;
+            let farm_details_fut = task::spawn_blocking({
+                let farm = farm.clone();
 
-            let size = ByteSize::from_str(&farm.size)
-                .map_err(|error| ConfigError::InvalidSizeFormat {
-                    size: farm.size.clone(),
-                    error,
-                })?
-                .as_u64();
+                move || {
+                    let fs_stats = fs4::statvfs(&farm.path)?;
+                    let effective_disk_usage =
+                        SingleDiskFarm::effective_disk_usage(&farm.path, CACHE_PERCENTAGE.get())
+                            .map_err(|error| {
+                                io::Error::new(
+                                    io::ErrorKind::Other,
+                                    format!("Failed to check effective disk usage: {error}"),
+                                )
+                            })?;
+
+                    Ok((fs_stats, effective_disk_usage))
+                }
+            });
+            let farm_details_result = farm_details_fut
+                .await
+                .map_err(|error| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Failed to spawn tokio task: {error}"),
+                    )
+                })
+                .flatten();
+
+            let (fs_stats, effective_disk_usage) = match farm_details_result {
+                Ok(result) => result,
+                Err(error) => {
+                    return Err(ConfigError::PathError {
+                        path: farm.path.display().to_string(),
+                        error,
+                    });
+                }
+            };
+            // Includes "virtual" free space that corresponds to the space farm already occupies,
+            // which simplifies logic below when checking amount of space farm is able to occupy
+            let available_space = fs_stats.available_space() + effective_disk_usage;
+
+            let target_size = if farm.size.ends_with("%") {
+                let size_percentage =
+                    f64::from_str(farm.size.trim_end_matches('%')).map_err(|error| {
+                        ConfigError::InvalidSizeFormat {
+                            size: farm.size.clone(),
+                            error: error.to_string(),
+                        }
+                    })?;
+                if size_percentage <= 0.0 || size_percentage > 100.0 {
+                    return Err(ConfigError::InvalidSizeFormat {
+                        size: farm.size.clone(),
+                        error: "Size percentage should be above 0% and not exceed 100%".to_string(),
+                    });
+                }
+
+                let target_size = (available_space - FARM_SIZE_ALLOCATION_MARGIN) as f64
+                    * size_percentage
+                    / 100.0;
+                let target_size = MIN_FARM_SIZE.max(target_size.round() as u64);
+
+                if target_size.abs_diff(effective_disk_usage) <= FARM_SIZE_DIFF_MARGIN {
+                    effective_disk_usage
+                } else {
+                    target_size
+                }
+            } else {
+                ByteSize::from_str(&farm.size)
+                    .map_err(|error| ConfigError::InvalidSizeFormat {
+                        size: farm.size.clone(),
+                        error,
+                    })?
+                    .as_u64()
+            };
+
+            let size = if target_size > available_space {
+                let new_size = available_space - FARM_SIZE_ALLOCATION_MARGIN;
+                warn!(
+                    target_size,
+                    available_space,
+                    new_size,
+                    "Overriding farm size due to not enough available space"
+                );
+
+                new_size
+            } else {
+                target_size
+            };
 
             farms.push(DiskFarm {
-                directory: path,
+                directory: farm.path.clone(),
                 allocated_space: size,
             });
         }

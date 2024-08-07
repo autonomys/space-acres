@@ -305,7 +305,7 @@ impl RunningView {
                 for (farm_index, (initial_farm_state, farm)) in initial_farm_states
                     .iter()
                     .copied()
-                    .zip(raw_config.farms().iter().cloned())
+                    .zip(config.farms.iter().cloned())
                     .enumerate()
                 {
                     self.farms.insert(

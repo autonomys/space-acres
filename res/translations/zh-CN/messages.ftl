@@ -68,8 +68,15 @@ configuration_farm_path_placeholder = 示例: {$path}
 configuration_farm_path_tooltip = 存储农场数据文件的绝对路径，可使用任何类型的 SSD
 configuration_farm_path_button_select = 选择
 configuration_farm_path_error_doesnt_exist_or_write_permissions = 文件目录不存在或当前用户无写入权限
-configuration_farm_size_placeholder = 示例: 4T, 2.5TB, 500GiB, 等.
-configuration_farm_size_tooltip = 农场单元的大小，可以使用任何大于 2GB 的值
+# TODO: Translate
+configuration_farm_size_kind_fixed = Fixed size
+# TODO: Translate
+configuration_farm_size_kind_free_percentage = % of free disk space
+configuration_farm_fixed_size_placeholder = 示例: 4T, 2.5TB, 500GiB, 等.
+configuration_farm_fixed_size_tooltip = 农场单元的大小，可以使用任何大于 2GB 的值
+configuration_farm_free_percentage_size_placeholder = 示例: 100%, 1.1%, 等.
+# TODO: Translate
+configuration_farm_free_percentage_size_tooltip = Percentage of free disk space to occupy by this farm, anything above 0% works, but at least 2 GB of free space should remain on disk to avoid errors
 configuration_farm_delete = 删除这个农场
 configuration_advanced = 高级配置
 configuration_advanced_network = 网络配置

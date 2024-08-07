@@ -7,6 +7,7 @@ use crate::backend::PieceGetterWrapper;
 use crate::{PosTable, PosTableLegacy};
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
+use bytesize::ByteSize;
 use event_listener_primitives::HandlerId;
 use futures::channel::{mpsc, oneshot};
 use futures::future::BoxFuture;
@@ -46,7 +47,7 @@ use tracing::{debug, error, info, info_span, Instrument};
 pub(super) const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
 /// NOTE: for large gaps between the plotted part and the end of the file plot cache will result in
 /// very long period of writing zeroes on Windows, see https://stackoverflow.com/q/78058306/3806795
-const MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS: u64 = 7 * 1024 * 1024 * 1024 * 1024;
+const MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS: u64 = ByteSize::tib(7).as_u64();
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
