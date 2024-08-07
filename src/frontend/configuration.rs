@@ -35,6 +35,7 @@ pub enum ConfigurationInput {
     SubstratePortChanged(u16),
     SubspacePortChanged(u16),
     FasterNetworkingChanged(bool),
+    ReducePlottingCpuLoadChanged(bool),
     Delete(DynamicIndex),
     Reinitialize {
         raw_config: RawConfig,
@@ -145,6 +146,7 @@ pub struct ConfigurationView {
     farms: AsyncFactoryVecDeque<FarmWidget>,
     #[do_not_track]
     network_configuration: NetworkConfigurationWrapper,
+    reduce_plotting_cpu_load: bool,
     #[do_not_track]
     pending_directory_selection: Option<DirectoryKind>,
     #[do_not_track]
@@ -335,6 +337,37 @@ impl AsyncComponent for ConfigurationView {
                                 set_orientation: gtk::Orientation::Vertical,
                                 set_margin_top: 10,
                                 set_spacing: 10,
+
+                                gtk::Label {
+                                    add_css_class: "heading",
+                                    set_halign: gtk::Align::Start,
+                                    set_label: &T.configuration_advanced_farmer(),
+                                },
+
+                                gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
+                                    set_spacing: 10,
+
+                                    gtk::Box {
+                                        set_spacing: 10,
+
+                                        gtk::Label {
+                                            set_label: &T.configuration_advanced_farmer_reduce_plotting_cpu_load(),
+                                        },
+                                        gtk::Switch {
+                                            connect_state_set[sender] => move |_switch, state| {
+                                                sender.input(ConfigurationInput::ReducePlottingCpuLoadChanged(
+                                                    state
+                                                ));
+
+                                                gtk::glib::Propagation::Proceed
+                                            },
+                                            #[track = "model.changed_reduce_plotting_cpu_load()"]
+                                            set_active: model.reduce_plotting_cpu_load,
+                                            set_tooltip: &T.configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip(),
+                                        },
+                                    },
+                                },
 
                                 gtk::Label {
                                     add_css_class: "heading",
@@ -568,6 +601,7 @@ impl AsyncComponent for ConfigurationView {
             node_path: MaybeValid::no(PathBuf::new()),
             farms,
             network_configuration: Default::default(),
+            reduce_plotting_cpu_load: false,
             pending_directory_selection: Default::default(),
             open_dialog,
             reconfiguration: false,
@@ -644,6 +678,9 @@ impl ConfigurationView {
             ConfigurationInput::FasterNetworkingChanged(faster_networking) => {
                 self.network_configuration.faster_networking = faster_networking;
             }
+            ConfigurationInput::ReducePlottingCpuLoadChanged(reduce_plotting_cpu_load) => {
+                self.reduce_plotting_cpu_load = reduce_plotting_cpu_load;
+            }
             ConfigurationInput::Delete(index) => {
                 let mut farms = self.get_mut_farms().guard();
                 farms.remove(index.current_index());
@@ -691,6 +728,7 @@ impl ConfigurationView {
                         });
                     }
                 }
+                self.set_reduce_plotting_cpu_load(raw_config.reduce_plotting_cpu_load());
                 self.network_configuration =
                     NetworkConfigurationWrapper::from(raw_config.network());
                 self.reconfiguration = reconfiguration;
@@ -750,6 +788,7 @@ impl ConfigurationView {
                 .iter()
                 .map(|maybe_farm_widget| Some(maybe_farm_widget?.farm()))
                 .collect::<Option<Vec<_>>>()?,
+            reduce_plotting_cpu_load: self.reduce_plotting_cpu_load,
             network: NetworkConfiguration {
                 substrate_port: self.network_configuration.substrate_port,
                 subspace_port: self.network_configuration.subspace_port,

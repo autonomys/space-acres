@@ -74,6 +74,8 @@ pub enum RawConfig {
         // TODO: Use disk farm once it supports serde
         farms: Vec<Farm>,
         #[serde(default)]
+        reduce_plotting_cpu_load: bool,
+        #[serde(default)]
         network: NetworkConfiguration,
     },
 }
@@ -84,6 +86,7 @@ impl Default for RawConfig {
             reward_address: String::new(),
             node_path: PathBuf::new(),
             farms: Vec::new(),
+            reduce_plotting_cpu_load: false,
             network: NetworkConfiguration::default(),
         }
     }
@@ -156,6 +159,14 @@ impl RawConfig {
         farms
     }
 
+    pub fn reduce_plotting_cpu_load(&self) -> bool {
+        let Self::V0 {
+            reduce_plotting_cpu_load,
+            ..
+        } = self;
+        *reduce_plotting_cpu_load
+    }
+
     pub fn network(&self) -> NetworkConfiguration {
         let Self::V0 { network, .. } = self;
         *network
@@ -187,6 +198,7 @@ pub struct Config {
     pub reward_address: PublicKey,
     pub node_path: PathBuf,
     pub farms: Vec<DiskFarm>,
+    pub reduce_plotting_cpu_load: bool,
     pub network: NetworkConfiguration,
 }
 
@@ -309,6 +321,7 @@ impl Config {
             reward_address,
             node_path,
             farms,
+            reduce_plotting_cpu_load: raw_config.reduce_plotting_cpu_load(),
             network: raw_config.network(),
         })
     }

@@ -188,6 +188,7 @@ pub(super) struct FarmerOptions<FarmIndex, CacheIndex, OnFarmInitialized> {
     pub(super) farmer_cache: FarmerCache<CacheIndex>,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient, CacheIndex>,
     pub(super) kzg: Kzg,
+    pub(super) reduce_plotting_cpu_load: bool,
     pub(super) on_farm_initialized: OnFarmInitialized,
 }
 
@@ -215,6 +216,7 @@ where
         farmer_cache,
         farmer_cache_worker,
         kzg,
+        reduce_plotting_cpu_load,
         on_farm_initialized,
     } = farmer_options;
 
@@ -258,7 +260,7 @@ where
             .in_current_span(),
     );
 
-    let plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
+    let mut plotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
     let replotting_thread_pool_core_indices = {
         let mut replotting_thread_pool_core_indices = thread_pool_core_indices(None, None);
         // The default behavior is to use all CPU cores, but for replotting we just want half
@@ -267,6 +269,9 @@ where
             .for_each(|set| set.truncate(set.cpu_cores().len() / 2));
         replotting_thread_pool_core_indices
     };
+    if reduce_plotting_cpu_load {
+        plotting_thread_pool_core_indices = replotting_thread_pool_core_indices.clone();
+    }
 
     if plotting_thread_pool_core_indices.len() > 1 {
         info!(
