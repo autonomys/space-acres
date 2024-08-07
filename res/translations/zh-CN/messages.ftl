@@ -75,12 +75,9 @@ configuration_farm_free_percentage_size_placeholder = 示例: 100%, 1.1%, 等.
 configuration_farm_free_percentage_size_tooltip = 用于该农场的磁盘大小百分比，可以指定任意大小，但需保留最少2GB的剩余空间避免出现问题
 configuration_farm_delete = 删除这个农场
 configuration_advanced = 高级配置
-# TODO: Translate
-configuration_advanced_farmer = Farmer configuration
-# TODO: Translate
-configuration_advanced_farmer_reduce_plotting_cpu_load = Reduce plotting CPU load
-# TODO: Translate
-configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Initial plotting uses all CPU cores by default, while with this option it will start using half of the cores like replotting, improving system responsiveness for other tasks
+configuration_advanced_farmer = 农民配置
+configuration_advanced_farmer_reduce_plotting_cpu_load = 降低绘图时CPU负载
+configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = 初次绘图默认会使用所有CPU核心，这个选项可以在重新绘图时只占用50%的CPU来使系统响应其他任务更加流畅
 configuration_advanced_network = 网络配置
 configuration_advanced_network_default_port_number_tooltip = 默认端口是 {$port}
 configuration_advanced_network_substrate_port = Substrate (blockchain) P2P 端口 (TCP):
