@@ -113,6 +113,7 @@ tracker = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"
+tracing-panic = "0.1.2"
 
 [build-dependencies]
 fluent-static-codegen = "0.3.0"

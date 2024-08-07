@@ -193,6 +193,8 @@ impl Cli {
                         .with(layer.with_filter(filter))
                         .init();
                 }
+                #[cfg(windows)]
+                std::panic::set_hook(Box::new(tracing_panic::panic_hook));
             } else {
                 tracing_subscriber::registry()
                     .with(layer.with_filter(filter))
