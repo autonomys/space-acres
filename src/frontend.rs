@@ -14,7 +14,7 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
-use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
+use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gtk::gio::{Notification, NotificationPriority};
@@ -56,6 +56,7 @@ pub enum AppInput {
     StartUpgrade,
     Restart,
     CloseStatusBarWarning,
+    HideWindow,
     ShowWindow,
     Exit,
 }
@@ -187,8 +188,6 @@ pub struct App {
     app_data_dir: Option<PathBuf>,
     #[do_not_track]
     exit_status_code: Rc<Cell<AppStatusCode>>,
-    #[do_not_track]
-    tray_icon: Option<TrayIcon<TrayMenuSignal>>,
     #[do_not_track]
     loaded: bool,
     // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
@@ -527,7 +526,7 @@ impl AsyncComponent for App {
 
         // TODO: Re-enable macOS once https://github.com/subspace/space-acres/issues/183 and/or
         //  https://github.com/subspace/space-acres/issues/222 are resolved
-        let tray = if cfg!(target_os = "macos") {
+        let tray_icon = if cfg!(target_os = "macos") {
             None
         } else {
             TrayIconBuilder::new()
@@ -553,6 +552,7 @@ impl AsyncComponent for App {
                 })
                 .ok()
         };
+        let has_tray_icon = tray_icon.is_some();
 
         let model = Self {
             current_view: View::Loading,
@@ -566,7 +566,6 @@ impl AsyncComponent for App {
             about_dialog,
             app_data_dir,
             exit_status_code,
-            tray_icon: tray,
             loaded: false,
             _background_tasks: Box::new(async move {
                 // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
@@ -624,9 +623,10 @@ impl AsyncComponent for App {
         menu_actions_group.register_for_widget(&root);
 
         if minimize_on_start {
-            match model.tray_icon {
-                Some(_) => root.hide(),
-                None => root.minimize(),
+            if has_tray_icon {
+                root.hide()
+            } else {
+                root.minimize()
             }
         }
 
@@ -638,9 +638,19 @@ impl AsyncComponent for App {
             }
         });
 
-        if model.tray_icon.is_some() {
-            root.set_hide_on_close(true);
+        root.connect_close_request({
+            let sender = sender.clone();
 
+            move |_root| {
+                sender.input(if has_tray_icon {
+                    AppInput::HideWindow
+                } else {
+                    AppInput::Exit
+                });
+                gtk::glib::Propagation::Stop
+            }
+        });
+        if has_tray_icon {
             root.connect_hide({
                 let notification_shown_already = Cell::new(false);
 
@@ -734,6 +744,9 @@ impl AsyncComponent for App {
             }
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_notification(StatusBarNotification::None);
+            }
+            AppInput::HideWindow => {
+                root.hide();
             }
             AppInput::ShowWindow => {
                 root.present();
