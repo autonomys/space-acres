@@ -163,6 +163,7 @@ relm4::new_stateless_action!(
 );
 relm4::new_stateless_action!(MainMenuShareFeedback, MainMenu, "share_feedback");
 relm4::new_stateless_action!(MainMenuAbout, MainMenu, "about");
+relm4::new_stateless_action!(MainMenuExit, MainMenu, "exit");
 
 #[tracker::track]
 pub struct App {
@@ -411,6 +412,7 @@ impl AsyncComponent for App {
             &T.main_menu_show_logs() => MainMenuShowLogs,
             &T.main_menu_share_feedback() => MainMenuShareFeedback,
             &T.main_menu_about() => MainMenuAbout,
+            &T.main_menu_exit() => MainMenuExit,
         },
 
         main_menu: {
@@ -418,6 +420,7 @@ impl AsyncComponent for App {
             &T.main_menu_change_configuration() => MainMenuChangeConfiguration,
             &T.main_menu_share_feedback() => MainMenuShareFeedback,
             &T.main_menu_about() => MainMenuAbout,
+            &T.main_menu_exit() => MainMenuExit,
         }
     }
 
@@ -609,6 +612,13 @@ impl AsyncComponent for App {
 
             move |_| {
                 sender.input(AppInput::ShowAboutDialog);
+            }
+        }));
+        menu_actions_group.add_action(RelmAction::<MainMenuExit>::new_stateless({
+            let sender = sender.clone();
+
+            move |_| {
+                sender.input(AppInput::Exit);
             }
         }));
         menu_actions_group.register_for_widget(&root);

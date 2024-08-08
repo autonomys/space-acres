@@ -186,6 +186,8 @@ main_menu_show_logs = Prikaz dnevnika u upravitelju datotekama
 main_menu_change_configuration = Promeni konfiguraciju
 main_menu_share_feedback = Deli povratne informacije
 main_menu_about = O aplikaciji
+# TODO: Translate
+main_menu_exit = Exit
 
 status_bar_message_configuration_is_invalid = Konfiguracija je nevažeća: {$error}
 status_bar_message_restart_is_needed_for_configuration = Potreban je restart aplikacije za primenu promena u konfiguraciji

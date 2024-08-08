@@ -179,6 +179,8 @@ main_menu_show_logs = 在文件管理器中打开日志
 main_menu_change_configuration = 修改配置
 main_menu_share_feedback = 分享反馈
 main_menu_about = 关于
+# TODO: Translate
+main_menu_exit = Exit
 
 status_bar_message_configuration_is_invalid = 配置不可用: {$error}
 status_bar_message_restart_is_needed_for_configuration = 重启以使配置修改生效

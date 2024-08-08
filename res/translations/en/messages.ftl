@@ -179,6 +179,7 @@ main_menu_show_logs = Show logs in file manager
 main_menu_change_configuration = Change configuration
 main_menu_share_feedback = Share feedback
 main_menu_about = About
+main_menu_exit = Exit
 
 status_bar_message_configuration_is_invalid = Configuration is invalid: {$error}
 status_bar_message_restart_is_needed_for_configuration = Application restart is needed for configuration changes to take effect
