@@ -189,3 +189,9 @@ status_bar_button_ok = Ok
 about_system_information =
     Config directory: {$config_directory}
     Data directory (including logs): {$data_directory}
+
+tray_icon_open = Open
+tray_icon_close = Close
+
+notification_app_minimized_to_tray = Space Acres was minimized to tray
+    .body = You can open it again or exit completely using tray icon menu

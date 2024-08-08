@@ -17,6 +17,7 @@ use crate::AppStatusCode;
 use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
+use gtk::gio::{Notification, NotificationPriority};
 use gtk::prelude::*;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
@@ -32,14 +33,13 @@ use subspace_farmer::utils::AsyncJoinOnDrop;
 use tracing::{debug, error, warn};
 
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
+const ICON: &[u8] = include_bytes!("../res/icon.png");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-const TRAY_ICON: &[u8] = include_bytes!("../res/linux/space-acres.png");
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum TrayMenuSignal {
     Open,
-    Quit,
+    Close,
 }
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ pub enum AppInput {
     Restart,
     CloseStatusBarWarning,
     ShowWindow,
-    Quit,
+    Exit,
 }
 
 #[derive(Debug)]
@@ -513,7 +513,7 @@ impl AsyncComponent for App {
 
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         let tray_img = {
-            let img = image::load_from_memory_with_format(TRAY_ICON, image::ImageFormat::Png)
+            let img = image::load_from_memory_with_format(ICON, image::ImageFormat::Png)
                 .expect("Tray icon is a valid PNG; qed");
             Icon::from_rgba(img.to_rgba8().into_vec(), img.width(), img.height())
                 .expect("Betrayer normalization tray icon; qed")
@@ -531,8 +531,8 @@ impl AsyncComponent for App {
                 .with_icon(tray_img)
                 .with_tooltip("Space Acres")
                 .with_menu(Menu::new([
-                    MenuItem::button("Open", TrayMenuSignal::Open),
-                    MenuItem::button("Quit", TrayMenuSignal::Quit),
+                    MenuItem::button(T.tray_icon_open(), TrayMenuSignal::Open),
+                    MenuItem::button(T.tray_icon_close(), TrayMenuSignal::Close),
                 ]))
                 .build({
                     let sender = sender.clone();
@@ -540,7 +540,7 @@ impl AsyncComponent for App {
                         if let TrayEvent::Menu(signal) = tray_event {
                             match signal {
                                 TrayMenuSignal::Open => sender.input(AppInput::ShowWindow),
-                                TrayMenuSignal::Quit => sender.input(AppInput::Quit),
+                                TrayMenuSignal::Close => sender.input(AppInput::Exit),
                             }
                         }
                     }
@@ -630,6 +630,24 @@ impl AsyncComponent for App {
 
         if model.tray_icon.is_some() {
             root.set_hide_on_close(true);
+
+            root.connect_hide({
+                let notification_shown_already = Cell::new(false);
+
+                move |_window| {
+                    if !notification_shown_already.replace(true) {
+                        let icon = gtk::gdk_pixbuf::Pixbuf::from_read(ICON)
+                            .expect("Statically correct image; qed");
+                        let notification =
+                            Notification::new(&T.notification_app_minimized_to_tray());
+                        notification.set_body(Some(&T.notification_app_minimized_to_tray_body()));
+                        // TODO: This icon is not rendered properly for some reason
+                        notification.set_icon(&icon);
+                        notification.set_priority(NotificationPriority::Low);
+                        relm4::main_application().send_notification(None, &notification);
+                    }
+                }
+            });
         }
 
         AsyncComponentParts { model, widgets }
@@ -710,7 +728,7 @@ impl AsyncComponent for App {
             AppInput::ShowWindow => {
                 root.present();
             }
-            AppInput::Quit => {
+            AppInput::Exit => {
                 relm4::main_application().quit();
             }
         }

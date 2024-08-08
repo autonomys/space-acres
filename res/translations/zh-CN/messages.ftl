@@ -189,3 +189,12 @@ status_bar_button_ok = 正常
 about_system_information =
     配置目录: {$config_directory}
     数据目录 (包括日志): {$data_directory}
+
+# TODO: Translate
+tray_icon_open = Open
+# TODO: Translate
+tray_icon_close = Close
+
+# TODO: Translate
+notification_app_minimized_to_tray = Space Acres was minimized to tray
+    .body = You can open it again or exit completely using tray icon menu

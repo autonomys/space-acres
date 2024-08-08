@@ -196,3 +196,12 @@ status_bar_button_ok = U redu
 about_system_information =
     Konfiguracioni direktorijum: {$config_directory}
     Direktorijum podataka (uključujući dnevnike): {$data_directory}
+
+# TODO: Translate
+tray_icon_open = Open
+# TODO: Translate
+tray_icon_close = Close
+
+# TODO: Translate
+notification_app_minimized_to_tray = Space Acres was minimized to tray
+    .body = You can open it again or exit completely using tray icon menu
