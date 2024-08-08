@@ -3275,9 +3275,9 @@ dependencies = [
 
 [[package]]
 name = "fluent-static"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bf230a24578c9e857046f81620aea76979c693cc474da9b7c961526f9f0cca1"
+checksum = "5d212bb167e2190feead18124adcdebf104674815b742bf84d8cd62aa7cdb38c"
 dependencies = [
  "accept-language",
  "fluent-bundle",
@@ -3287,9 +3287,9 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-codegen"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ed2bfff8b69e16b697a20a109c1d95b3ede87783cdd0f6dbb6ca6b5f11ec62c"
+checksum = "947ad6ee38076d23180fa97098f66a8a4fa3a0c8438c944d6919fcfc79d5753c"
 dependencies = [
  "accept-language",
  "convert_case 0.6.0",

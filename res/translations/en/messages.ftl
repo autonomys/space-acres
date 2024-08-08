@@ -41,10 +41,10 @@ loading_consensus_node_title = Initializing consensus node
 loading_consensus_node_step_creating = Creating consensus node...
 loading_consensus_node_step_created_successfully = Consensus node created successfully
 loading_farmer_title = Instantiating farmer
-loading_farmer_step_initializing = Initializing farms {$a_index}/{$b_farms_total}...
+loading_farmer_step_initializing = Initializing farms {$index}/{$farms_total}...
 loading_farmer_step_created_successfully = Farmer created successfully
 loading_wiping_farmer_data_title = Wiping farmer data
-loading_wiping_farmer_data_step_wiping_farm = Wiping farm {$a_index}/{$b_farms_total} at {$c_path}...
+loading_wiping_farmer_data_step_wiping_farm = Wiping farm {$index}/{$farms_total} at {$path}...
 loading_wiping_farmer_data_step_success = All farms wiped successfully
 loading_wiping_node_data_title = Wiping node data
 loading_wiping_node_data_step_wiping_node = Wiping node at {$path}...
@@ -103,11 +103,11 @@ running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, mi
 running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} minutes remaining)
 running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} seconds remaining)
 running_node_status_syncing =
-    {$a_sync_kind ->
+    {$sync_kind ->
         [dsn] Syncing from DSN
         [regular] Regular sync
-        *[unknown] Unknown sync kind {$a_sync_kind}
-    } #{$b_best_block_number}/{$c_target_block}{$d_sync_speed}
+        *[unknown] Unknown sync kind {$sync_kind}
+    } #{$best_block_number}/{$target_block}{$sync_speed}
 running_node_status_synced = Synced, best block #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Expand details about each farm
@@ -124,27 +124,27 @@ running_farmer_next_reward_estimate =
         *[unknown] unknown
     }
 running_farmer_farm_tooltip = Click to open in file manager
-running_farmer_farm_reward_signatures_tooltip = {$a_successful_signatures}/{$b_total_signatures} successful reward signatures, expand farm details to see more information
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} successful reward signatures, expand farm details to see more information
 running_farmer_farm_auditing_performance_tooltip = Auditing performance: average time {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Proving performance: average time {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = Non-fatal farming error happened and was recovered, see logs for more details: {$error}
 running_farmer_farm_crashed = Farm crashed: {$error}
 running_farmer_farm_plotting_speed =  ({NUMBER($a_sector_time, minimumFractionDigits: 2, maximumFractionDigits: 2)} m/sector, {NUMBER($b_sectors_per_hour, minimumFractionDigits: 2, maximumFractionDigits: 2)} sectors/h)
 running_farmer_farm_plotting_initial =
-    {$a_pausing_state ->
+    {$pausing_state ->
         [pausing] Pausing initial plotting
         [paused] Paused initial plotting
         *[no] Initial plotting
-    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
         [yes] farming
         *[no] not farming
     }
 running_farmer_farm_replotting =
-    {$a_pausing_state ->
+    {$pausing_state ->
         [pausing] Pausing initial plotting
         [paused] Paused initial plotting
         *[default] Replotting
-    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
         [yes] farming
         *[no] not farming
     }
@@ -187,5 +187,5 @@ status_bar_button_restart = Restart
 status_bar_button_ok = Ok
 
 about_system_information =
-    Config directory: {$a_config_directory}
-    Data directory (including logs): {$b_data_directory}
+    Config directory: {$config_directory}
+    Data directory (including logs): {$data_directory}

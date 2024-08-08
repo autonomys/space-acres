@@ -42,10 +42,10 @@ loading_consensus_node_title = Initializing consensus node
 loading_consensus_node_step_creating = Kreiranje konsenzus čvora...
 loading_consensus_node_step_created_successfully = Konsenzus čvor uspešno kreiran
 loading_farmer_title = Inicijalizacija farmera
-loading_farmer_step_initializing = Inicijalizacija farmi {$a_index}/{$b_farms_total}...
+loading_farmer_step_initializing = Inicijalizacija farmi {$index}/{$farms_total}...
 loading_farmer_step_created_successfully = Farmer uspešno kreiran
 loading_wiping_farmer_data_title = Brisanje podataka farmera
-loading_wiping_farmer_data_step_wiping_farm = Brisanje farme {$a_index}/{$b_farms_total} na {$c_path}...
+loading_wiping_farmer_data_step_wiping_farm = Brisanje farme {$index}/{$farms_total} na {$path}...
 loading_wiping_farmer_data_step_success = Sve farme su uspešno obrisane
 loading_wiping_node_data_title = Brisanje podataka čvora
 loading_wiping_node_data_step_wiping_node = Brisanje čvora na {$path}...
@@ -110,11 +110,11 @@ running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, mi
 running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blokova/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} minuta preostalo)
 running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blokova/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} sekundi preostalo)
 running_node_status_syncing =
-    {$a_sync_kind ->
+    {$sync_kind ->
         [dsn] Sinhronizacija sa DSN
         [regular] Redovna sinhronizacija
-        *[unknown] Nepoznat tip sinhronizacije {$a_sync_kind}
-    } #{$b_best_block_number}/{$c_target_block}{$d_sync_speed}
+        *[unknown] Nepoznat tip sinhronizacije {$sync_kind}
+    } #{$best_block_number}/{$target_block}{$sync_speed}
 running_node_status_synced = Sinhronizovano, najbolji blok #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Proširi detalje o svakoj farmi
@@ -131,27 +131,27 @@ running_farmer_next_reward_estimate =
         *[unknown] nepoznato
     }
 running_farmer_farm_tooltip = Kliknite da otvorite u upravitelju datotekama
-running_farmer_farm_reward_signatures_tooltip = {$a_successful_signatures}/{$b_total_signatures} uspešnih potpisa nagrada, proširi detalje farme da vidiš više informacija
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} uspešnih potpisa nagrada, proširi detalje farme da vidiš više informacija
 running_farmer_farm_auditing_performance_tooltip = Provera performansi: prosečno vreme {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, vremensko ograničenje {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Dokazivanje performansi: prosečno vreme {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, vremensko ograničenje {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = Dogodila se ne-fatalna greška u farmovanju i uspešno je ispravljena, pogledajte dnevnik za više detalja: {$error}
 running_farmer_farm_crashed = Farma se srušila: {$error}
 running_farmer_farm_plotting_speed =  ({NUMBER($a_sector_time, minimumFractionDigits: 2, maximumFractionDigits: 2)} m/sektoru, {NUMBER($b_sectors_per_hour, minimumFractionDigits: 2, maximumFractionDigits: 2)} sektora/h)
 running_farmer_farm_plotting_initial =
-    {$a_pausing_state ->
+    {$pausing_state ->
         [pausing] Pauziranje početnog plotovanja
         [paused] Početno plotovanje pauzirano
         *[no] Početno plotovanje
-    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
         [yes] farmovanje
         *[no] ne farmuje
     }
 running_farmer_farm_replotting =
-    {$a_pausing_state ->
+    {$pausing_state ->
         [pausing] Pauziranje početnog plotovanja
         [paused] Početno plotovanje pauzirano
         *[default] Preplotovanje
-    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
         [yes] farmovanje
         *[no] ne farmuje
     }
@@ -194,5 +194,5 @@ status_bar_button_restart = Ponovo pokreni
 status_bar_button_ok = U redu
 
 about_system_information =
-    Konfiguracioni direktorijum: {$a_config_directory}
-    Direktorijum podataka (uključujući dnevnike): {$b_data_directory}
+    Konfiguracioni direktorijum: {$config_directory}
+    Direktorijum podataka (uključujući dnevnike): {$data_directory}
