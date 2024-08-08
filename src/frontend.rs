@@ -733,7 +733,8 @@ impl AsyncComponent for App {
             }
             AppInput::Restart => {
                 self.exit_status_code.set(AppStatusCode::Restart);
-                relm4::main_application().quit();
+                // Delegate to exit to do the rest
+                sender.input(AppInput::Exit);
             }
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_notification(StatusBarNotification::None);
@@ -753,13 +754,13 @@ impl AsyncComponent for App {
     async fn update_cmd(
         &mut self,
         input: Self::CommandOutput,
-        _sender: AsyncComponentSender<Self>,
+        sender: AsyncComponentSender<Self>,
         _root: &Self::Root,
     ) {
         // Reset changes
         self.reset();
 
-        self.process_command(input);
+        self.process_command(input, sender);
     }
 }
 
@@ -939,14 +940,13 @@ impl App {
         }
     }
 
-    fn process_command(&mut self, input: AppCommandOutput) {
+    fn process_command(&mut self, input: AppCommandOutput, sender: AsyncComponentSender<Self>) {
         match input {
             AppCommandOutput::BackendNotification(notification) => {
                 self.process_backend_notification(notification);
             }
             AppCommandOutput::Restart => {
-                self.exit_status_code.set(AppStatusCode::Restart);
-                relm4::main_application().quit();
+                sender.input(AppInput::Restart);
             }
         }
     }
