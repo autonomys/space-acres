@@ -41,10 +41,10 @@ loading_consensus_node_title = 初始化共识节点
 loading_consensus_node_step_creating = 创建共识节点...
 loading_consensus_node_step_created_successfully = 共识节点创建成功
 loading_farmer_title = 实例化农民
-loading_farmer_step_initializing = 初始化农场 {$a_index}/{$b_farms_total}...
+loading_farmer_step_initializing = 初始化农场 {$index}/{$farms_total}...
 loading_farmer_step_created_successfully = 农民创建成功
 loading_wiping_farmer_data_title = 擦除农民数据
-loading_wiping_farmer_data_step_wiping_farm = 擦除农场 {$a_index}/{$b_farms_total} at {$c_path}...
+loading_wiping_farmer_data_step_wiping_farm = 擦除农场 {$index}/{$farms_total} at {$path}...
 loading_wiping_farmer_data_step_success = 所有农场数据擦除成功
 loading_wiping_node_data_title = 擦除节点数据
 loading_wiping_node_data_step_wiping_node = 擦除该目录的节点数据 {$path}...
@@ -103,11 +103,11 @@ running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, mi
 running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (预计 ~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 分钟)
 running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (预计 ~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} 秒)
 running_node_status_syncing =
-    {$a_sync_kind ->
+    {$sync_kind ->
         [dsn] DSN 网络同步
         [regular] 常规同步
-        *[unknown] 未知同步类型 {$a_sync_kind}
-    } #{$b_best_block_number}/{$c_target_block}{$d_sync_speed}
+        *[unknown] 未知同步类型 {$sync_kind}
+    } #{$best_block_number}/{$target_block}{$sync_speed}
 running_node_status_synced = 同步完成, 最新区块 #{$best_block_number}
 running_farmer_title = 农民
 running_farmer_button_expand_details = 各农场的详细信息
@@ -124,27 +124,27 @@ running_farmer_next_reward_estimate =
         *[unknown] 未知
     }
 running_farmer_farm_tooltip = 在文件管理器中打开
-running_farmer_farm_reward_signatures_tooltip = {$a_successful_signatures}/{$b_total_signatures} 奖励签名成功，打开农场查看更多信息
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} 奖励签名成功，打开农场查看更多信息
 running_farmer_farm_auditing_performance_tooltip = 审计性能: 平均时长 {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒, 时间限制 {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒
 running_farmer_farm_proving_performance_tooltip = 证明性能: 平均时长 {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒, 时间限制 {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒
 running_farmer_farm_non_fatal_error_tooltip = 非致命错误发生并已经恢复，在日志中查看更多信息: {$error}
 running_farmer_farm_crashed = 农场崩溃: {$error}
 running_farmer_farm_plotting_speed =  ({NUMBER($a_sector_time, minimumFractionDigits: 2, maximumFractionDigits: 2)} 分钟/扇区, {NUMBER($b_sectors_per_hour, minimumFractionDigits: 2, maximumFractionDigits: 2)} 扇区/小时)
 running_farmer_farm_plotting_initial =
-    {$a_pausing_state ->
+    {$pausing_state ->
         [pausing] 初始绘制暂停中
         [paused] 初始绘制暂停
         *[no] 初始绘制中
-    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
         [yes] 耕种中
         *[no] 未耕种
     }
 running_farmer_farm_replotting =
-    {$a_pausing_state ->
+    {$pausing_state ->
         [pausing] 初始绘制暂停中
         [paused] 初始绘制暂停
         *[default] 重新绘制
-    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$c_plotting_speed}, {$d_farming ->
+    } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
         [yes] 耕种中
         *[no] 未耕种
     }
@@ -187,5 +187,5 @@ status_bar_button_restart = 重启
 status_bar_button_ok = 正常
 
 about_system_information =
-    配置目录: {$a_config_directory}
-    数据目录 (包括日志): {$b_data_directory}
+    配置目录: {$config_directory}
+    数据目录 (包括日志): {$data_directory}
