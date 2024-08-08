@@ -659,6 +659,13 @@ impl AsyncComponent for App {
                 }
             });
         }
+        let icon = gtk::gdk_pixbuf::Pixbuf::from_read(ICON).expect("Statically correct image; qed");
+        let notification = Notification::new(&T.notification_app_minimized_to_tray());
+        notification.set_body(Some(&T.notification_app_minimized_to_tray_body()));
+        // TODO: This icon is not rendered properly for some reason
+        notification.set_icon(&icon);
+        notification.set_priority(NotificationPriority::Low);
+        relm4::main_application().send_notification(None, &notification);
 
         AsyncComponentParts { model, widgets }
     }

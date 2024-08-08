@@ -196,3 +196,7 @@ tray_icon_close = Close
 
 notification_app_minimized_to_tray = Space Acres was minimized to tray
     .body = You can open it again or exit completely using tray icon menu
+notification_signed_reward_successfully = Signed new reward successfully 🥳
+    .body = Thank you for securing the network 🙌
+notification_missed_reward = Reward signing failed 😞
+    .body = This is unfortunate, but there will be another chance soon
