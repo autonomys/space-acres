@@ -179,6 +179,7 @@ main_menu_show_logs = Show logs in file manager
 main_menu_change_configuration = Change configuration
 main_menu_share_feedback = Share feedback
 main_menu_about = About
+main_menu_exit = Exit
 
 status_bar_message_configuration_is_invalid = Configuration is invalid: {$error}
 status_bar_message_restart_is_needed_for_configuration = Application restart is needed for configuration changes to take effect
@@ -189,3 +190,13 @@ status_bar_button_ok = Ok
 about_system_information =
     Config directory: {$config_directory}
     Data directory (including logs): {$data_directory}
+
+tray_icon_open = Open
+tray_icon_close = Close
+
+notification_app_minimized_to_tray = Space Acres was minimized to tray
+    .body = You can open it again or exit completely using tray icon menu
+notification_signed_reward_successfully = Signed new reward successfully 🥳
+    .body = Thank you for securing the network 🙌
+notification_missed_reward = Reward signing failed 😞
+    .body = This is unfortunate, but there will be another chance soon

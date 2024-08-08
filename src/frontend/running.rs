@@ -11,6 +11,8 @@ use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
+use crate::frontend::ICON;
+use gtk::gio::Notification;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
@@ -19,7 +21,9 @@ use sp_consensus_subspace::ChainConstants;
 use std::num::NonZeroU8;
 use std::time::{Duration, Instant};
 use subspace_core_primitives::{solution_range_to_sectors, BlockNumber, Piece, SolutionRange};
-use subspace_farmer::farm::{SectorPlottingDetails, SectorUpdate};
+use subspace_farmer::farm::{
+    FarmingNotification, ProvingResult, SectorPlottingDetails, SectorUpdate,
+};
 use subspace_runtime_primitives::{Balance, SSC};
 use tracing::{debug, error};
 
@@ -448,6 +452,34 @@ impl RunningView {
                     farm_index,
                     notification,
                 } => {
+                    if let FarmingNotification::Proving(proving_details) = &notification {
+                        let notification = match proving_details.result {
+                            ProvingResult::Success => {
+                                let notification =
+                                    Notification::new(&T.notification_signed_reward_successfully());
+                                notification.set_body(Some(
+                                    &T.notification_signed_reward_successfully_body(),
+                                ));
+
+                                notification
+                            }
+                            ProvingResult::Timeout
+                            | ProvingResult::Rejected
+                            | ProvingResult::Failed => {
+                                let notification =
+                                    Notification::new(&T.notification_missed_reward());
+                                notification.set_body(Some(&T.notification_missed_reward_body()));
+
+                                notification
+                            }
+                        };
+
+                        let icon = gtk::gdk_pixbuf::Pixbuf::from_read(ICON)
+                            .expect("Statically correct image; qed");
+                        // TODO: This icon is not rendered properly for some reason
+                        notification.set_icon(&icon);
+                        relm4::main_application().send_notification(None, &notification);
+                    }
                     self.farms.send(
                         &farm_index,
                         FarmWidgetInput::FarmingNotification(notification),

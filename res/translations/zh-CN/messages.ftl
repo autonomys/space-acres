@@ -179,6 +179,8 @@ main_menu_show_logs = 在文件管理器中打开日志
 main_menu_change_configuration = 修改配置
 main_menu_share_feedback = 分享反馈
 main_menu_about = 关于
+# TODO: Translate
+main_menu_exit = Exit
 
 status_bar_message_configuration_is_invalid = 配置不可用: {$error}
 status_bar_message_restart_is_needed_for_configuration = 重启以使配置修改生效
@@ -189,3 +191,18 @@ status_bar_button_ok = 正常
 about_system_information =
     配置目录: {$config_directory}
     数据目录 (包括日志): {$data_directory}
+
+# TODO: Translate
+tray_icon_open = Open
+# TODO: Translate
+tray_icon_close = Close
+
+# TODO: Translate
+notification_app_minimized_to_tray = Space Acres was minimized to tray
+    .body = You can open it again or exit completely using tray icon menu
+# TODO: Translate
+notification_signed_reward_successfully = Signed new reward successfully 🥳
+    .body = Thank you for securing the network 🙌
+# TODO: Translate
+notification_missed_reward = Reward signing failed 😞
+    .body = This is unfortunate, but there will be another chance soon

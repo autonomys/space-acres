@@ -186,6 +186,8 @@ main_menu_show_logs = Prikaz dnevnika u upravitelju datotekama
 main_menu_change_configuration = Promeni konfiguraciju
 main_menu_share_feedback = Deli povratne informacije
 main_menu_about = O aplikaciji
+# TODO: Translate
+main_menu_exit = Exit
 
 status_bar_message_configuration_is_invalid = Konfiguracija je nevažeća: {$error}
 status_bar_message_restart_is_needed_for_configuration = Potreban je restart aplikacije za primenu promena u konfiguraciji
@@ -196,3 +198,18 @@ status_bar_button_ok = U redu
 about_system_information =
     Konfiguracioni direktorijum: {$config_directory}
     Direktorijum podataka (uključujući dnevnike): {$data_directory}
+
+# TODO: Translate
+tray_icon_open = Open
+# TODO: Translate
+tray_icon_close = Close
+
+# TODO: Translate
+notification_app_minimized_to_tray = Space Acres was minimized to tray
+    .body = You can open it again or exit completely using tray icon menu
+# TODO: Translate
+notification_signed_reward_successfully = Signed new reward successfully 🥳
+    .body = Thank you for securing the network 🙌
+# TODO: Translate
+notification_missed_reward = Reward signing failed 😞
+    .body = This is unfortunate, but there will be another chance soon
