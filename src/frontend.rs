@@ -26,10 +26,9 @@ use relm4_icons::icon_name;
 use std::cell::Cell;
 use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::{env, fmt};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
 const ICON: &[u8] = include_bytes!("../res/icon.png");
@@ -56,13 +55,14 @@ pub enum AppInput {
     CloseStatusBarWarning,
     HideWindow,
     ShowWindow,
-    Exit,
+    ShutDown,
 }
 
 #[derive(Debug)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
     Restart,
+    Quit,
 }
 
 enum View {
@@ -72,6 +72,7 @@ enum View {
     Configuration,
     Reconfiguration,
     Running,
+    ShuttingDown,
     Stopped(Option<anyhow::Error>),
     Error(String),
 }
@@ -85,6 +86,7 @@ impl View {
             Self::Configuration => T.configuration_title(),
             Self::Reconfiguration => T.reconfiguration_title(),
             Self::Running => T.running_title(),
+            Self::ShuttingDown => T.shutting_down_title(),
             Self::Stopped(_) => T.stopped_title(),
             Self::Error(_) => T.error_title(),
         }
@@ -141,7 +143,7 @@ impl StatusBarNotification {
 }
 
 pub struct RunBackendResult {
-    pub backend_fut: Pin<Box<dyn Future<Output = Result<(), futures::channel::oneshot::Canceled>>>>,
+    pub backend_fut: Box<dyn Future<Output = ()> + Send>,
     pub backend_action_sender: mpsc::Sender<BackendAction>,
     pub backend_notification_receiver: mpsc::Receiver<BackendNotification>,
 }
@@ -188,9 +190,8 @@ pub struct App {
     exit_status_code: Rc<Cell<AppStatusCode>>,
     #[do_not_track]
     loaded: bool,
-    // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
     #[do_not_track]
-    _background_tasks: Box<dyn Future<Output = ()>>,
+    backend_fut: Option<Box<dyn Future<Output = ()> + Send>>,
 }
 
 #[relm4::component(pub async)]
@@ -314,6 +315,21 @@ impl AsyncComponent for App {
                         View::Loading => model.loading_view.widget().clone(),
                         View::Configuration | View::Reconfiguration => model.configuration_view.widget().clone(),
                         View::Running=> model.running_view.widget().clone(),
+                        View::ShuttingDown=> gtk::Box {
+                            set_halign: gtk::Align::Center,
+                            set_valign: gtk::Align::Center,
+                            set_vexpand: true,
+                            set_orientation: gtk::Orientation::Vertical,
+
+                            gtk::Spinner {
+                                start: (),
+                                set_size_request: (50, 50),
+                            },
+
+                            gtk::Label {
+                                set_label: &T.shutting_down_description(),
+                            },
+                        },
                         View::Stopped(Some(error)) => gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_spacing: 20,
@@ -540,7 +556,7 @@ impl AsyncComponent for App {
                         if let TrayEvent::Menu(signal) = tray_event {
                             match signal {
                                 TrayMenuSignal::Open => sender.input(AppInput::ShowWindow),
-                                TrayMenuSignal::Close => sender.input(AppInput::Exit),
+                                TrayMenuSignal::Close => sender.input(AppInput::ShutDown),
                             }
                         }
                     }
@@ -565,17 +581,8 @@ impl AsyncComponent for App {
             app_data_dir,
             exit_status_code,
             loaded: false,
-            _background_tasks: Box::new(async move {
-                match backend_fut.await {
-                    Ok(()) => {
-                        info!("Backend exited");
-                    }
-                    Err(_) => {
-                        error!("Backend spawning failed");
-                    }
-                }
-            }),
             tracker: u8::MAX,
+            backend_fut: Some(backend_fut),
         };
 
         let widgets = view_output!();
@@ -613,7 +620,7 @@ impl AsyncComponent for App {
             let sender = sender.clone();
 
             move |_| {
-                sender.input(AppInput::Exit);
+                sender.input(AppInput::ShutDown);
             }
         }));
         menu_actions_group.register_for_widget(&root);
@@ -641,7 +648,7 @@ impl AsyncComponent for App {
                 sender.input(if has_tray_icon {
                     AppInput::HideWindow
                 } else {
-                    AppInput::Exit
+                    AppInput::ShutDown
                 });
                 gtk::glib::Propagation::Stop
             }
@@ -734,7 +741,7 @@ impl AsyncComponent for App {
             AppInput::Restart => {
                 self.exit_status_code.set(AppStatusCode::Restart);
                 // Delegate to exit to do the rest
-                sender.input(AppInput::Exit);
+                sender.input(AppInput::ShutDown);
             }
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_notification(StatusBarNotification::None);
@@ -745,8 +752,17 @@ impl AsyncComponent for App {
             AppInput::ShowWindow => {
                 root.present();
             }
-            AppInput::Exit => {
-                relm4::main_application().quit();
+            AppInput::ShutDown => {
+                self.set_current_view(View::ShuttingDown);
+                // Make sure user sees that shutdown is happening in case it is called from tray
+                // icon
+                root.present();
+
+                let backend_fut = self.backend_fut.take();
+                sender.spawn_oneshot_command(|| {
+                    drop(backend_fut);
+                    AppCommandOutput::Quit
+                });
             }
         }
     }
@@ -846,6 +862,9 @@ impl App {
             }
             AppCommandOutput::Restart => {
                 sender.input(AppInput::Restart);
+            }
+            AppCommandOutput::Quit => {
+                relm4::main_application().quit();
             }
         }
     }

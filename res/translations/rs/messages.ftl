@@ -166,6 +166,11 @@ running_farmer_farm_sector_downloading = Sektor {$sector_index}: preuzimanje
 running_farmer_farm_sector_encoding = Sektor {$sector_index}: kodiranje
 running_farmer_farm_sector_writing = Sektor {$sector_index}: pisanje
 
+# TODO: Translate
+shutting_down_title = Shutting down
+# TODO: Translate
+shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
+
 stopped_title = Zaustavljeno
 stopped_message = Zaustavljeno 🛑
 stopped_message_with_error = Zaustavljeno sa greškom: {$error}

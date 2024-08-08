@@ -159,6 +159,9 @@ running_farmer_farm_sector_downloading = Sector {$sector_index}: downloading
 running_farmer_farm_sector_encoding = Sector {$sector_index}: encoding
 running_farmer_farm_sector_writing = Sector {$sector_index}: writing
 
+shutting_down_title = Shutting down
+shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
+
 stopped_title = Stopped
 stopped_message = Stopped 🛑
 stopped_message_with_error = Stopped with error: {$error}
