@@ -774,6 +774,82 @@ impl App {
         }
     }
 
+    async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
+        match configuration_output {
+            ConfigurationOutput::StartWithNewConfig(raw_config) => {
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::NewConfig { raw_config })
+                    .await
+                {
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_config_to_backend(error.to_string())
+                            .to_string(),
+                    ));
+                }
+            }
+            ConfigurationOutput::ConfigUpdate(raw_config) => {
+                self.get_mut_current_raw_config()
+                    .replace(raw_config.clone());
+                // Config is updated when application is already running, switch to corresponding screen
+                self.set_current_view(View::Running);
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::NewConfig { raw_config })
+                    .await
+                {
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_config_to_backend(error.to_string())
+                            .to_string(),
+                    ));
+                }
+            }
+            ConfigurationOutput::Back => {
+                // Back to welcome screen
+                self.set_current_view(View::Welcome);
+            }
+            ConfigurationOutput::Close => {
+                // Configuration view is closed when application is already running, switch to
+                // corresponding screen
+                if self.loaded {
+                    self.set_current_view(View::Running);
+                } else {
+                    self.set_current_view(View::Loading);
+                }
+            }
+        }
+    }
+
+    async fn process_running_output(&mut self, running_output: RunningOutput) {
+        match running_output {
+            RunningOutput::PausePlotting(pause_plotting) => {
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::Farmer(FarmerAction::PausePlotting(
+                        pause_plotting,
+                    )))
+                    .await
+                {
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_pause_plotting_to_backend(error.to_string())
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    fn process_command(&mut self, input: AppCommandOutput, sender: AsyncComponentSender<Self>) {
+        match input {
+            AppCommandOutput::BackendNotification(notification) => {
+                self.process_backend_notification(notification);
+            }
+            AppCommandOutput::Restart => {
+                sender.input(AppInput::Restart);
+            }
+        }
+    }
+
     fn process_backend_notification(&mut self, notification: BackendNotification) {
         debug!(?notification, "New backend notification");
 
@@ -871,82 +947,6 @@ impl App {
             }
             BackendNotification::IrrecoverableError { error } => {
                 self.set_current_view(View::Error(error.to_string()));
-            }
-        }
-    }
-
-    async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
-        match configuration_output {
-            ConfigurationOutput::StartWithNewConfig(raw_config) => {
-                if let Err(error) = self
-                    .backend_action_sender
-                    .send(BackendAction::NewConfig { raw_config })
-                    .await
-                {
-                    self.set_current_view(View::Error(
-                        T.error_message_failed_to_send_config_to_backend(error.to_string())
-                            .to_string(),
-                    ));
-                }
-            }
-            ConfigurationOutput::ConfigUpdate(raw_config) => {
-                self.get_mut_current_raw_config()
-                    .replace(raw_config.clone());
-                // Config is updated when application is already running, switch to corresponding screen
-                self.set_current_view(View::Running);
-                if let Err(error) = self
-                    .backend_action_sender
-                    .send(BackendAction::NewConfig { raw_config })
-                    .await
-                {
-                    self.set_current_view(View::Error(
-                        T.error_message_failed_to_send_config_to_backend(error.to_string())
-                            .to_string(),
-                    ));
-                }
-            }
-            ConfigurationOutput::Back => {
-                // Back to welcome screen
-                self.set_current_view(View::Welcome);
-            }
-            ConfigurationOutput::Close => {
-                // Configuration view is closed when application is already running, switch to
-                // corresponding screen
-                if self.loaded {
-                    self.set_current_view(View::Running);
-                } else {
-                    self.set_current_view(View::Loading);
-                }
-            }
-        }
-    }
-
-    async fn process_running_output(&mut self, running_output: RunningOutput) {
-        match running_output {
-            RunningOutput::PausePlotting(pause_plotting) => {
-                if let Err(error) = self
-                    .backend_action_sender
-                    .send(BackendAction::Farmer(FarmerAction::PausePlotting(
-                        pause_plotting,
-                    )))
-                    .await
-                {
-                    self.set_current_view(View::Error(
-                        T.error_message_failed_to_send_pause_plotting_to_backend(error.to_string())
-                            .to_string(),
-                    ));
-                }
-            }
-        }
-    }
-
-    fn process_command(&mut self, input: AppCommandOutput, sender: AsyncComponentSender<Self>) {
-        match input {
-            AppCommandOutput::BackendNotification(notification) => {
-                self.process_backend_notification(notification);
-            }
-            AppCommandOutput::Restart => {
-                sender.input(AppInput::Restart);
             }
         }
     }
