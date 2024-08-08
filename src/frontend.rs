@@ -620,6 +620,14 @@ impl AsyncComponent for App {
             }
         }
 
+        relm4::main_application().connect_activate({
+            let root = root.clone();
+
+            move |_application| {
+                root.present();
+            }
+        });
+
         if model.tray_icon.is_some() {
             root.set_hide_on_close(true);
         }
