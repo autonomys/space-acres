@@ -16,7 +16,7 @@ use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
 use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIconBuilder};
 use futures::channel::mpsc;
-use futures::{select, FutureExt, SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt};
 use gtk::gio::{Notification, NotificationPriority};
 use gtk::prelude::*;
 use relm4::actions::{RelmAction, RelmActionGroup};
@@ -29,8 +29,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::{env, fmt};
-use subspace_farmer::utils::AsyncJoinOnDrop;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
 const ICON: &[u8] = include_bytes!("../res/icon.png");
@@ -44,7 +43,6 @@ enum TrayMenuSignal {
 
 #[derive(Debug)]
 pub enum AppInput {
-    BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
     Running(RunningOutput),
     OpenLogsFolder,
@@ -440,21 +438,21 @@ impl AsyncComponent for App {
             mut backend_notification_receiver,
         } = run_backend();
 
-        // Forward backend notifications as application inputs
-        let message_forwarder_fut = AsyncJoinOnDrop::new(
-            tokio::spawn({
-                let sender = sender.clone();
-
-                async move {
+        // Forward backend notifications
+        sender.command(move |sender, shutdown_receiver| {
+            shutdown_receiver
+                .register(async move {
                     while let Some(notification) = backend_notification_receiver.next().await {
-                        // TODO: This panics on shutdown because component is already shut down, this should be handled
-                        //  more gracefully
-                        sender.input(AppInput::BackendNotification(notification));
+                        if let Err(error) =
+                            sender.send(AppCommandOutput::BackendNotification(notification))
+                        {
+                            error!(?error, "Failed to forward backend notification");
+                            break;
+                        }
                     }
-                }
-            }),
-            true,
-        );
+                })
+                .drop_on_shutdown()
+        });
 
         let new_version = NewVersion::builder().launch(()).detach();
 
@@ -568,14 +566,12 @@ impl AsyncComponent for App {
             exit_status_code,
             loaded: false,
             _background_tasks: Box::new(async move {
-                // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
-                // notification forwarder sending notification to the component that is already shut down
-                select! {
-                    _ = message_forwarder_fut.fuse() => {
-                        warn!("Message forwarder exited");
+                match backend_fut.await {
+                    Ok(()) => {
+                        info!("Backend exited");
                     }
-                    _ = backend_fut.fuse() => {
-                        warn!("Backend exited");
+                    Err(_) => {
+                        error!("Backend spawning failed");
                     }
                 }
             }),
@@ -685,9 +681,6 @@ impl AsyncComponent for App {
         match input {
             AppInput::OpenLogsFolder => {
                 self.open_log_folder();
-            }
-            AppInput::BackendNotification(notification) => {
-                self.process_backend_notification(notification);
             }
             AppInput::Configuration(configuration_output) => {
                 self.process_configuration_output(configuration_output)
