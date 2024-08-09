@@ -187,6 +187,7 @@ main_menu_exit = Exit
 status_bar_message_configuration_is_invalid = Configuration is invalid: {$error}
 status_bar_message_restart_is_needed_for_configuration = Application restart is needed for configuration changes to take effect
 status_bar_message_failed_to_save_configuration = Failed to save configuration changes: {$error}
+status_bar_message_restarted_after_crash = Space Acres automatically restarted after crash, check application and system logs for details
 status_bar_button_restart = Restart
 status_bar_button_ok = Ok
 
