@@ -11704,7 +11704,7 @@ dependencies = [
 
 [[package]]
 name = "space-acres"
-version = "0.1.33"
+version = "0.1.34"
 dependencies = [
  "anyhow",
  "arc-swap",
