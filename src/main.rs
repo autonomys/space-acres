@@ -31,7 +31,7 @@ use std::{env, fs, io, process};
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::chia_legacy::ChiaTableLegacy;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -254,7 +254,16 @@ impl Cli {
                 .expect("Must be able to spawn a thread");
 
                 RunBackendResult {
-                    backend_fut: Box::pin(backend_fut),
+                    backend_fut: Box::new(async move {
+                        match backend_fut.await {
+                            Ok(()) => {
+                                info!("Backend exited");
+                            }
+                            Err(_) => {
+                                error!("Backend spawning failed");
+                            }
+                        }
+                    }),
                     backend_action_sender,
                     backend_notification_receiver,
                 }

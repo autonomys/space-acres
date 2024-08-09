@@ -159,6 +159,11 @@ running_farmer_farm_sector_downloading = 扇区 {$sector_index}: 下载中
 running_farmer_farm_sector_encoding = 扇区 {$sector_index}: 编码中
 running_farmer_farm_sector_writing = 扇区 {$sector_index}: 写入中
 
+# TODO: Translate
+shutting_down_title = Shutting down
+# TODO: Translate
+shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
+
 stopped_title = 暂停
 stopped_message = 暂停 🛑
 stopped_message_with_error = 由于错误暂停: {$error}

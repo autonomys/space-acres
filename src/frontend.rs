@@ -14,9 +14,9 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
-use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
+use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIconBuilder};
 use futures::channel::mpsc;
-use futures::{select, FutureExt, SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt};
 use gtk::gio::{Notification, NotificationPriority};
 use gtk::prelude::*;
 use relm4::actions::{RelmAction, RelmActionGroup};
@@ -26,10 +26,8 @@ use relm4_icons::icon_name;
 use std::cell::Cell;
 use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::{env, fmt};
-use subspace_farmer::utils::AsyncJoinOnDrop;
 use tracing::{debug, error, warn};
 
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
@@ -44,7 +42,6 @@ enum TrayMenuSignal {
 
 #[derive(Debug)]
 pub enum AppInput {
-    BackendNotification(BackendNotification),
     Configuration(ConfigurationOutput),
     Running(RunningOutput),
     OpenLogsFolder,
@@ -56,14 +53,16 @@ pub enum AppInput {
     StartUpgrade,
     Restart,
     CloseStatusBarWarning,
+    HideWindow,
     ShowWindow,
-    Exit,
+    ShutDown,
 }
 
 #[derive(Debug)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
     Restart,
+    Quit,
 }
 
 enum View {
@@ -73,6 +72,7 @@ enum View {
     Configuration,
     Reconfiguration,
     Running,
+    ShuttingDown,
     Stopped(Option<anyhow::Error>),
     Error(String),
 }
@@ -86,6 +86,7 @@ impl View {
             Self::Configuration => T.configuration_title(),
             Self::Reconfiguration => T.reconfiguration_title(),
             Self::Running => T.running_title(),
+            Self::ShuttingDown => T.shutting_down_title(),
             Self::Stopped(_) => T.stopped_title(),
             Self::Error(_) => T.error_title(),
         }
@@ -142,7 +143,7 @@ impl StatusBarNotification {
 }
 
 pub struct RunBackendResult {
-    pub backend_fut: Pin<Box<dyn Future<Output = Result<(), futures::channel::oneshot::Canceled>>>>,
+    pub backend_fut: Box<dyn Future<Output = ()> + Send>,
     pub backend_action_sender: mpsc::Sender<BackendAction>,
     pub backend_notification_receiver: mpsc::Receiver<BackendNotification>,
 }
@@ -188,12 +189,9 @@ pub struct App {
     #[do_not_track]
     exit_status_code: Rc<Cell<AppStatusCode>>,
     #[do_not_track]
-    tray_icon: Option<TrayIcon<TrayMenuSignal>>,
-    #[do_not_track]
     loaded: bool,
-    // Stored here so `Drop` is called on this future as well, preventing exit until everything shuts down gracefully
     #[do_not_track]
-    _background_tasks: Box<dyn Future<Output = ()>>,
+    backend_fut: Option<Box<dyn Future<Output = ()> + Send>>,
 }
 
 #[relm4::component(pub async)]
@@ -317,6 +315,21 @@ impl AsyncComponent for App {
                         View::Loading => model.loading_view.widget().clone(),
                         View::Configuration | View::Reconfiguration => model.configuration_view.widget().clone(),
                         View::Running=> model.running_view.widget().clone(),
+                        View::ShuttingDown=> gtk::Box {
+                            set_halign: gtk::Align::Center,
+                            set_valign: gtk::Align::Center,
+                            set_vexpand: true,
+                            set_orientation: gtk::Orientation::Vertical,
+
+                            gtk::Spinner {
+                                start: (),
+                                set_size_request: (50, 50),
+                            },
+
+                            gtk::Label {
+                                set_label: &T.shutting_down_description(),
+                            },
+                        },
                         View::Stopped(Some(error)) => gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_spacing: 20,
@@ -441,21 +454,21 @@ impl AsyncComponent for App {
             mut backend_notification_receiver,
         } = run_backend();
 
-        // Forward backend notifications as application inputs
-        let message_forwarder_fut = AsyncJoinOnDrop::new(
-            tokio::spawn({
-                let sender = sender.clone();
-
-                async move {
+        // Forward backend notifications
+        sender.command(move |sender, shutdown_receiver| {
+            shutdown_receiver
+                .register(async move {
                     while let Some(notification) = backend_notification_receiver.next().await {
-                        // TODO: This panics on shutdown because component is already shut down, this should be handled
-                        //  more gracefully
-                        sender.input(AppInput::BackendNotification(notification));
+                        if let Err(error) =
+                            sender.send(AppCommandOutput::BackendNotification(notification))
+                        {
+                            error!(?error, "Failed to forward backend notification");
+                            break;
+                        }
                     }
-                }
-            }),
-            true,
-        );
+                })
+                .drop_on_shutdown()
+        });
 
         let new_version = NewVersion::builder().launch(()).detach();
 
@@ -527,7 +540,7 @@ impl AsyncComponent for App {
 
         // TODO: Re-enable macOS once https://github.com/subspace/space-acres/issues/183 and/or
         //  https://github.com/subspace/space-acres/issues/222 are resolved
-        let tray = if cfg!(target_os = "macos") {
+        let tray_icon = if cfg!(target_os = "macos") {
             None
         } else {
             TrayIconBuilder::new()
@@ -543,7 +556,7 @@ impl AsyncComponent for App {
                         if let TrayEvent::Menu(signal) = tray_event {
                             match signal {
                                 TrayMenuSignal::Open => sender.input(AppInput::ShowWindow),
-                                TrayMenuSignal::Close => sender.input(AppInput::Exit),
+                                TrayMenuSignal::Close => sender.input(AppInput::ShutDown),
                             }
                         }
                     }
@@ -553,6 +566,7 @@ impl AsyncComponent for App {
                 })
                 .ok()
         };
+        let has_tray_icon = tray_icon.is_some();
 
         let model = Self {
             current_view: View::Loading,
@@ -566,21 +580,9 @@ impl AsyncComponent for App {
             about_dialog,
             app_data_dir,
             exit_status_code,
-            tray_icon: tray,
             loaded: false,
-            _background_tasks: Box::new(async move {
-                // Order is important here, if backend is dropped first, there will be an annoying panic in logs due to
-                // notification forwarder sending notification to the component that is already shut down
-                select! {
-                    _ = message_forwarder_fut.fuse() => {
-                        warn!("Message forwarder exited");
-                    }
-                    _ = backend_fut.fuse() => {
-                        warn!("Backend exited");
-                    }
-                }
-            }),
             tracker: u8::MAX,
+            backend_fut: Some(backend_fut),
         };
 
         let widgets = view_output!();
@@ -618,15 +620,16 @@ impl AsyncComponent for App {
             let sender = sender.clone();
 
             move |_| {
-                sender.input(AppInput::Exit);
+                sender.input(AppInput::ShutDown);
             }
         }));
         menu_actions_group.register_for_widget(&root);
 
         if minimize_on_start {
-            match model.tray_icon {
-                Some(_) => root.hide(),
-                None => root.minimize(),
+            if has_tray_icon {
+                root.hide()
+            } else {
+                root.minimize()
             }
         }
 
@@ -638,9 +641,19 @@ impl AsyncComponent for App {
             }
         });
 
-        if model.tray_icon.is_some() {
-            root.set_hide_on_close(true);
+        root.connect_close_request({
+            let sender = sender.clone();
 
+            move |_root| {
+                sender.input(if has_tray_icon {
+                    AppInput::HideWindow
+                } else {
+                    AppInput::ShutDown
+                });
+                gtk::glib::Propagation::Stop
+            }
+        });
+        if has_tray_icon {
             root.connect_hide({
                 let notification_shown_already = Cell::new(false);
 
@@ -675,9 +688,6 @@ impl AsyncComponent for App {
         match input {
             AppInput::OpenLogsFolder => {
                 self.open_log_folder();
-            }
-            AppInput::BackendNotification(notification) => {
-                self.process_backend_notification(notification);
             }
             AppInput::Configuration(configuration_output) => {
                 self.process_configuration_output(configuration_output)
@@ -730,16 +740,29 @@ impl AsyncComponent for App {
             }
             AppInput::Restart => {
                 self.exit_status_code.set(AppStatusCode::Restart);
-                relm4::main_application().quit();
+                // Delegate to exit to do the rest
+                sender.input(AppInput::ShutDown);
             }
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_notification(StatusBarNotification::None);
             }
+            AppInput::HideWindow => {
+                root.hide();
+            }
             AppInput::ShowWindow => {
                 root.present();
             }
-            AppInput::Exit => {
-                relm4::main_application().quit();
+            AppInput::ShutDown => {
+                self.set_current_view(View::ShuttingDown);
+                // Make sure user sees that shutdown is happening in case it is called from tray
+                // icon
+                root.present();
+
+                let backend_fut = self.backend_fut.take();
+                sender.spawn_oneshot_command(|| {
+                    drop(backend_fut);
+                    AppCommandOutput::Quit
+                });
             }
         }
     }
@@ -747,13 +770,13 @@ impl AsyncComponent for App {
     async fn update_cmd(
         &mut self,
         input: Self::CommandOutput,
-        _sender: AsyncComponentSender<Self>,
+        sender: AsyncComponentSender<Self>,
         _root: &Self::Root,
     ) {
         // Reset changes
         self.reset();
 
-        self.process_command(input);
+        self.process_command(input, sender);
     }
 }
 
@@ -764,6 +787,85 @@ impl App {
         };
         if let Err(error) = open::that_detached(app_data_dir) {
             error!(%error, path = %app_data_dir.display(), "Failed to open logs folder");
+        }
+    }
+
+    async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
+        match configuration_output {
+            ConfigurationOutput::StartWithNewConfig(raw_config) => {
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::NewConfig { raw_config })
+                    .await
+                {
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_config_to_backend(error.to_string())
+                            .to_string(),
+                    ));
+                }
+            }
+            ConfigurationOutput::ConfigUpdate(raw_config) => {
+                self.get_mut_current_raw_config()
+                    .replace(raw_config.clone());
+                // Config is updated when application is already running, switch to corresponding screen
+                self.set_current_view(View::Running);
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::NewConfig { raw_config })
+                    .await
+                {
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_config_to_backend(error.to_string())
+                            .to_string(),
+                    ));
+                }
+            }
+            ConfigurationOutput::Back => {
+                // Back to welcome screen
+                self.set_current_view(View::Welcome);
+            }
+            ConfigurationOutput::Close => {
+                // Configuration view is closed when application is already running, switch to
+                // corresponding screen
+                if self.loaded {
+                    self.set_current_view(View::Running);
+                } else {
+                    self.set_current_view(View::Loading);
+                }
+            }
+        }
+    }
+
+    async fn process_running_output(&mut self, running_output: RunningOutput) {
+        match running_output {
+            RunningOutput::PausePlotting(pause_plotting) => {
+                if let Err(error) = self
+                    .backend_action_sender
+                    .send(BackendAction::Farmer(FarmerAction::PausePlotting(
+                        pause_plotting,
+                    )))
+                    .await
+                {
+                    self.set_current_view(View::Error(
+                        T.error_message_failed_to_send_pause_plotting_to_backend(error.to_string())
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    fn process_command(&mut self, input: AppCommandOutput, sender: AsyncComponentSender<Self>) {
+        match input {
+            AppCommandOutput::BackendNotification(notification) => {
+                self.process_backend_notification(notification);
+            }
+            AppCommandOutput::Restart => {
+                sender.input(AppInput::Restart);
+            }
+            AppCommandOutput::Quit => {
+                relm4::main_application().quit();
+            }
         }
     }
 
@@ -864,83 +966,6 @@ impl App {
             }
             BackendNotification::IrrecoverableError { error } => {
                 self.set_current_view(View::Error(error.to_string()));
-            }
-        }
-    }
-
-    async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
-        match configuration_output {
-            ConfigurationOutput::StartWithNewConfig(raw_config) => {
-                if let Err(error) = self
-                    .backend_action_sender
-                    .send(BackendAction::NewConfig { raw_config })
-                    .await
-                {
-                    self.set_current_view(View::Error(
-                        T.error_message_failed_to_send_config_to_backend(error.to_string())
-                            .to_string(),
-                    ));
-                }
-            }
-            ConfigurationOutput::ConfigUpdate(raw_config) => {
-                self.get_mut_current_raw_config()
-                    .replace(raw_config.clone());
-                // Config is updated when application is already running, switch to corresponding screen
-                self.set_current_view(View::Running);
-                if let Err(error) = self
-                    .backend_action_sender
-                    .send(BackendAction::NewConfig { raw_config })
-                    .await
-                {
-                    self.set_current_view(View::Error(
-                        T.error_message_failed_to_send_config_to_backend(error.to_string())
-                            .to_string(),
-                    ));
-                }
-            }
-            ConfigurationOutput::Back => {
-                // Back to welcome screen
-                self.set_current_view(View::Welcome);
-            }
-            ConfigurationOutput::Close => {
-                // Configuration view is closed when application is already running, switch to
-                // corresponding screen
-                if self.loaded {
-                    self.set_current_view(View::Running);
-                } else {
-                    self.set_current_view(View::Loading);
-                }
-            }
-        }
-    }
-
-    async fn process_running_output(&mut self, running_output: RunningOutput) {
-        match running_output {
-            RunningOutput::PausePlotting(pause_plotting) => {
-                if let Err(error) = self
-                    .backend_action_sender
-                    .send(BackendAction::Farmer(FarmerAction::PausePlotting(
-                        pause_plotting,
-                    )))
-                    .await
-                {
-                    self.set_current_view(View::Error(
-                        T.error_message_failed_to_send_pause_plotting_to_backend(error.to_string())
-                            .to_string(),
-                    ));
-                }
-            }
-        }
-    }
-
-    fn process_command(&mut self, input: AppCommandOutput) {
-        match input {
-            AppCommandOutput::BackendNotification(notification) => {
-                self.process_backend_notification(notification);
-            }
-            AppCommandOutput::Restart => {
-                self.exit_status_code.set(AppStatusCode::Restart);
-                relm4::main_application().quit();
             }
         }
     }
