@@ -206,6 +206,12 @@ tray_icon_close = Close
 notification_app_minimized_to_tray = Space Acres was minimized to tray
     .body = You can open it again or exit completely using tray icon menu
 # TODO: Translate
+notification_stopped_with_error = Space Acres stopped with error
+    .body = An error happened and requires user intervention to resolve
+# TODO: Translate
+notification_farm_error = One of the farms failed in Space Acres
+    .body = An error happened and requires user intervention to resolve
+# TODO: Translate
 notification_signed_reward_successfully = Signed new reward successfully 🥳
     .body = Thank you for securing the network 🙌
 # TODO: Translate

@@ -11,7 +11,7 @@ use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
-use crate::frontend::ICON;
+use crate::frontend::PIXBUF_ICON;
 use gtk::gio;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
@@ -475,10 +475,8 @@ impl RunningView {
                             }
                         };
 
-                        let icon = gtk::gdk_pixbuf::Pixbuf::from_read(ICON)
-                            .expect("Statically correct image; qed");
                         // TODO: This icon is not rendered properly for some reason
-                        notification.set_icon(&icon);
+                        notification.set_icon(&*PIXBUF_ICON);
                         relm4::main_application().send_notification(None, &notification);
                     }
                     self.farms.send(
