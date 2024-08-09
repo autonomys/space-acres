@@ -961,6 +961,13 @@ impl App {
                     .emit(RunningInput::FarmerNotification(farmer_notification));
             }
             BackendNotification::Stopped { error } => {
+                let notification = gio::Notification::new(&T.notification_stopped_with_error());
+                notification.set_body(Some(&T.notification_stopped_with_error_body()));
+                // TODO: This icon is not rendered properly for some reason
+                notification.set_icon(&*PIXBUF_ICON);
+                notification.set_priority(gio::NotificationPriority::High);
+                relm4::main_application().send_notification(None, &notification);
+
                 self.set_current_view(View::Stopped(error));
             }
             BackendNotification::IrrecoverableError { error } => {

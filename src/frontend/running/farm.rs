@@ -1,6 +1,8 @@
 use crate::backend::farmer::DiskFarm;
 use crate::frontend::translations::{AsDefaultStr, T};
+use crate::frontend::PIXBUF_ICON;
 use bytesize::ByteSize;
+use gtk::gio;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
@@ -585,6 +587,13 @@ impl FarmWidget {
                 self.set_farm_details(!self.farm_details);
             }
             FarmWidgetInput::Error { error } => {
+                let notification = gio::Notification::new(&T.notification_farm_error());
+                notification.set_body(Some(&T.notification_farm_error_body()));
+                // TODO: This icon is not rendered properly for some reason
+                notification.set_icon(&*PIXBUF_ICON);
+                notification.set_priority(gio::NotificationPriority::High);
+                relm4::main_application().send_notification(None, &notification);
+
                 self.get_mut_error().replace(error);
             }
         }
