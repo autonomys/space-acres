@@ -330,7 +330,9 @@ impl NodeView {
             },
             NodeInput::OpenNodeFolder => {
                 let node_path = self.node_path.lock().clone();
-                open::that_detached(node_path.as_os_str()).unwrap();
+                if let Err(error) = open::that_detached(&node_path) {
+                    error!(%error, path = %node_path.display(), "Failed to open node folder");
+                }
             }
         }
     }

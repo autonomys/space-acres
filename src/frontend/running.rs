@@ -531,11 +531,14 @@ impl RunningView {
             u128::from(network_voting_space_pledged_sectors) * 2 * Piece::SIZE as u128;
 
         // Take into consideration how much space was plotted so far
-        let local_space_pledged = self.farmer_state.local_space_pledged
-            * u64::from(self.farmer_state.sectors_plotted)
-            / u64::from(self.farmer_state.sectors_total)
-            * u64::from(self.farmer_state.cache_percentage.get())
-            / 100;
+        let local_space_pledged = if self.farmer_state.sectors_total == 0 {
+            0
+        } else {
+            self.farmer_state.local_space_pledged * u64::from(self.farmer_state.sectors_plotted)
+                / u64::from(self.farmer_state.sectors_total)
+                * u64::from(self.farmer_state.cache_percentage.get())
+                / 100
+        };
 
         // network_voting_space_pledged/local_space_pledged is a time multiplier based on how much
         // smaller space pledged is comparing to network space pledged, then we also account for
@@ -543,7 +546,8 @@ impl RunningView {
         // solution range to calculate space pledged as explained above.
         let expected_reward_interval = self.farmer_state.slot_duration.as_millis()
             * network_voting_space_pledged
-            / u128::from(local_space_pledged)
+            // Just to avoid division by zero
+            / u128::from(local_space_pledged.max(1))
             / u128::from(self.farmer_state.slot_probability.0)
             * u128::from(self.farmer_state.slot_probability.1);
         let expected_reward_interval = Duration::from_millis(expected_reward_interval as u64);
