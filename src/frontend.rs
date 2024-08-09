@@ -162,6 +162,7 @@ pub struct AppInit {
     pub app_data_dir: Option<PathBuf>,
     pub exit_status_code: Rc<Cell<AppStatusCode>>,
     pub minimize_on_start: bool,
+    pub crash_notification: bool,
     pub run_backend: fn() -> RunBackendResult,
 }
 
@@ -450,6 +451,7 @@ impl AsyncComponent for App {
             app_data_dir,
             exit_status_code,
             minimize_on_start,
+            crash_notification,
             run_backend,
         } = init;
         let RunBackendResult {
@@ -572,7 +574,15 @@ impl AsyncComponent for App {
         let model = Self {
             current_view: View::Loading,
             current_raw_config: None,
-            status_bar_notification: StatusBarNotification::None,
+            status_bar_notification: if crash_notification {
+                StatusBarNotification::Warning {
+                    message: T.status_bar_message_restarted_after_crash().to_string(),
+                    ok: true,
+                    restart: false,
+                }
+            } else {
+                StatusBarNotification::None
+            },
             backend_action_sender,
             new_version,
             loading_view,
@@ -874,7 +884,6 @@ impl App {
         match notification {
             BackendNotification::Loading(step) => {
                 self.set_current_view(View::Loading);
-                self.set_status_bar_notification(StatusBarNotification::None);
                 self.loading_view.emit(LoadingInput::BackendLoading(step));
             }
             BackendNotification::ConfigurationFound { raw_config } => {

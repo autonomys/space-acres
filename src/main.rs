@@ -30,6 +30,7 @@ use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
 use std::rc::Rc;
 use std::thread::available_parallelism;
+use std::time::{Duration, Instant};
 use std::{env, fs, io, process};
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_proof_of_space::chia::ChiaTable;
@@ -50,6 +51,7 @@ const LOG_READ_BUFFER: usize = ByteSize::mib(1).as_u64() as usize;
 /// If `true`, this means supervisor will not be able to capture logs from child application and logger needs to be in
 /// the child process itself, while supervisor will not attempt to read stdout/stderr at all
 const WINDOWS_SUBSYSTEM_WINDOWS: bool = cfg!(all(windows, not(debug_assertions)));
+const MIN_RUNTIME_DURATION_FOR_AUTORESTART: Duration = Duration::from_secs(30);
 
 type PosTableLegacy = ChiaTableLegacy;
 type PosTable = ChiaTable;
@@ -106,6 +108,9 @@ struct Cli {
     /// Used for startup to minimize the window
     #[arg(long)]
     startup: bool,
+    /// Used to indicate that application was restarted after crash
+    #[arg(long)]
+    after_crash: bool,
     /// Used by child process such that supervisor parent process can control it
     #[arg(long)]
     child_process: bool,
@@ -285,6 +290,7 @@ impl Cli {
             app_data_dir: maybe_app_data_dir,
             exit_status_code: Rc::clone(&exit_status_code),
             minimize_on_start: self.startup,
+            crash_notification: self.after_crash,
             run_backend: || {
                 let (backend_action_sender, backend_action_receiver) = mpsc::channel(1);
                 let (backend_notification_sender, backend_notification_receiver) =
@@ -327,11 +333,16 @@ impl Cli {
     fn supervisor(mut self) -> io::Result<()> {
         let maybe_app_data_dir = Self::app_data_dir();
 
+        let mut last_start;
         let program = Self::child_program()?;
 
         loop {
             let mut args = vec!["--child-process".to_string()];
-            if self.startup {
+            if self.after_crash {
+                self.after_crash = false;
+
+                args.push("--after-crash".to_string());
+            } else if self.startup {
                 // In case of restart we no longer want to minimize the app
                 self.startup = false;
 
@@ -340,6 +351,7 @@ impl Cli {
             args.push("--".to_string());
             args.extend_from_slice(&self.gtk_arguments);
 
+            last_start = Instant::now();
             let exit_status = if let Some(app_data_dir) = (!WINDOWS_SUBSYSTEM_WINDOWS)
                 .then_some(maybe_app_data_dir.as_ref())
                 .flatten()
@@ -431,7 +443,23 @@ impl Cli {
                     }
                 },
                 None => {
-                    eprintln!("Application terminated by signal");
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::process::ExitStatusExt;
+
+                        eprintln!(
+                            "Application terminated by signal {:?}",
+                            exit_status.signal()
+                        );
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        eprintln!("Application terminated by signal");
+                    }
+                    if last_start.elapsed() >= MIN_RUNTIME_DURATION_FOR_AUTORESTART {
+                        self.after_crash = true;
+                        continue;
+                    }
                     break;
                 }
             }

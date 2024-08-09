@@ -190,6 +190,8 @@ main_menu_exit = Exit
 status_bar_message_configuration_is_invalid = 配置不可用: {$error}
 status_bar_message_restart_is_needed_for_configuration = 重启以使配置修改生效
 status_bar_message_failed_to_save_configuration = 保存配置修改失败: {$error}
+# TODO: Translate
+status_bar_message_restarted_after_crash = Space Acres automatically restarted after crash, check application and system logs for details
 status_bar_button_restart = 重启
 status_bar_button_ok = 正常
 
