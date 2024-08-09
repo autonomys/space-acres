@@ -3,6 +3,7 @@
     const_option,
     let_chains,
     result_flattening,
+    thread_local,
     trait_alias,
     try_blocks,
     variant_count

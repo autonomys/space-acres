@@ -23,7 +23,7 @@ use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use relm4_icons::icon_name;
-use std::cell::Cell;
+use std::cell::{Cell, LazyCell};
 use std::future::Future;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -33,6 +33,16 @@ use tracing::{debug, error, warn};
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
 const ICON: &[u8] = include_bytes!("../res/icon.png");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
+
+#[thread_local]
+static PIXBUF_ICON: LazyCell<gtk::gdk_pixbuf::Pixbuf> = LazyCell::new(|| {
+    gtk::gdk_pixbuf::Pixbuf::from_read(ICON).expect("Statically correct image; qed")
+});
+
+#[thread_local]
+static PIXBUF_ABOUT_IMG: LazyCell<gtk::gdk_pixbuf::Pixbuf> = LazyCell::new(|| {
+    gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE).expect("Statically correct image; qed")
+});
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum TrayMenuSignal {
@@ -252,10 +262,7 @@ impl AsyncComponent for App {
 
                             gtk::Image {
                                 set_height_request: 256,
-                                set_from_pixbuf: Some(
-                                    &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
-                                        .expect("Statically correct image; qed")
-                                ),
+                                set_from_pixbuf: Some(&*PIXBUF_ABOUT_IMG),
                             },
 
                             gtk::Label {
@@ -285,10 +292,7 @@ impl AsyncComponent for App {
 
                             gtk::Image {
                                 set_height_request: 256,
-                                set_from_pixbuf: Some(
-                                    &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
-                                        .expect("Statically correct image; qed")
-                                ),
+                                set_from_pixbuf: Some(&*PIXBUF_ABOUT_IMG),
                             },
 
                             gtk::Label {
@@ -495,10 +499,7 @@ impl AsyncComponent for App {
             .website(env!("CARGO_PKG_REPOSITORY"))
             .website_label("GitHub")
             .comments(env!("CARGO_PKG_DESCRIPTION"))
-            .logo(&gtk::gdk::Texture::for_pixbuf(
-                &gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE)
-                    .expect("Statically correct image; qed"),
-            ))
+            .logo(&gtk::gdk::Texture::for_pixbuf(&PIXBUF_ABOUT_IMG))
             .system_information({
                 let config_directory = dirs::config_local_dir()
                     .map(|config_local_dir| {
@@ -659,13 +660,11 @@ impl AsyncComponent for App {
 
                 move |_window| {
                     if !notification_shown_already.replace(true) {
-                        let icon = gtk::gdk_pixbuf::Pixbuf::from_read(ICON)
-                            .expect("Statically correct image; qed");
                         let notification =
                             gio::Notification::new(&T.notification_app_minimized_to_tray());
                         notification.set_body(Some(&T.notification_app_minimized_to_tray_body()));
                         // TODO: This icon is not rendered properly for some reason
-                        notification.set_icon(&icon);
+                        notification.set_icon(&*PIXBUF_ICON);
                         notification.set_priority(gio::NotificationPriority::Low);
                         relm4::main_application().send_notification(None, &notification);
                     }
