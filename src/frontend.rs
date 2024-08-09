@@ -104,7 +104,7 @@ impl View {
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
-enum StatusBarNotification {
+enum StatusBarContents {
     #[default]
     None,
     Warning {
@@ -117,7 +117,7 @@ enum StatusBarNotification {
     Error(String),
 }
 
-impl StatusBarNotification {
+impl StatusBarContents {
     fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
@@ -182,7 +182,7 @@ pub struct App {
     #[no_eq]
     current_view: View,
     current_raw_config: Option<RawConfig>,
-    status_bar_notification: StatusBarNotification,
+    status_bar_contents: StatusBarContents,
     #[do_not_track]
     backend_action_sender: mpsc::Sender<BackendAction>,
     #[do_not_track]
@@ -395,29 +395,29 @@ impl AsyncComponent for App {
                     gtk::Box {
                         set_halign: gtk::Align::Center,
                         set_spacing: 10,
-                        #[track = "model.changed_status_bar_notification()"]
-                        set_visible: !model.status_bar_notification.is_none(),
+                        #[track = "model.changed_status_bar_contents()"]
+                        set_visible: !model.status_bar_contents.is_none(),
 
                         gtk::Label {
-                            #[track = "model.changed_status_bar_notification()"]
-                            set_css_classes: &[model.status_bar_notification.css_class()],
-                            #[track = "model.changed_status_bar_notification()"]
-                            set_label: model.status_bar_notification.message(),
+                            #[track = "model.changed_status_bar_contents()"]
+                            set_css_classes: &[model.status_bar_contents.css_class()],
+                            #[track = "model.changed_status_bar_contents()"]
+                            set_label: model.status_bar_contents.message(),
                         },
 
                         gtk::Button {
                             add_css_class: "suggested-action",
                             connect_clicked => AppInput::Restart,
                             set_label: &T.status_bar_button_restart(),
-                            #[track = "model.changed_status_bar_notification()"]
-                            set_visible: model.status_bar_notification.restart_button(),
+                            #[track = "model.changed_status_bar_contents()"]
+                            set_visible: model.status_bar_contents.restart_button(),
                         },
 
                         gtk::Button {
                             connect_clicked => AppInput::CloseStatusBarWarning,
                             set_label: &T.status_bar_button_ok(),
-                            #[track = "model.changed_status_bar_notification()"]
-                            set_visible: model.status_bar_notification.ok_button(),
+                            #[track = "model.changed_status_bar_contents()"]
+                            set_visible: model.status_bar_contents.ok_button(),
                         },
                     },
                 },
@@ -574,14 +574,14 @@ impl AsyncComponent for App {
         let model = Self {
             current_view: View::Loading,
             current_raw_config: None,
-            status_bar_notification: if crash_notification {
-                StatusBarNotification::Warning {
+            status_bar_contents: if crash_notification {
+                StatusBarContents::Warning {
                     message: T.status_bar_message_restarted_after_crash().to_string(),
                     ok: true,
                     restart: false,
                 }
             } else {
-                StatusBarNotification::None
+                StatusBarContents::None
             },
             backend_action_sender,
             new_version,
@@ -753,7 +753,7 @@ impl AsyncComponent for App {
                 sender.input(AppInput::ShutDown);
             }
             AppInput::CloseStatusBarWarning => {
-                self.set_status_bar_notification(StatusBarNotification::None);
+                self.set_status_bar_contents(StatusBarContents::None);
             }
             AppInput::HideWindow => {
                 root.hide();
@@ -910,7 +910,7 @@ impl App {
                             reconfiguration: false,
                         });
                 }
-                self.set_status_bar_notification(StatusBarNotification::Warning {
+                self.set_status_bar_contents(StatusBarContents::Warning {
                     message: T
                         .status_bar_message_configuration_is_invalid(error.to_string())
                         .as_str()
@@ -921,7 +921,7 @@ impl App {
             }
             BackendNotification::ConfigSaveResult(result) => match result {
                 Ok(()) => {
-                    self.set_status_bar_notification(StatusBarNotification::Warning {
+                    self.set_status_bar_contents(StatusBarContents::Warning {
                         message: T
                             .status_bar_message_restart_is_needed_for_configuration()
                             .to_string(),
@@ -930,7 +930,7 @@ impl App {
                     });
                 }
                 Err(error) => {
-                    self.set_status_bar_notification(StatusBarNotification::Error(
+                    self.set_status_bar_contents(StatusBarContents::Error(
                         T.status_bar_message_failed_to_save_configuration(error.to_string())
                             .to_string(),
                     ));
