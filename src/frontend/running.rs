@@ -12,7 +12,7 @@ use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
 use crate::frontend::ICON;
-use gtk::gio::Notification;
+use gtk::gio;
 use gtk::prelude::*;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
@@ -455,8 +455,9 @@ impl RunningView {
                     if let FarmingNotification::Proving(proving_details) = &notification {
                         let notification = match proving_details.result {
                             ProvingResult::Success => {
-                                let notification =
-                                    Notification::new(&T.notification_signed_reward_successfully());
+                                let notification = gio::Notification::new(
+                                    &T.notification_signed_reward_successfully(),
+                                );
                                 notification.set_body(Some(
                                     &T.notification_signed_reward_successfully_body(),
                                 ));
@@ -467,7 +468,7 @@ impl RunningView {
                             | ProvingResult::Rejected
                             | ProvingResult::Failed => {
                                 let notification =
-                                    Notification::new(&T.notification_missed_reward());
+                                    gio::Notification::new(&T.notification_missed_reward());
                                 notification.set_body(Some(&T.notification_missed_reward_body()));
 
                                 notification

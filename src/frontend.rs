@@ -17,8 +17,8 @@ use crate::AppStatusCode;
 use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
-use gtk::gio::{Notification, NotificationPriority};
 use gtk::prelude::*;
+use gtk::{gio, glib};
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
@@ -524,7 +524,7 @@ impl AsyncComponent for App {
             .build();
         about_dialog.connect_close_request(|about_dialog| {
             about_dialog.hide();
-            gtk::glib::Propagation::Stop
+            glib::Propagation::Stop
         });
 
         #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -650,7 +650,7 @@ impl AsyncComponent for App {
                 } else {
                     AppInput::ShutDown
                 });
-                gtk::glib::Propagation::Stop
+                glib::Propagation::Stop
             }
         });
         if has_tray_icon {
@@ -662,11 +662,11 @@ impl AsyncComponent for App {
                         let icon = gtk::gdk_pixbuf::Pixbuf::from_read(ICON)
                             .expect("Statically correct image; qed");
                         let notification =
-                            Notification::new(&T.notification_app_minimized_to_tray());
+                            gio::Notification::new(&T.notification_app_minimized_to_tray());
                         notification.set_body(Some(&T.notification_app_minimized_to_tray_body()));
                         // TODO: This icon is not rendered properly for some reason
                         notification.set_icon(&icon);
-                        notification.set_priority(NotificationPriority::Low);
+                        notification.set_priority(gio::NotificationPriority::Low);
                         relm4::main_application().send_notification(None, &notification);
                     }
                 }
