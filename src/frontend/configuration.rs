@@ -7,6 +7,7 @@ use crate::frontend::configuration::farm::{
 };
 use crate::frontend::configuration::utils::is_directory_writable;
 use crate::frontend::translations::{AsDefaultStr, T};
+use gtk::glib;
 use gtk::prelude::*;
 use relm4::factory::AsyncFactoryVecDeque;
 use relm4::prelude::*;
@@ -360,7 +361,7 @@ impl AsyncComponent for ConfigurationView {
                                                     state
                                                 ));
 
-                                                gtk::glib::Propagation::Proceed
+                                                glib::Propagation::Proceed
                                             },
                                             #[track = "model.changed_reduce_plotting_cpu_load()"]
                                             set_active: model.reduce_plotting_cpu_load,
@@ -453,7 +454,7 @@ impl AsyncComponent for ConfigurationView {
                                                     state
                                                 ));
 
-                                                gtk::glib::Propagation::Proceed
+                                                glib::Propagation::Proceed
                                             },
                                             #[track = "model.network_configuration.changed_faster_networking()"]
                                             set_active: model.network_configuration.faster_networking,

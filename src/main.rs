@@ -19,8 +19,10 @@ use file_rotate::compression::Compression;
 use file_rotate::suffix::AppendCount;
 use file_rotate::{ContentLimit, FileRotate};
 use futures::channel::mpsc;
+use gtk::glib;
 use relm4::prelude::*;
 use relm4::RELM_THREADS;
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -207,6 +209,47 @@ impl Cli {
             env!("CARGO_PKG_NAME"),
             env!("CARGO_PKG_VERSION")
         );
+
+        glib::log_set_writer_func(|log_level, log_fields| {
+            let log_fields = log_fields
+                .iter()
+                .map(|log_field| {
+                    let key = log_field.key();
+                    if let Some(string) = log_field.value_str() {
+                        (key, Cow::Borrowed(string))
+                    } else if let Some(bytes) = log_field.value_bytes() {
+                        (key, Cow::Owned(hex::encode(bytes)))
+                    } else if let Some(user_data) = log_field.user_data() {
+                        (key, Cow::Owned(user_data.to_string()))
+                    } else {
+                        (key, Cow::Borrowed(""))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            match log_level {
+                glib::LogLevel::Error => {
+                    tracing::event!(tracing::Level::ERROR, ?log_fields, "Glib log");
+                }
+                glib::LogLevel::Critical => {
+                    tracing::event!(tracing::Level::ERROR, ?log_fields, "Glib log");
+                }
+                glib::LogLevel::Warning => {
+                    tracing::event!(tracing::Level::WARN, ?log_fields, "Glib log");
+                }
+                glib::LogLevel::Message => {
+                    tracing::event!(tracing::Level::INFO, ?log_fields, "Glib log");
+                }
+                glib::LogLevel::Info => {
+                    tracing::event!(tracing::Level::INFO, ?log_fields, "Glib log");
+                }
+                glib::LogLevel::Debug => {
+                    tracing::event!(tracing::Level::DEBUG, ?log_fields, "Glib log");
+                }
+            }
+
+            glib::LogWriterOutput::Handled
+        });
 
         // The default in `relm4` is `1`, set this back to Tokio's default
         RELM_THREADS
