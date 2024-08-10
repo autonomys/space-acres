@@ -14,7 +14,7 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
-use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIconBuilder};
+use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::prelude::*;
@@ -203,6 +203,9 @@ pub struct App {
     loaded: bool,
     #[do_not_track]
     backend_fut: Option<Box<dyn Future<Output = ()> + Send>>,
+    // Keep it around so it doesn't disappear
+    #[do_not_track]
+    _tray_icon: Option<TrayIcon<TrayMenuSignal>>,
 }
 
 #[relm4::component(pub async)]
@@ -592,8 +595,9 @@ impl AsyncComponent for App {
             app_data_dir,
             exit_status_code,
             loaded: false,
-            tracker: u8::MAX,
             backend_fut: Some(backend_fut),
+            _tray_icon: tray_icon,
+            tracker: u8::MAX,
         };
 
         let widgets = view_output!();
