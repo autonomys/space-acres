@@ -37,8 +37,8 @@ loading_networking_stack_step_generating_keypair = Generisanje mrežnog para klj
 loading_networking_stack_step_writing_keypair_to_disk = Pisanje mrežnog para ključeva na disk...
 loading_networking_stack_step_instantiating = Stvaranje mrežnog steka...
 loading_networking_stack_step_created_successfully = Mrežni stek je uspešno kreiran
-# TODO: Translate
-loading_consensus_node_title = Initializing consensus node
+
+loading_consensus_node_title = Inicijalizacija konsenzus čvora
 loading_consensus_node_step_creating = Kreiranje konsenzus čvora...
 loading_consensus_node_step_created_successfully = Konsenzus čvor uspešno kreiran
 loading_farmer_title = Inicijalizacija farmera
@@ -68,23 +68,17 @@ configuration_farm_path_placeholder = Primer: {$path}
 configuration_farm_path_tooltip = Apsolutna putanja gde će se čuvati datoteke farme, bilo koji SSD funkcioniše, visoka izdržljivost nije neophodna
 configuration_farm_path_button_select = Izaberi
 configuration_farm_path_error_doesnt_exist_or_write_permissions = Folder ne postoji ili korisnik nema dozvolu za pisanje
-# TODO: Translate
-configuration_farm_size_kind_fixed = Fixed size
-# TODO: Translate
-configuration_farm_size_kind_free_percentage = % of free disk space
+configuration_farm_size_kind_fixed = Fiksna veličina
+configuration_farm_size_kind_free_percentage = % slobodnog prostora
 configuration_farm_fixed_size_placeholder = Primer: 4T, 2.5TB, 500GiB itd.
 configuration_farm_fixed_size_tooltip = Veličina farme u jedinicama koje preferirate, bilo koja količina prostora iznad 2 GB funkcioniše
 configuration_farm_free_percentage_size_placeholder = Primer: 100%, 1.1%, itd.
-# TODO: Translate
-configuration_farm_free_percentage_size_tooltip = Percentage of free disk space to occupy by this farm, anything above 0% works, but at least 2 GB of free space should remain on disk to avoid errors
+configuration_farm_free_percentage_size_tooltip = Procenat slobodnog prostora koji ova farma zauzima, sve preko 0% funkcioniše, ostavite minimum 2GB prostora da izbegnete greške
 configuration_farm_delete = Obriši ovu farmu
 configuration_advanced = Napredna konfiguracija
-# TODO: Translate
-configuration_advanced_farmer = Farmer configuration
-# TODO: Translate
-configuration_advanced_farmer_reduce_plotting_cpu_load = Reduce plotting CPU load
-# TODO: Translate
-configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Initial plotting uses all CPU cores by default, while with this option it will start using half of the cores like replotting, improving system responsiveness for other tasks
+configuration_advanced_farmer = Konfiguracija farmera
+configuration_advanced_farmer_reduce_plotting_cpu_load = Smanjeno opterećenje procesora
+configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Inicijalno plotovanje koristi sva jegra na procesoru, dok će sa ovom opcijom koristiti jednu polovinu dostupnih jezgra, ovo poboljšava odaziv i performanse ostalih zadataka
 configuration_advanced_network = Konfiguracija mreže
 configuration_advanced_network_default_port_number_tooltip = Podrazumevani broj porta je {$port}
 configuration_advanced_network_substrate_port = Substrate (blockchain) P2P port (TCP):
@@ -166,10 +160,8 @@ running_farmer_farm_sector_downloading = Sektor {$sector_index}: preuzimanje
 running_farmer_farm_sector_encoding = Sektor {$sector_index}: kodiranje
 running_farmer_farm_sector_writing = Sektor {$sector_index}: pisanje
 
-# TODO: Translate
-shutting_down_title = Shutting down
-# TODO: Translate
-shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
+shutting_down_title = Gašenje
+shutting_down_description = Ovo može da potraje od nekoliko sekundi do nekoliko minuta u zavisnosti od toga šta je aplikacija radila u tom trenutku
 
 stopped_title = Zaustavljeno
 stopped_message = Zaustavljeno 🛑
@@ -191,14 +183,12 @@ main_menu_show_logs = Prikaz dnevnika u upravitelju datotekama
 main_menu_change_configuration = Promeni konfiguraciju
 main_menu_share_feedback = Deli povratne informacije
 main_menu_about = O aplikaciji
-# TODO: Translate
-main_menu_exit = Exit
+main_menu_exit = Izlaz
 
 status_bar_message_configuration_is_invalid = Konfiguracija je nevažeća: {$error}
 status_bar_message_restart_is_needed_for_configuration = Potreban je restart aplikacije za primenu promena u konfiguraciji
 status_bar_message_failed_to_save_configuration = Nije uspelo čuvanje promena konfiguracije: {$error}
-# TODO: Translate
-status_bar_message_restarted_after_crash = Space Acres automatically restarted after crash, check application and system logs for details
+status_bar_message_restarted_after_crash = Space Acres se automatski restartovao nakon kraha, proveri dnevnik aplikacije za više informacija
 status_bar_button_restart = Ponovo pokreni
 status_bar_button_ok = U redu
 
@@ -206,23 +196,16 @@ about_system_information =
     Konfiguracioni direktorijum: {$config_directory}
     Direktorijum podataka (uključujući dnevnike): {$data_directory}
 
-# TODO: Translate
-tray_icon_open = Open
-# TODO: Translate
-tray_icon_close = Close
+tray_icon_open = Otvori
+tray_icon_close = Zatvori
 
-# TODO: Translate
-notification_app_minimized_to_tray = Space Acres was minimized to tray
-    .body = You can open it again or exit completely using tray icon menu
-# TODO: Translate
-notification_stopped_with_error = Space Acres stopped with error
-    .body = An error happened and requires user intervention to resolve
-# TODO: Translate
-notification_farm_error = One of the farms failed in Space Acres
-    .body = An error happened and requires user intervention to resolve
-# TODO: Translate
-notification_signed_reward_successfully = Signed new reward successfully 🥳
-    .body = Thank you for securing the network 🙌
-# TODO: Translate
-notification_missed_reward = Reward signing failed 😞
-    .body = This is unfortunate, but there will be another chance soon
+notification_app_minimized_to_tray = Space Acres je minimiziran u sistemsku traku
+    .body = Možete ga ponovo otvoriti ili potpuno izaći koristeći meni ikone u sistemskoj traci
+notification_stopped_with_error = Space Acres je zaustavljen zbog greške
+    .body = Došlo je do greške koja zahteva intervenciju korisnika za rešavanje
+notification_farm_error = Jedna od farmi u Space Acresu nije uspela
+    .body = Došlo je do greške koja zahteva intervenciju korisnika za rešavanje
+notification_signed_reward_successfully = Uspešno potpisana nova nagrada 🥳
+    .body = Hvala vam što osiguravate mrežu 🙌
+notification_missed_reward = Potpisivanje nagrade nije uspelo 😞
+    .body = To je nesreća, ali biće još prilika uskoro
