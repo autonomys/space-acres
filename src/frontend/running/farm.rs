@@ -1,9 +1,9 @@
 use crate::backend::farmer::DiskFarm;
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::frontend::PIXBUF_ICON;
+use crate::frontend::NotificationExt;
 use bytesize::ByteSize;
-use gtk::gio;
 use gtk::prelude::*;
+use notify_rust::Notification;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
 use simple_moving_average::{SingleSumSMA, SMA};
@@ -16,7 +16,7 @@ use subspace_farmer::farm::{
     FarmingError, FarmingNotification, ProvingResult, SectorExpirationDetails,
     SectorPlottingDetails, SectorUpdate,
 };
-use tracing::error;
+use tracing::{error, warn};
 
 const INVALID_SCORE_VALUE: f64 = -1.0;
 /// Experimentally found number that is good for default window size to not have horizontal scroll
@@ -439,16 +439,16 @@ impl FactoryComponent for FarmWidget {
         }
     }
 
-    fn update(&mut self, input: Self::Input, _sender: FactorySender<Self>) {
+    fn update(&mut self, input: Self::Input, sender: FactorySender<Self>) {
         // Reset changes
         self.reset();
 
-        self.process_input(input);
+        self.process_input(input, sender);
     }
 }
 
 impl FarmWidget {
-    fn process_input(&mut self, input: FarmWidgetInput) {
+    fn process_input(&mut self, input: FarmWidgetInput, sender: FactorySender<Self>) {
         match input {
             FarmWidgetInput::SectorUpdate {
                 sector_index,
@@ -587,12 +587,18 @@ impl FarmWidget {
                 self.set_farm_details(!self.farm_details);
             }
             FarmWidgetInput::Error { error } => {
-                let notification = gio::Notification::new(&T.notification_farm_error());
-                notification.set_body(Some(&T.notification_farm_error_body()));
-                // TODO: This icon is not rendered properly for some reason
-                notification.set_icon(&*PIXBUF_ICON);
-                notification.set_priority(gio::NotificationPriority::High);
-                relm4::main_application().send_notification(None, &notification);
+                sender.spawn_command(|_sender| {
+                    let mut notification = Notification::new();
+                    notification
+                        .summary(&T.notification_farm_error())
+                        .body(&T.notification_farm_error_body())
+                        .with_typical_options();
+                    #[cfg(all(unix, not(target_os = "macos")))]
+                    notification.urgency(notify_rust::Urgency::Critical);
+                    if let Err(error) = notification.show() {
+                        warn!(%error, "Failed to show desktop notification");
+                    }
+                });
 
                 self.get_mut_error().replace(error);
             }
