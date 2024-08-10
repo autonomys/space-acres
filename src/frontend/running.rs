@@ -11,9 +11,9 @@ use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
-use crate::frontend::PIXBUF_ICON;
-use gtk::gio;
+use crate::frontend::NotificationExt;
 use gtk::prelude::*;
+use notify_rust::Notification;
 use relm4::factory::FactoryHashMap;
 use relm4::prelude::*;
 use relm4_icons::icon_name;
@@ -25,7 +25,7 @@ use subspace_farmer::farm::{
     FarmingNotification, ProvingResult, SectorPlottingDetails, SectorUpdate,
 };
 use subspace_runtime_primitives::{Balance, SSC};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -453,31 +453,27 @@ impl RunningView {
                     notification,
                 } => {
                     if let FarmingNotification::Proving(proving_details) = &notification {
-                        let notification = match proving_details.result {
+                        let mut notification = Notification::new();
+                        match proving_details.result {
                             ProvingResult::Success => {
-                                let notification = gio::Notification::new(
-                                    &T.notification_signed_reward_successfully(),
-                                );
-                                notification.set_body(Some(
-                                    &T.notification_signed_reward_successfully_body(),
-                                ));
-
                                 notification
+                                    .summary(&T.notification_signed_reward_successfully())
+                                    .body(&T.notification_signed_reward_successfully_body());
                             }
                             ProvingResult::Timeout
                             | ProvingResult::Rejected
                             | ProvingResult::Failed => {
-                                let notification =
-                                    gio::Notification::new(&T.notification_missed_reward());
-                                notification.set_body(Some(&T.notification_missed_reward_body()));
-
                                 notification
+                                    .summary(&T.notification_missed_reward())
+                                    .body(&T.notification_missed_reward_body());
                             }
-                        };
+                        }
 
-                        // TODO: This icon is not rendered properly for some reason
-                        notification.set_icon(&*PIXBUF_ICON);
-                        relm4::main_application().send_notification(None, &notification);
+                        sender.spawn_command(move |_sender| {
+                            if let Err(error) = notification.with_typical_options().show() {
+                                warn!(%error, "Failed to show desktop notification");
+                            }
+                        });
                     }
                     self.farms.send(
                         &farm_index,

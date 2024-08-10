@@ -14,11 +14,14 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
-use betrayer::{Icon, Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
+#[cfg(any(target_os = "linux", windows))]
+use betrayer::Icon;
+use betrayer::{Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
+use gtk::glib;
 use gtk::prelude::*;
-use gtk::{gio, glib};
+use notify_rust::Notification;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
@@ -31,13 +34,71 @@ use std::{env, fmt};
 use tracing::{debug, error, warn};
 
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
+#[cfg(all(unix, not(target_os = "macos")))]
 const ICON: &[u8] = include_bytes!("../res/icon.png");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
 
+#[cfg(all(unix, not(target_os = "macos")))]
 #[thread_local]
 static PIXBUF_ICON: LazyCell<gtk::gdk_pixbuf::Pixbuf> = LazyCell::new(|| {
     gtk::gdk_pixbuf::Pixbuf::from_read(ICON).expect("Statically correct image; qed")
 });
+
+trait NotificationExt {
+    fn with_typical_options(&mut self) -> &mut Self;
+}
+
+impl NotificationExt for Notification {
+    fn with_typical_options(&mut self) -> &mut Self {
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            use notify_rust::Image;
+
+            let image = if PIXBUF_ICON.has_alpha() {
+                Image::from_rgba(
+                    PIXBUF_ICON.width(),
+                    PIXBUF_ICON.height(),
+                    PIXBUF_ICON.read_pixel_bytes().to_vec(),
+                )
+                .expect("Image is statically correct; qed")
+            } else {
+                Image::from_rgb(
+                    PIXBUF_ICON.width(),
+                    PIXBUF_ICON.height(),
+                    PIXBUF_ICON.read_pixel_bytes().to_vec(),
+                )
+                .expect("Image is statically correct; qed")
+            };
+
+            // This is how we set an icon on Linux
+            self.image_data(image);
+        }
+        #[cfg(windows)]
+        {
+            // UUID comes from https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid
+            // and the whole things is auto-generated for application's Start icon (see
+            // get-StartApps in PowerShell), this is the `AppUserModelId` on Windows.
+            const APP_USER_MODEL_ID: &str =
+                "{6D809377-6AF0-444B-8957-A3773F02200E}\\Space Acres\\bin\\space-acres.exe";
+            // This is how we'll get proper icon and application name on Windows (only when
+            // installed though)
+            self.app_id(APP_USER_MODEL_ID);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            static INIT_APPLICATION_ONCE: std::sync::Once = std::sync::Once::new();
+
+            INIT_APPLICATION_ONCE.call_once(|| {
+                // Our bundle identifier for macOS package for notifications
+                if let Err(error) = notify_rust::set_application("xyz.autonomys.space-acres") {
+                    error!(%error, "Failed to set application bundle identifier")
+                }
+            })
+        }
+
+        self
+    }
+}
 
 #[thread_local]
 static PIXBUF_ABOUT_IMG: LazyCell<gtk::gdk_pixbuf::Pixbuf> = LazyCell::new(|| {
@@ -533,24 +594,19 @@ impl AsyncComponent for App {
             glib::Propagation::Stop
         });
 
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        let tray_img = {
-            let img = image::load_from_memory_with_format(ICON, image::ImageFormat::Png)
-                .expect("Tray icon is a valid PNG; qed");
-            Icon::from_rgba(img.to_rgba8().into_vec(), img.width(), img.height())
-                .expect("Betrayer normalization tray icon; qed")
-        };
-
-        #[cfg(target_os = "windows")]
-        let tray_img = Icon::from_resource(1, None).expect("Tray icon is a valid ICO; qed");
-
         // TODO: Re-enable macOS once https://github.com/subspace/space-acres/issues/183 and/or
         //  https://github.com/subspace/space-acres/issues/222 are resolved
         let tray_icon = if cfg!(target_os = "macos") {
             None
         } else {
-            TrayIconBuilder::new()
-                .with_icon(tray_img)
+            let tray_icon = TrayIconBuilder::new();
+            #[cfg(target_os = "linux")]
+            let tray_icon = tray_icon
+                .with_icon(Icon::from_png_bytes(ICON).expect("Statically correct image; qed"));
+            #[cfg(windows)]
+            let tray_icon = tray_icon
+                .with_icon(Icon::from_resource(1, None).expect("Tray icon is a valid ICO; qed"));
+            tray_icon
                 .with_tooltip("Space Acres")
                 .with_menu(Menu::new([
                     MenuItem::button(T.tray_icon_open(), TrayMenuSignal::Open),
@@ -670,17 +726,23 @@ impl AsyncComponent for App {
         });
         if has_tray_icon {
             root.connect_hide({
+                let sender = sender.clone();
                 let notification_shown_already = Cell::new(false);
 
                 move |_window| {
                     if !notification_shown_already.replace(true) {
-                        let notification =
-                            gio::Notification::new(&T.notification_app_minimized_to_tray());
-                        notification.set_body(Some(&T.notification_app_minimized_to_tray_body()));
-                        // TODO: This icon is not rendered properly for some reason
-                        notification.set_icon(&*PIXBUF_ICON);
-                        notification.set_priority(gio::NotificationPriority::Low);
-                        relm4::main_application().send_notification(None, &notification);
+                        sender.spawn_command(|_sender| {
+                            let mut notification = Notification::new();
+                            notification
+                                .summary(&T.notification_app_minimized_to_tray())
+                                .body(&T.notification_app_minimized_to_tray_body())
+                                .with_typical_options();
+                            #[cfg(all(unix, not(target_os = "macos")))]
+                            notification.urgency(notify_rust::Urgency::Low);
+                            if let Err(error) = notification.show() {
+                                warn!(%error, "Failed to show desktop notification");
+                            }
+                        });
                     }
                 }
             });
@@ -871,7 +933,7 @@ impl App {
     fn process_command(&mut self, input: AppCommandOutput, sender: AsyncComponentSender<Self>) {
         match input {
             AppCommandOutput::BackendNotification(notification) => {
-                self.process_backend_notification(notification);
+                self.process_backend_notification(notification, sender);
             }
             AppCommandOutput::Restart => {
                 sender.input(AppInput::Restart);
@@ -882,7 +944,11 @@ impl App {
         }
     }
 
-    fn process_backend_notification(&mut self, notification: BackendNotification) {
+    fn process_backend_notification(
+        &mut self,
+        notification: BackendNotification,
+        sender: AsyncComponentSender<Self>,
+    ) {
         debug!(?notification, "New backend notification");
 
         match notification {
@@ -974,12 +1040,18 @@ impl App {
                     .emit(RunningInput::FarmerNotification(farmer_notification));
             }
             BackendNotification::Stopped { error } => {
-                let notification = gio::Notification::new(&T.notification_stopped_with_error());
-                notification.set_body(Some(&T.notification_stopped_with_error_body()));
-                // TODO: This icon is not rendered properly for some reason
-                notification.set_icon(&*PIXBUF_ICON);
-                notification.set_priority(gio::NotificationPriority::High);
-                relm4::main_application().send_notification(None, &notification);
+                sender.spawn_command(|_sender| {
+                    let mut notification = Notification::new();
+                    notification
+                        .summary(&T.notification_stopped_with_error())
+                        .body(&T.notification_stopped_with_error_body())
+                        .with_typical_options();
+                    #[cfg(all(unix, not(target_os = "macos")))]
+                    notification.urgency(notify_rust::Urgency::Critical);
+                    if let Err(error) = notification.show() {
+                        warn!(%error, "Failed to show desktop notification");
+                    }
+                });
 
                 self.set_current_view(View::Stopped(error));
             }

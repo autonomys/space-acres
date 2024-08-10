@@ -54,9 +54,9 @@ futures = "0.3.30"
 futures-timer = "3.0.3"
 gtk = { version = "0.7.3", package = "gtk4" }
 hex = "0.4.3"
-image = { version = "0.25.1", default-features = false, features = ["png"] }
 mimalloc = "0.1.41"
 names = "0.14.0"
+notify-rust = { version = "4.11.1", features = ["images"] }
 open = "5.2.0"
 pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "0cbfcb0232bbf71ac5b14cc8c99bf043cec420ef", default-features = false }
 parity-scale-codec = "3.6.12"
