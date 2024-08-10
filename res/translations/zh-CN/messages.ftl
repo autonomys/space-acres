@@ -159,10 +159,8 @@ running_farmer_farm_sector_downloading = 扇区 {$sector_index}: 下载中
 running_farmer_farm_sector_encoding = 扇区 {$sector_index}: 编码中
 running_farmer_farm_sector_writing = 扇区 {$sector_index}: 写入中
 
-# TODO: Translate
-shutting_down_title = Shutting down
-# TODO: Translate
-shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
+shutting_down_title = 关闭
+shutting_down_description = 这可能需要几秒到几分钟的时间，取决于你运行的程序
 
 stopped_title = 暂停
 stopped_message = 暂停 🛑
@@ -184,14 +182,12 @@ main_menu_show_logs = 在文件管理器中打开日志
 main_menu_change_configuration = 修改配置
 main_menu_share_feedback = 分享反馈
 main_menu_about = 关于
-# TODO: Translate
-main_menu_exit = Exit
+main_menu_exit = 退出
 
 status_bar_message_configuration_is_invalid = 配置不可用: {$error}
 status_bar_message_restart_is_needed_for_configuration = 重启以使配置修改生效
 status_bar_message_failed_to_save_configuration = 保存配置修改失败: {$error}
-# TODO: Translate
-status_bar_message_restarted_after_crash = Space Acres automatically restarted after crash, check application and system logs for details
+status_bar_message_restarted_after_crash = Space Acres在崩溃后自动重启，请在日志中查看详细信息
 status_bar_button_restart = 重启
 status_bar_button_ok = 正常
 
@@ -199,23 +195,16 @@ about_system_information =
     配置目录: {$config_directory}
     数据目录 (包括日志): {$data_directory}
 
-# TODO: Translate
-tray_icon_open = Open
-# TODO: Translate
-tray_icon_close = Close
+tray_icon_open = 打开
+tray_icon_close = 关闭
 
-# TODO: Translate
-notification_app_minimized_to_tray = Space Acres was minimized to tray
-    .body = You can open it again or exit completely using tray icon menu
-# TODO: Translate
-notification_stopped_with_error = Space Acres stopped with error
-    .body = An error happened and requires user intervention to resolve
-# TODO: Translate
-notification_farm_error = One of the farms failed in Space Acres
-    .body = An error happened and requires user intervention to resolve
-# TODO: Translate
-notification_signed_reward_successfully = Signed new reward successfully 🥳
-    .body = Thank you for securing the network 🙌
-# TODO: Translate
-notification_missed_reward = Reward signing failed 😞
-    .body = This is unfortunate, but there will be another chance soon
+notification_app_minimized_to_tray = Space Acres已最小化到托盘
+    .body = 你可以关闭或从托盘中重新打开
+notification_stopped_with_error = Space Acres由于错误暂停
+    .body = 出现一个错误，需要手动解决
+notification_farm_error = 一个Space Acres农场出错
+    .body = 出现一个错误，需要手动解决
+notification_signed_reward_successfully = 成功签署一份奖励 🥳
+    .body = 感谢参与 🙌
+notification_missed_reward = 签署奖励失败 😞
+    .body = 很不幸，但马上会有下次啦
