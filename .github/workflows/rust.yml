@@ -64,11 +64,11 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install GTK4 (Ubuntu)
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev libatk1.0-dev
         if: runner.os == 'Linux'
 
       - name: Install GTK4 (macOS)
-        run: brew install gtk4
+        run: brew install gtk4 atk
         if: runner.os == 'macOS'
 
       - name: Configure GTK4 cache (Windows)
@@ -165,11 +165,11 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install GTK4 (Ubuntu)
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev libatk1.0-dev
         if: runner.os == 'Linux'
 
       - name: Install GTK4 (macOS)
-        run: brew install gtk4
+        run: brew install gtk4 atk
         if: runner.os == 'macOS'
 
       - name: Configure GTK4 cache (Windows)
