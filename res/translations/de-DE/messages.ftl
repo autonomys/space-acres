@@ -12,11 +12,10 @@ upgrade_title = Upgrade
 upgrade_message =
     Danke, dass du dich wieder für Space Acres entschieden hast!
 
-Die Chain, die du vor dem Upgrade betrieben hast, ist mit dieser Version von Space Acres nicht mehr kompatibel, wahrscheinlich weil du an einer vorherigen Version von Autonomys teilgenommen hast.
+    Die Chain, die du vor dem Upgrade betrieben hast, ist mit dieser Version von Space Acres nicht mehr kompatibel, wahrscheinlich weil du an einer vorherigen Version von Autonomys teilgenommen hast.
 
-Aber keine Sorge, du kannst mit einem einzigen Klick auf die aktuell unterstützte Netzwerkversion upgraden!"
+    Aber keine Sorge, du kannst mit einem einzigen Klick auf die aktuell unterstützte Netzwerkversion upgraden!" 
 upgrade_button_upgrade = Upgrade to {$chain_name}
-
 loading_title = lade
 loading_configuration_title = lade Konfiguration
 loading_configuration_step_loading = lade Konfiguration...
@@ -24,7 +23,7 @@ loading_configuration_step_reading = lese Konfiguration...
 loading_configuration_step_configuration_exists = lese Konfiguration...
 loading_configuration_step_configuration_not_found = lese Konfiguration...
 loading_configuration_step_configuration_checking = überprüfe Konfiguration...
-loading_configuration_step_configuration_valid = Konfiguration ist gültig
+loading_configuration_step_configuration_valid = konfiguration ist gültig
 loading_configuration_step_decoding_chain_spec = entschlüssele die Chain-Spezifikation...
 loading_configuration_step_decoded_chain_spec = Chain-Spezifikation erfolgreich entschlüsselt
 loading_networking_stack_title = initialisiere Netzwerk-Stack
