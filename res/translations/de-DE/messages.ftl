@@ -14,7 +14,7 @@ upgrade_message =
 
     Die Chain, die du vor dem Upgrade betrieben hast, ist mit dieser Version von Space Acres nicht mehr kompatibel, wahrscheinlich weil du an einer vorherigen Version von Autonomys teilgenommen hast.
 
-    Aber keine Sorge, du kannst mit einem einzigen Klick auf die aktuell unterstützte Netzwerkversion upgraden!" 
+    Aber keine Sorge, du kannst mit einem einzigen Klick auf die aktuell unterstützte Netzwerkversion upgraden!
 upgrade_button_upgrade = Upgrade to {$chain_name}
 loading_title = lade
 loading_configuration_title = lade Konfiguration
