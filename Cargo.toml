@@ -53,7 +53,7 @@ futures = "0.3.30"
 futures-timer = "3.0.3"
 gtk = { version = "0.7.3", package = "gtk4" }
 hex = "0.4.3"
-image = { version = "0.25", features = ["png"] }
+image = { version = "0.25", features = ["png"], default-features = false }
 mimalloc = "0.1.41"
 names = "0.14.0"
 notify-rust = { version = "4.11.1", features = ["images"] }
