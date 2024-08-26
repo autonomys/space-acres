@@ -170,7 +170,7 @@ stopped_button_help_from_community = Помощь от сообщества
 error_title = Ошибка
 error_message = Ошибка: {$error}
 error_message_failed_to_send_config_to_backend = Не удалось отправить конфигурацию движку: {$error}
-error_message_failed_to_send_pause_plotting_to_backend = Не удалось приостановить плоттинг на движке: {$error}
+error_message_failed_to_send_pause_plotting_to_backend = Не удалось приостановить плоттинг на бэкенде: {$error}
 error_button_show_logs = Показать журнал
 error_button_help_from_community = Помощь от сообщества
 
