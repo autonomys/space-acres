@@ -5,7 +5,7 @@ welcome_message =
     Pre nego što nastavite, potrebna su vam 3 stvari:
     ✔ Adresa novčanika gde ćete primati nagrade (koristite Subwallet, polkadot{"{"}.js{"}"} ekstenziju ili bilo koji drugi novčanik kompatibilan sa Substrate lancom)
     ✔ 100G prostora na kvalitetnom SSD-u za skladištenje podataka o čvoru
-    ✔ bilo koji SSD (ili više njih) sa što više prostora koji možete priuštiti za farmovanje, to će generisati nagrade"
+    ✔ bilo koji SSD (ili više njih) sa što više prostora koji možete priuštiti za farmovanje, to će generisati nagrade
 button_continue = Nastavi
 
 upgrade_title = Nadogradnja
@@ -14,7 +14,7 @@ upgrade_message =
 
     Lanac na kojem ste radili pre nadogradnje više nije kompatibilan sa ovim izdanjem Space Acresa, verovatno zato što ste učestvovali u prethodnoj verziji Autonomysa.
 
-    Ali, ne brinite, možete se nadograditi na trenutno podržanu mrežu jednim klikom na dugme!"
+    Ali, ne brinite, možete se nadograditi na trenutno podržanu mrežu jednim klikom na dugme!
 upgrade_button_upgrade = Nadogradi na {$chain_name}
 
 loading_title = Učitavanje
