@@ -5,7 +5,7 @@ welcome_message =
     Прежде чем продолжить, вам понадобится 3 вещи:
     ✔ Адрес кошелька, на который вы будете получать вознаграждения (используйте Subwallet, расширение polkadot{"{"}.js{"}"} или любой другой кошелек, совместимый с Substrate chain)
     ✔ 100Гб свободного места на твердотельном накопителе SSD хорошего качества для хранения данных блокчейна
-    ✔ Любой твердотельный накопитель SSD (или несколько) с максимально возможным объемом памяти для фарминга. Чем больше объем - тем больше прибыль"
+    ✔ Любой твердотельный накопитель SSD (или несколько) с максимально возможным объемом памяти для фарминга. Чем больше объем - тем больше прибыль
 welcome_button_continue = Продолжить
 
 upgrade_title = Обновление
@@ -170,7 +170,7 @@ stopped_button_help_from_community = Помощь от сообщества
 error_title = Ошибка
 error_message = Ошибка: {$error}
 error_message_failed_to_send_config_to_backend = Не удалось отправить конфигурацию движку: {$error}
-error_message_failed_to_send_pause_plotting_to_backend = Не удалось приостановить плоттинг на бэкенде: {$error}
+error_message_failed_to_send_pause_plotting_to_backend = Не удалось приостановить плоттинг: {$error}
 error_button_show_logs = Показать журнал
 error_button_help_from_community = Помощь от сообщества
 
