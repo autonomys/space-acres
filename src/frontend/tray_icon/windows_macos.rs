@@ -1,34 +1,35 @@
-use crate::frontend::{load_icon, App, AppInput, T};
+use crate::frontend::tray_icon::load_icon;
+use crate::frontend::{App, AppInput, T};
 use relm4::AsyncComponentSender;
 use tracing::warn;
+use tray_icon::menu::{Menu, MenuItem};
+use tray_icon::TrayIconBuilder;
 
 pub(in super::super) struct TrayIcon {
     _icon: tray_icon::TrayIcon,
-    sender: AsyncComponentSender<App>,
 }
 
 impl TrayIcon {
-    pub(in super::super) fn init(sender: AsyncComponentSender<App>) -> Result<Self, ()> {
+    pub(in super::super) fn new(sender: AsyncComponentSender<App>) -> Result<Self, ()> {
         let icon_img = load_icon();
+        let width = icon_img.width();
+        let height = icon_img.height();
+        let icon = tray_icon::Icon::from_rgba(icon_img.into_raw(), width, height)
+            .expect("Statically correct image; qed");
 
-        let (width, height) = icon_img.dimensions();
+        let menu_open = &MenuItem::new(&*T.tray_icon_open(), true, None);
+        let menu_close = &MenuItem::new(&*T.tray_icon_close(), true, None);
 
-        let menu_open = &tray_icon::menu::MenuItem::new(&*T.tray_icon_open(), true, None);
-        let menu_close = &tray_icon::menu::MenuItem::new(&*T.tray_icon_close(), true, None);
-
-        let menu = tray_icon::menu::Menu::with_items(&[menu_open, menu_close])
+        let menu = Menu::with_items(&[menu_open, menu_close])
             .inspect_err(|error| {
                 warn!(%error, "Unable to create tray icon menu");
             })
             .map_err(|_| ())?;
 
-        let icon = tray_icon::TrayIconBuilder::new()
+        let icon = TrayIconBuilder::new()
             .with_tooltip("Space Acres")
-            .with_icon(
-                tray_icon::Icon::from_rgba(icon_img.clone().into_raw().to_vec(), width, height)
-                    .expect("Statically correct image; qed"),
-            )
-            .with_menu(std::boxed::Box::new(menu))
+            .with_icon(icon)
+            .with_menu(Box::new(menu))
             .build()
             .map_err(|error| {
                 warn!(%error, "Unable to create tray icon");
@@ -38,11 +39,7 @@ impl TrayIcon {
         let menu_close_id = menu_close.id().clone();
         let menu_open_id = menu_open.id().clone();
 
-        let tray_icon = Self {
-            _icon: icon,
-            sender,
-        };
-        let sender = tray_icon.sender.clone();
+        let tray_icon = Self { _icon: icon };
 
         sender.clone().spawn_command(move |_sender| {
             while let Ok(event) = menu_event.recv() {

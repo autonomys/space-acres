@@ -20,7 +20,6 @@ use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::glib;
 use gtk::prelude::*;
-use image::{ImageBuffer, Rgba};
 use notify_rust::Notification;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
@@ -97,12 +96,6 @@ impl NotificationExt for Notification {
 
         self
     }
-}
-
-pub(crate) fn load_icon() -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-    image::load_from_memory_with_format(ICON, image::ImageFormat::Png)
-        .expect("Statically correct image; qed")
-        .to_rgba8()
 }
 
 #[thread_local]
@@ -594,7 +587,7 @@ impl AsyncComponent for App {
             glib::Propagation::Stop
         });
 
-        let tray_icon = TrayIcon::init(sender.clone()).ok();
+        let tray_icon = TrayIcon::new(sender.clone()).ok();
 
         let has_tray_icon = tray_icon.is_some();
 

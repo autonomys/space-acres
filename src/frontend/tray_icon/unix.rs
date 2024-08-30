@@ -1,4 +1,7 @@
-use crate::frontend::{load_icon, App, AppInput, T};
+use crate::frontend::tray_icon::load_icon;
+use crate::frontend::{App, AppInput, T};
+use ksni::menu::{MenuItem, StandardItem};
+use ksni::{Icon, ToolTip, Tray, TrayService};
 use relm4::AsyncComponentSender;
 
 #[derive(Clone)]
@@ -7,10 +10,10 @@ pub(in super::super) struct TrayIcon {
 }
 
 impl TrayIcon {
-    pub(in super::super) fn init(sender: AsyncComponentSender<App>) -> Result<Self, ()> {
+    pub(in super::super) fn new(sender: AsyncComponentSender<App>) -> Result<Self, ()> {
         let icon = Self { sender };
 
-        let tray_service = ksni::TrayService::new(icon.clone());
+        let tray_service = TrayService::new(icon.clone());
 
         tray_service.spawn();
 
@@ -18,7 +21,7 @@ impl TrayIcon {
     }
 }
 
-impl ksni::Tray for TrayIcon {
+impl Tray for TrayIcon {
     fn id(&self) -> String {
         env!("CARGO_PKG_NAME").to_string()
     }
@@ -31,28 +34,26 @@ impl ksni::Tray for TrayIcon {
         "Space Acres".to_string()
     }
 
-    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
+    fn icon_pixmap(&self) -> Vec<Icon> {
         let icon_img = load_icon();
+        let width = icon_img.width() as i32;
+        let height = icon_img.height() as i32;
 
-        let (width, height) = icon_img.dimensions();
-
-        vec![ksni::Icon {
-            width: width as i32,
-            height: height as i32,
-            data: icon_img.into_raw().to_vec(),
+        vec![Icon {
+            width,
+            height,
+            data: icon_img.into_raw(),
         }]
     }
 
-    fn tool_tip(&self) -> ksni::ToolTip {
-        ksni::ToolTip {
+    fn tool_tip(&self) -> ToolTip {
+        ToolTip {
             title: "Space Acres".to_string(),
             ..Default::default()
         }
     }
 
-    fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
-        use ksni::menu::*;
-
+    fn menu(&self) -> Vec<MenuItem<Self>> {
         vec![
             StandardItem {
                 label: T.tray_icon_open().to_string(),
