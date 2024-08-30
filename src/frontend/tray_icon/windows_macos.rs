@@ -36,7 +36,7 @@ pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Optio
                 let output = if event.id == menu_open_id {
                     AppCommandOutput::ShowWindow
                 } else if event.id == menu_close_id {
-                    AppCommandOutput::HideWindow
+                    AppCommandOutput::Quit
                 } else {
                     continue;
                 };

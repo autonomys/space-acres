@@ -124,7 +124,6 @@ pub enum AppInput {
 #[derive(Debug)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
-    HideWindow,
     ShowWindow,
     Restart,
     Quit,
@@ -897,9 +896,6 @@ impl App {
         match input {
             AppCommandOutput::BackendNotification(notification) => {
                 self.process_backend_notification(notification, sender);
-            }
-            AppCommandOutput::HideWindow => {
-                sender.input(AppInput::HideWindow);
             }
             AppCommandOutput::ShowWindow => {
                 sender.input(AppInput::ShowWindow);
