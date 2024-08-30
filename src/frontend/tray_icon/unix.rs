@@ -40,10 +40,6 @@ impl Tray for TrayIcon {
         env!("CARGO_PKG_NAME").to_string()
     }
 
-    fn icon_name(&self) -> String {
-        "space-acres".to_string()
-    }
-
     fn title(&self) -> String {
         "Space Acres".to_string()
     }
