@@ -5,7 +5,7 @@ use std::any::Any;
 use std::error::Error;
 use tracing::warn;
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
-use tray_icon::{TrayIcon, TrayIconBuilder};
+use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Option<Box<dyn Any>> {
     let init_result: Result<TrayIcon, Box<dyn Error>> = try {
@@ -30,13 +30,34 @@ pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Optio
             .build()
             .map_err(|error| format!("Failed to create tray icon: {error}"))?;
 
-        let menu_event = MenuEvent::receiver();
+        let menu_events = MenuEvent::receiver();
         sender.spawn_command(move |sender| {
-            while let Ok(event) = menu_event.recv() {
+            while let Ok(event) = menu_events.recv() {
                 let output = if event.id == menu_open_id {
                     AppCommandOutput::ShowWindow
                 } else if event.id == menu_close_id {
                     AppCommandOutput::Quit
+                } else {
+                    continue;
+                };
+
+                if let Err(error) = sender.send(output) {
+                    warn!(?error, "Failed to send tray icon notification");
+                    break;
+                }
+            }
+        });
+
+        let tray_icon_events = TrayIconEvent::receiver();
+        sender.spawn_command(move |sender| {
+            while let Ok(event) = tray_icon_events.recv() {
+                let output = if let TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } = event
+                {
+                    AppCommandOutput::ShowWindow
                 } else {
                     continue;
                 };
