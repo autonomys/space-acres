@@ -5,7 +5,7 @@ welcome_message =
     Before continuing you need 3 things:
     ✔ Wallet address where you'll receive rewards (use Subwallet, polkadot{"{"}.js{"}"} extension or any other wallet compatible with Substrate chain)
     ✔ 100G of space on a good quality SSD to store node data
-    ✔ any SSDs (or multiple) with as much space as you can afford for farming purposes, this is what will generate rewards"
+    ✔ any SSDs (or multiple) with as much space as you can afford for farming purposes, this is what will generate rewards
 welcome_button_continue = Continue
 
 upgrade_title = Upgrade
@@ -14,15 +14,15 @@ upgrade_message =
 
     The chain you were running before upgrade is no longer compatible with this release of Space Acres, likely because you were participating in the previous version of Autonomys.
 
-    But fear not, you can upgrade to currently supported network with a single click of a button!"
+    But fear not, you can upgrade to currently supported network with a single click of a button!
 upgrade_button_upgrade = Upgrade to {$chain_name}
 
 loading_title = Loading
 loading_configuration_title = Loading configuration
 loading_configuration_step_loading = Loading configuration...
 loading_configuration_step_reading = Reading configuration...
-loading_configuration_step_configuration_exists = Reading configuration...
-loading_configuration_step_configuration_not_found = Reading configuration...
+loading_configuration_step_configuration_exists = Configuration exists
+loading_configuration_step_configuration_not_found = Configuration not found
 loading_configuration_step_configuration_checking = Checking configuration...
 loading_configuration_step_configuration_valid = Configuration is valid
 loading_configuration_step_decoding_chain_spec = Decoding chain specification...
