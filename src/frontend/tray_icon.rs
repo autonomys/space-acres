@@ -10,9 +10,9 @@ mod windows_macos;
 use crate::frontend::ICON;
 use image::{ImageBuffer, Rgba};
 #[cfg(all(unix, not(target_os = "macos")))]
-pub(super) use unix::TrayIcon;
+pub(super) use unix::spawn;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
-pub(super) use windows_macos::TrayIcon;
+pub(super) use windows_macos::spawn;
 
 fn load_icon() -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     image::load_from_memory_with_format(ICON, image::ImageFormat::Png)

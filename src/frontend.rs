@@ -14,7 +14,6 @@ use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::frontend::tray_icon::TrayIcon;
 use crate::AppStatusCode;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
@@ -25,6 +24,7 @@ use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use relm4_icons::icon_name;
+use std::any::Any;
 use std::cell::{Cell, LazyCell};
 use std::future::Future;
 use std::path::PathBuf;
@@ -124,6 +124,8 @@ pub enum AppInput {
 #[derive(Debug)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
+    HideWindow,
+    ShowWindow,
     Restart,
     Quit,
 }
@@ -258,7 +260,7 @@ pub struct App {
     backend_fut: Option<Box<dyn Future<Output = ()> + Send>>,
     // Keep it around so it doesn't disappear
     #[do_not_track]
-    _tray_icon: Option<TrayIcon>,
+    _tray_icon: Option<Box<dyn Any>>,
 }
 
 #[relm4::component(pub async)]
@@ -587,8 +589,7 @@ impl AsyncComponent for App {
             glib::Propagation::Stop
         });
 
-        let tray_icon = TrayIcon::new(sender.clone()).ok();
-
+        let tray_icon = tray_icon::spawn(&sender).await;
         let has_tray_icon = tray_icon.is_some();
 
         let model = Self {
@@ -896,6 +897,12 @@ impl App {
         match input {
             AppCommandOutput::BackendNotification(notification) => {
                 self.process_backend_notification(notification, sender);
+            }
+            AppCommandOutput::HideWindow => {
+                sender.input(AppInput::HideWindow);
+            }
+            AppCommandOutput::ShowWindow => {
+                sender.input(AppInput::ShowWindow);
             }
             AppCommandOutput::Restart => {
                 sender.input(AppInput::Restart);

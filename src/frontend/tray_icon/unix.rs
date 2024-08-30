@@ -1,24 +1,38 @@
 use crate::frontend::tray_icon::load_icon;
-use crate::frontend::{App, AppInput, T};
+use crate::frontend::{App, AppCommandOutput, T};
+use futures::channel::oneshot;
 use ksni::menu::{MenuItem, StandardItem};
 use ksni::{Icon, ToolTip, Tray, TrayService};
-use relm4::AsyncComponentSender;
+use relm4::{AsyncComponentSender, Sender};
+use std::any::Any;
+use std::cell::RefCell;
+use tracing::{error, warn};
 
-#[derive(Clone)]
-pub(in super::super) struct TrayIcon {
-    sender: AsyncComponentSender<App>,
+pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Option<Box<dyn Any>> {
+    let (initialized_sender, initialized_receiver) = oneshot::channel();
+
+    sender.spawn_command(move |sender| {
+        let icon = TrayIcon {
+            sender,
+            initialized: RefCell::new(Some(initialized_sender)),
+        };
+
+        let tray_service = TrayService::new(icon);
+
+        if let Err(error) = tray_service.run() {
+            warn!(%error, "Tray icon error");
+        }
+    });
+
+    initialized_receiver
+        .await
+        .unwrap_or_default()
+        .then_some(Box::new(()))
 }
 
-impl TrayIcon {
-    pub(in super::super) fn new(sender: AsyncComponentSender<App>) -> Result<Self, ()> {
-        let icon = Self { sender };
-
-        let tray_service = TrayService::new(icon.clone());
-
-        tray_service.spawn();
-
-        Ok(icon)
-    }
+pub(in super::super) struct TrayIcon {
+    sender: Sender<AppCommandOutput>,
+    initialized: RefCell<Option<oneshot::Sender<bool>>>,
 }
 
 impl Tray for TrayIcon {
@@ -58,19 +72,42 @@ impl Tray for TrayIcon {
             StandardItem {
                 label: T.tray_icon_open().to_string(),
                 activate: Box::new(|this: &mut Self| {
-                    this.sender.input(AppInput::ShowWindow);
+                    if let Err(error) = this.sender.send(AppCommandOutput::ShowWindow) {
+                        error!(?error, "Failed to send tray icon notification");
+                    }
                 }),
-                ..Default::default()
+                ..StandardItem::default()
             }
             .into(),
             StandardItem {
                 label: T.tray_icon_close().to_string(),
                 activate: Box::new(|this: &mut Self| {
-                    this.sender.input(AppInput::HideWindow);
+                    if let Err(error) = this.sender.send(AppCommandOutput::HideWindow) {
+                        error!(?error, "Failed to send tray icon notification");
+                    }
                 }),
-                ..Default::default()
+                ..StandardItem::default()
             }
             .into(),
         ]
+    }
+
+    fn watcher_online(&self) {
+        if let Some(initialized) = self.initialized.borrow_mut().take() {
+            if let Err(_error) = initialized.send(true) {
+                warn!("Failed to send initialized notification");
+            }
+        }
+    }
+
+    fn watcher_offine(&self) -> bool {
+        warn!("Tray icon not supported on this platform");
+
+        if let Some(initialized) = self.initialized.borrow_mut().take() {
+            if let Err(_error) = initialized.send(false) {
+                warn!("Failed to send initialized notification");
+            }
+        }
+        false
     }
 }

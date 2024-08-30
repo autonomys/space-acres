@@ -1,16 +1,14 @@
 use crate::frontend::tray_icon::load_icon;
-use crate::frontend::{App, AppInput, T};
+use crate::frontend::{App, AppCommandOutput, T};
 use relm4::AsyncComponentSender;
+use std::any::Any;
+use std::error::Error;
 use tracing::warn;
-use tray_icon::menu::{Menu, MenuItem};
-use tray_icon::TrayIconBuilder;
+use tray_icon::menu::{Menu, MenuEvent, MenuItem};
+use tray_icon::{TrayIcon, TrayIconBuilder};
 
-pub(in super::super) struct TrayIcon {
-    _icon: tray_icon::TrayIcon,
-}
-
-impl TrayIcon {
-    pub(in super::super) fn new(sender: AsyncComponentSender<App>) -> Result<Self, ()> {
+pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Option<Box<dyn Any>> {
+    let init_result: Result<TrayIcon, Box<dyn Error>> = try {
         let icon_img = load_icon();
         let width = icon_img.width();
         let height = icon_img.height();
@@ -18,45 +16,46 @@ impl TrayIcon {
             .expect("Statically correct image; qed");
 
         let menu_open = &MenuItem::new(&*T.tray_icon_open(), true, None);
+        let menu_open_id = menu_open.id().clone();
         let menu_close = &MenuItem::new(&*T.tray_icon_close(), true, None);
+        let menu_close_id = menu_close.id().clone();
 
         let menu = Menu::with_items(&[menu_open, menu_close])
-            .inspect_err(|error| {
-                warn!(%error, "Unable to create tray icon menu");
-            })
-            .map_err(|_| ())?;
+            .map_err(|error| format!("Failed to create tray icon menu: {error}"))?;
 
         let icon = TrayIconBuilder::new()
             .with_tooltip("Space Acres")
             .with_icon(icon)
             .with_menu(Box::new(menu))
             .build()
-            .map_err(|error| {
-                warn!(%error, "Unable to create tray icon");
-            })?;
+            .map_err(|error| format!("Failed to create tray icon: {error}"))?;
 
-        let menu_event = tray_icon::menu::MenuEvent::receiver();
-        let menu_close_id = menu_close.id().clone();
-        let menu_open_id = menu_open.id().clone();
-
-        let tray_icon = Self { _icon: icon };
-
-        sender.clone().spawn_command(move |_sender| {
+        let menu_event = MenuEvent::receiver();
+        sender.spawn_command(move |sender| {
             while let Ok(event) = menu_event.recv() {
-                let input = if event.id == menu_open_id {
-                    Some(AppInput::ShowWindow)
+                let output = if event.id == menu_open_id {
+                    AppCommandOutput::ShowWindow
                 } else if event.id == menu_close_id {
-                    Some(AppInput::HideWindow)
+                    AppCommandOutput::HideWindow
                 } else {
-                    None
+                    continue;
                 };
 
-                if let Some(input) = input {
-                    sender.input(input);
+                if let Err(error) = sender.send(output) {
+                    warn!(?error, "Failed to send tray icon notification");
+                    break;
                 }
             }
         });
 
-        Ok(tray_icon)
+        icon
+    };
+
+    match init_result {
+        Ok(tray_icon) => Some(Box::new(tray_icon)),
+        Err(error) => {
+            warn!(%error, "Tray icon error");
+            None
+        }
     }
 }
