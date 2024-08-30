@@ -13,6 +13,7 @@ upgrade_message =
     Спасибо, что снова выбрали Space Acres!
 
     Сеть, которую вы использовали до обновления, больше не совместима с этой версией Space Acres. Вероятно, это случилось потому, что вы участвовали в предыдущей версии Autonomys.
+
     Не волнуйтесь! Вы можете перейти на поддерживаемую в настоящее время сеть одним нажатием кнопки!
 upgrade_button_upgrade = Обновить до {$chain_name}
 
@@ -93,7 +94,7 @@ configuration_dialog_button_select = Выбрать
 configuration_dialog_button_cancel = Отмена
 
 running_title = Запущено
-running_node_title = Узел блокчейна {$chain_name} 
+running_node_title = Узел блокчейна {$chain_name}
 running_node_title_tooltip = Нажмите, чтобы открыть в файловом менеджере
 running_node_free_disk_space_tooltip = Осталось свободного места на диске: {$size}
 running_node_status_connecting = Подключение к сети, лучший блок #{$block_number}
@@ -198,7 +199,7 @@ tray_icon_open = Открыть
 tray_icon_close = Закрыть
 
 notification_app_minimized_to_tray = Space Acres был свернут
-    .body = Вы можете открыть его снова или полностью выйти, используя значок в области уведомлений 
+    .body = Вы можете открыть его снова или полностью выйти, используя значок в области уведомлений
 notification_stopped_with_error = Space Acres остановился с ошибкой
     .body = Произошла ошибка, для устранения которой требуется вмешательство пользователя
 notification_farm_error = Одна из ферм сломалась в Space Acres
