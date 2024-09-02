@@ -118,6 +118,7 @@ pub enum AppInput {
     CloseStatusBarWarning,
     HideWindow,
     ShowWindow,
+    ShowHideToggle,
     ShutDown,
 }
 
@@ -125,6 +126,9 @@ pub enum AppInput {
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
     ShowWindow,
+    // Only used in tray icon on some platforms
+    #[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))]
+    ShowHideToggle,
     Restart,
     Quit,
 }
@@ -584,7 +588,7 @@ impl AsyncComponent for App {
             .build();
 
         about_dialog.connect_close_request(|about_dialog| {
-            about_dialog.hide();
+            about_dialog.set_visible(false);
             glib::Propagation::Stop
         });
 
@@ -659,7 +663,7 @@ impl AsyncComponent for App {
 
         if minimize_on_start {
             if has_tray_icon {
-                root.hide()
+                root.set_visible(false);
             } else {
                 root.minimize()
             }
@@ -784,10 +788,18 @@ impl AsyncComponent for App {
                 self.set_status_bar_contents(StatusBarContents::None);
             }
             AppInput::HideWindow => {
-                root.hide();
+                root.set_visible(false);
             }
             AppInput::ShowWindow => {
                 root.present();
+            }
+            AppInput::ShowHideToggle => {
+                if root.is_visible() {
+                    root.set_visible(false);
+                } else {
+                    root.present();
+
+                }
             }
             AppInput::ShutDown => {
                 self.set_current_view(View::ShuttingDown);
@@ -899,6 +911,9 @@ impl App {
             }
             AppCommandOutput::ShowWindow => {
                 sender.input(AppInput::ShowWindow);
+            }
+            AppCommandOutput::ShowHideToggle => {
+                sender.input(AppInput::ShowHideToggle);
             }
             AppCommandOutput::Restart => {
                 sender.input(AppInput::Restart);

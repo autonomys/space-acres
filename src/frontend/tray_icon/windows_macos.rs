@@ -57,7 +57,7 @@ pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Optio
                     ..
                 } = event
                 {
-                    AppCommandOutput::ShowWindow
+                    AppCommandOutput::ShowHideToggle
                 } else {
                     continue;
                 };
