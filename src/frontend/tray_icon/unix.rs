@@ -76,7 +76,7 @@ impl Tray for TrayIcon {
             }
             .into(),
             StandardItem {
-                label: T.tray_icon_close().to_string(),
+                label: T.tray_icon_quit().to_string(),
                 activate: Box::new(|this: &mut Self| {
                     if let Err(error) = this.sender.send(AppCommandOutput::Quit) {
                         error!(?error, "Failed to send tray icon notification");

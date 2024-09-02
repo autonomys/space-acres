@@ -196,7 +196,7 @@ about_system_information =
     Data directory (including logs): {$data_directory}
 
 tray_icon_open = Open
-tray_icon_close = Close
+tray_icon_quit = Quit
 
 notification_app_minimized_to_tray = Space Acres was minimized to tray
     .body = You can open it again or exit completely using tray icon menu

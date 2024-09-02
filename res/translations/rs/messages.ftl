@@ -199,7 +199,8 @@ about_system_information =
     Direktorijum podataka (uključujući dnevnike): {$data_directory}
 
 tray_icon_open = Otvori
-tray_icon_close = Zatvori
+# TODO: Check translation
+tray_icon_quit = Izlaz
 
 notification_app_minimized_to_tray = Space Acres je minimiziran u sistemsku traku
     .body = Možete ga ponovo otvoriti ili potpuno izaći koristeći meni ikone u sistemskoj traci

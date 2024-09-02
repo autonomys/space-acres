@@ -196,7 +196,7 @@ about_system_information =
     Директория данных (включая журнал): {$data_directory}
 
 tray_icon_open = Открыть
-tray_icon_close = Закрыть
+tray_icon_quit = Выход
 
 notification_app_minimized_to_tray = Space Acres был свернут
     .body = Вы можете открыть его снова или полностью выйти, используя значок в области уведомлений

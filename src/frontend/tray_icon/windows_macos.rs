@@ -17,7 +17,7 @@ pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Optio
 
         let menu_open = &MenuItem::new(&*T.tray_icon_open(), true, None);
         let menu_open_id = menu_open.id().clone();
-        let menu_close = &MenuItem::new(&*T.tray_icon_close(), true, None);
+        let menu_close = &MenuItem::new(&*T.tray_icon_quit(), true, None);
         let menu_close_id = menu_close.id().clone();
 
         let menu = Menu::with_items(&[menu_open, menu_close])
