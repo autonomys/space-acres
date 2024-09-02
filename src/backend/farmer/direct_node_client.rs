@@ -31,6 +31,7 @@ use subspace_core_primitives::{
     BlockHash, HistorySize, Piece, PieceIndex, PublicKey, SegmentHeader, SegmentIndex, SlotNumber,
     Solution,
 };
+use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::node_client::{Error, NodeClient, NodeClientExt};
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
@@ -98,6 +99,8 @@ pub(in super::super) struct NodeClientConfig<Client> {
     pub sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
     /// Kzg instance
     pub kzg: Kzg,
+    /// Erasure coding instance
+    pub erasure_coding: ErasureCoding,
 }
 
 /// Direct node client that is injected into wrapper `MaybeNodeClient` once it is fully initialized
@@ -122,6 +125,7 @@ pub(in super::super) struct DirectNodeClient<Client> {
     chain_constants: ChainConstants,
     max_pieces_in_sector: u16,
     kzg: Kzg,
+    erasure_coding: ErasureCoding,
 }
 
 impl<Client> Debug for DirectNodeClient<Client> {
@@ -172,6 +176,7 @@ where
             chain_constants,
             max_pieces_in_sector,
             kzg: config.kzg,
+            erasure_coding: config.erasure_coding,
         })
     }
 }
@@ -565,9 +570,10 @@ where
 
                     let client = Arc::clone(&self.client);
                     let kzg = self.kzg.clone();
+                    let erasure_coding = self.erasure_coding.clone();
                     // Try to re-create genesis segment on demand
                     match tokio::task::spawn_blocking(move || {
-                        recreate_genesis_segment(&*client, kzg).map_err(|error| {
+                        recreate_genesis_segment(&*client, kzg, erasure_coding).map_err(|error| {
                             format!("Failed to re-create genesis segment: {}", error)
                         })
                     })

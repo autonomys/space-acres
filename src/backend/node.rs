@@ -16,7 +16,7 @@ use sc_client_api::{HeaderBackend, StorageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus_slots::SlotProportion;
 use sc_informant::OutputFormat;
-use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig, SyncMode};
+use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig};
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec, NoExtension};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
@@ -27,7 +27,7 @@ use sp_core::storage::StorageKey;
 use sp_core::H256;
 use sp_runtime::traits::Header;
 use std::fmt;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -50,7 +50,6 @@ use tracing::error;
 
 pub(super) const GENESIS_HASH: &str =
     "0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34";
-pub(super) const RPC_PORT: u16 = 19944;
 const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 /// Roughly 138k empty blocks can fit into one archived segment, hence we need to not allow to prune
 /// more blocks that this
@@ -442,8 +441,9 @@ fn create_consensus_chain_config(
         },
         state_pruning: PruningMode::blocks_pruning(MIN_STATE_PRUNING),
         blocks_pruning: BlocksPruning::Some(256),
+        // TODO: Make the whole `rpc_options` optional instead
         rpc_options: SubstrateRpcConfiguration {
-            listen_on: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, RPC_PORT)),
+            listen_on: None,
             // Substrate's default
             max_connections: 100,
             cors: Some(Vec::new()),
@@ -529,6 +529,10 @@ pub(super) async fn create_consensus_node(
 
         let partial_components = match subspace_service::new_partial::<PosTable, RuntimeApi>(
             &consensus_chain_config.base,
+            match consensus_chain_config.sync {
+                ChainSyncMode::Full => false,
+                ChainSyncMode::Snap => true,
+            },
             &pot_external_entropy,
         ) {
             Ok(partial_components) => partial_components,
@@ -543,15 +547,9 @@ pub(super) async fn create_consensus_node(
                 //  https://github.com/paritytech/polkadot-sdk/issues/4671 is implemented
                 consensus_chain_config.base.state_pruning = Some(PruningMode::ArchiveCanonical);
 
-                // TODO: revisit SyncMode change after https://github.com/paritytech/polkadot-sdk/issues/4407
-                if consensus_chain_config.base.network.sync_mode.light_state() {
-                    // In case of archival pruning mode sync mode needs to be set to full or
-                    // else Substrate network will fail to initialize
-                    consensus_chain_config.base.network.sync_mode = SyncMode::Full;
-                }
-
                 subspace_service::new_partial::<PosTable, RuntimeApi>(
                     &consensus_chain_config,
+                    false,
                     &pot_external_entropy,
                 )
                 .map_err(|error| {
@@ -577,6 +575,11 @@ pub(super) async fn create_consensus_node(
         let client = partial_components.client.clone();
         let segment_headers_store = partial_components.other.segment_headers_store.clone();
         let kzg = partial_components.other.subspace_link.kzg().clone();
+        let erasure_coding = partial_components
+            .other
+            .subspace_link
+            .erasure_coding()
+            .clone();
 
         let consensus_node = subspace_service::new_full::<PosTable, _>(
             consensus_chain_config,
@@ -604,6 +607,7 @@ pub(super) async fn create_consensus_node(
             dsn_bootstrap_nodes: vec![],
             sync_oracle: consensus_node.sync_service.clone(),
             kzg,
+            erasure_coding,
         })
         .map_err(|error| {
             sc_service::Error::Other(format!("Failed to build a node client: {error:?}"))
