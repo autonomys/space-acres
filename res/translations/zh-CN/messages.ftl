@@ -5,7 +5,7 @@ welcome_message =
     开始前请阅读并知悉以下信息:
     ✔ 需要准备一个钱包地址来收取奖励，该地址可由 Subwallet、polkadot 扩展或任何兼容 Substrate 链的钱包来生成
     ✔ 需要 100G 大小的高性能 SSD 硬盘来存储节点数据
-    ✔ 尽你可能使用更大容量或多个的 SSD 硬盘来存储耕种数据，以获得更多奖励”
+    ✔ 尽你可能使用更大容量或多个的 SSD 硬盘来存储耕种数据，以获得更多奖励
 welcome_button_continue = 继续
 
 upgrade_title = 升级
@@ -14,15 +14,17 @@ upgrade_message =
 
     你在升级前存储的链数据不再与该 Space Acres 版本兼容，这可能是因为你之前参与了更早版本的 Autonomys 。
 
-    别担心，你可以一键升级到当前最新网络”
+    别担心，你可以一键升级到当前最新网络
 upgrade_button_upgrade = 升级到 {$chain_name}
 
 loading_title = 加载中
 loading_configuration_title = 加载配置
 loading_configuration_step_loading = 加载配置...
 loading_configuration_step_reading = 读取配置...
-loading_configuration_step_configuration_exists = 读取配置...
-loading_configuration_step_configuration_not_found = 读取配置...
+# TODO: Translate
+loading_configuration_step_configuration_exists = 检查配置...
+# TODO: Translate
+loading_configuration_step_configuration_not_found = 检查配置...
 loading_configuration_step_configuration_checking = 检查配置...
 loading_configuration_step_configuration_valid = 配置文件校验通过
 loading_configuration_step_decoding_chain_spec = chain spec 解析中...
