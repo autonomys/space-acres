@@ -197,7 +197,8 @@ about_system_information =
     Datenverzeichnis (einschließlich Protokolle): {$data_directory}
 
 tray_icon_open = öffnen
-tray_icon_close = schließen
+# TODO: Check translation
+tray_icon_quit = Aufhören
 
 notification_app_minimized_to_tray = Space Acres wurde in die Taskleiste minimiert
     .body = Du kannst es wieder öffnen oder komplett beenden, indem du das Menü des Tray-Symbols verwendest

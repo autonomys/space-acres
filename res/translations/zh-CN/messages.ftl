@@ -198,7 +198,8 @@ about_system_information =
     数据目录 (包括日志): {$data_directory}
 
 tray_icon_open = 打开
-tray_icon_close = 关闭
+# TODO: Check translation
+tray_icon_quit = 退出
 
 notification_app_minimized_to_tray = Space Acres已最小化到托盘
     .body = 你可以关闭或从托盘中重新打开

@@ -3,6 +3,7 @@ pub mod loading;
 pub mod new_version;
 pub mod running;
 pub mod translations;
+mod tray_icon;
 mod widgets;
 
 use crate::backend::config::RawConfig;
@@ -14,9 +15,6 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::AppStatusCode;
-#[cfg(any(target_os = "linux", windows))]
-use betrayer::Icon;
-use betrayer::{Menu, MenuItem, TrayEvent, TrayIcon, TrayIconBuilder};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::glib;
@@ -26,6 +24,7 @@ use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use relm4_icons::icon_name;
+use std::any::Any;
 use std::cell::{Cell, LazyCell};
 use std::future::Future;
 use std::path::PathBuf;
@@ -34,7 +33,6 @@ use std::{env, fmt};
 use tracing::{debug, error, warn};
 
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
-#[cfg(all(unix, not(target_os = "macos")))]
 const ICON: &[u8] = include_bytes!("../res/icon.png");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
 
@@ -105,12 +103,6 @@ static PIXBUF_ABOUT_IMG: LazyCell<gtk::gdk_pixbuf::Pixbuf> = LazyCell::new(|| {
     gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE).expect("Statically correct image; qed")
 });
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum TrayMenuSignal {
-    Open,
-    Close,
-}
-
 #[derive(Debug)]
 pub enum AppInput {
     Configuration(ConfigurationOutput),
@@ -126,12 +118,17 @@ pub enum AppInput {
     CloseStatusBarWarning,
     HideWindow,
     ShowWindow,
+    ShowHideToggle,
     ShutDown,
 }
 
 #[derive(Debug)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
+    ShowWindow,
+    // Only used in tray icon on some platforms
+    #[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))]
+    ShowHideToggle,
     Restart,
     Quit,
 }
@@ -266,7 +263,7 @@ pub struct App {
     backend_fut: Option<Box<dyn Future<Output = ()> + Send>>,
     // Keep it around so it doesn't disappear
     #[do_not_track]
-    _tray_icon: Option<TrayIcon<TrayMenuSignal>>,
+    _tray_icon: Option<Box<dyn Any>>,
 }
 
 #[relm4::component(pub async)]
@@ -589,45 +586,13 @@ impl AsyncComponent for App {
             })
             .transient_for(&root)
             .build();
+
         about_dialog.connect_close_request(|about_dialog| {
-            about_dialog.hide();
+            about_dialog.set_visible(false);
             glib::Propagation::Stop
         });
 
-        // TODO: Re-enable macOS once https://github.com/subspace/space-acres/issues/183 and/or
-        //  https://github.com/subspace/space-acres/issues/222 are resolved
-        let tray_icon = if cfg!(target_os = "macos") {
-            None
-        } else {
-            let tray_icon = TrayIconBuilder::new();
-            #[cfg(target_os = "linux")]
-            let tray_icon = tray_icon
-                .with_icon(Icon::from_png_bytes(ICON).expect("Statically correct image; qed"));
-            #[cfg(windows)]
-            let tray_icon = tray_icon
-                .with_icon(Icon::from_resource(1, None).expect("Tray icon is a valid ICO; qed"));
-            tray_icon
-                .with_tooltip("Space Acres")
-                .with_menu(Menu::new([
-                    MenuItem::button(T.tray_icon_open(), TrayMenuSignal::Open),
-                    MenuItem::button(T.tray_icon_close(), TrayMenuSignal::Close),
-                ]))
-                .build({
-                    let sender = sender.clone();
-                    move |tray_event| {
-                        if let TrayEvent::Menu(signal) = tray_event {
-                            match signal {
-                                TrayMenuSignal::Open => sender.input(AppInput::ShowWindow),
-                                TrayMenuSignal::Close => sender.input(AppInput::ShutDown),
-                            }
-                        }
-                    }
-                })
-                .map_err(|error| {
-                    warn!(%error, "Unable to create tray icon");
-                })
-                .ok()
-        };
+        let tray_icon = tray_icon::spawn(&sender).await;
         let has_tray_icon = tray_icon.is_some();
 
         let model = Self {
@@ -698,7 +663,7 @@ impl AsyncComponent for App {
 
         if minimize_on_start {
             if has_tray_icon {
-                root.hide()
+                root.set_visible(false);
             } else {
                 root.minimize()
             }
@@ -724,6 +689,7 @@ impl AsyncComponent for App {
                 glib::Propagation::Stop
             }
         });
+
         if has_tray_icon {
             root.connect_hide({
                 let sender = sender.clone();
@@ -822,10 +788,18 @@ impl AsyncComponent for App {
                 self.set_status_bar_contents(StatusBarContents::None);
             }
             AppInput::HideWindow => {
-                root.hide();
+                root.set_visible(false);
             }
             AppInput::ShowWindow => {
                 root.present();
+            }
+            AppInput::ShowHideToggle => {
+                if root.is_visible() {
+                    root.set_visible(false);
+                } else {
+                    root.present();
+
+                }
             }
             AppInput::ShutDown => {
                 self.set_current_view(View::ShuttingDown);
@@ -934,6 +908,12 @@ impl App {
         match input {
             AppCommandOutput::BackendNotification(notification) => {
                 self.process_backend_notification(notification, sender);
+            }
+            AppCommandOutput::ShowWindow => {
+                sender.input(AppInput::ShowWindow);
+            }
+            AppCommandOutput::ShowHideToggle => {
+                sender.input(AppInput::ShowHideToggle);
             }
             AppCommandOutput::Restart => {
                 sender.input(AppInput::Restart);

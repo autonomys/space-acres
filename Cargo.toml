@@ -37,7 +37,6 @@ async-lock = "3.4.0"
 async-oneshot = "0.5.9"
 async-trait = "0.1.80"
 backoff = { version = "0.4.0", features = ["futures", "tokio"] }
-betrayer = { version = "0.2.0" }
 bytesize = "1.3.0"
 clap = { version = "4.5.8", features = ["derive"] }
 dark-light = "1.1.1"
@@ -54,6 +53,7 @@ futures = "0.3.30"
 futures-timer = "3.0.3"
 gtk = { version = "0.7.3", package = "gtk4" }
 hex = "0.4.3"
+image = { version = "0.25", features = ["png"], default-features = false }
 mimalloc = "0.1.41"
 names = "0.14.0"
 notify-rust = { version = "4.11.1", features = ["images"] }
@@ -114,6 +114,12 @@ tracker = "0.2.2"
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"
 tracing-panic = "0.1.2"
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tray-icon = "0.16.0"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+ksni = "0.2.2"
 
 [build-dependencies]
 fluent-static-codegen = "0.3.2"
