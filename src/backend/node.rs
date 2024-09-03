@@ -46,7 +46,7 @@ use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
 use tokio::fs;
 use tokio::time::MissedTickBehavior;
-use tracing::error;
+use tracing::{error, info_span};
 
 pub(super) const GENESIS_HASH: &str =
     "0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34";
@@ -140,6 +140,7 @@ pub(super) struct ConsensusNode {
     pause_sync: Arc<AtomicBool>,
     chain_info: ChainInfo,
     chain_constants: ChainConstants,
+    optimized_node_db: bool,
     handlers: Handlers,
 }
 
@@ -155,12 +156,14 @@ impl ConsensusNode {
         pause_sync: Arc<AtomicBool>,
         chain_info: ChainInfo,
         chain_constants: ChainConstants,
+        optimized_node_db: bool,
     ) -> Self {
         Self {
             full_node,
             pause_sync,
             chain_info,
             chain_constants,
+            optimized_node_db,
             handlers: Handlers::default(),
         }
     }
@@ -276,6 +279,10 @@ impl ConsensusNode {
 
     pub(super) fn chain_info(&self) -> &ChainInfo {
         &self.chain_info
+    }
+
+    pub(super) fn optimized_node_db(&self) -> bool {
+        self.optimized_node_db
     }
 
     pub(super) fn chain_constants(&self) -> &ChainConstants {
@@ -498,10 +505,12 @@ pub(super) async fn create_consensus_node(
     let sync = consensus_chain_config.network.sync_mode;
     let consensus_chain_config = Configuration::from(consensus_chain_config);
     let pause_sync = Arc::clone(&consensus_chain_config.network.pause_sync);
+    let mut optimized_node_db = true;
 
     let (consensus_node, direct_node_client) = {
-        let span = tracing::info_span!("Node");
+        let span = info_span!("Node");
         let _enter = span.enter();
+        let mut snap_sync_success = true;
 
         let mut consensus_chain_config = SubspaceConfiguration {
             base: consensus_chain_config,
@@ -546,6 +555,7 @@ pub(super) async fn create_consensus_node(
                 //  default has become pruned state, can be removed if/when
                 //  https://github.com/paritytech/polkadot-sdk/issues/4671 is implemented
                 consensus_chain_config.base.state_pruning = Some(PruningMode::ArchiveCanonical);
+                snap_sync_success = false;
 
                 subspace_service::new_partial::<PosTable, RuntimeApi>(
                     &consensus_chain_config,
@@ -566,6 +576,13 @@ pub(super) async fn create_consensus_node(
             }
         };
 
+        let info = partial_components.client.info();
+        // TODO: This is a temporary upgrade note that should be removed after Gemini 3h
+        if matches!(consensus_chain_config.sync, ChainSyncMode::Snap)
+            && (!snap_sync_success || (info.best_number >= 1_000_000 && info.finalized_number == 0))
+        {
+            optimized_node_db = false;
+        }
         if hex::encode(partial_components.client.info().genesis_hash) != GENESIS_HASH {
             return Err(ConsensusNodeCreationError::IncompatibleChain {
                 compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
@@ -649,5 +666,6 @@ pub(super) async fn create_consensus_node(
         pause_sync,
         chain_info,
         chain_constants,
+        optimized_node_db,
     ))
 }

@@ -191,8 +191,12 @@ status_bar_message_configuration_is_invalid = Konfiguracija je nevažeća: {$err
 status_bar_message_restart_is_needed_for_configuration = Potreban je restart aplikacije za primenu promena u konfiguraciji
 status_bar_message_failed_to_save_configuration = Nije uspelo čuvanje promena konfiguracije: {$error}
 status_bar_message_restarted_after_crash = Space Acres se automatski restartovao nakon kraha, proveri dnevnik aplikacije za više informacija
+# TODO: Translate
+status_bar_message_unoptimized_node_db = Node database is unoptimized and needs re-syncing for optimal performance
 status_bar_button_restart = Ponovo pokreni
 status_bar_button_ok = U redu
+# TODO: Translate
+status_bar_button_resync_node = Resync node
 
 about_system_information =
     Konfiguracioni direktorijum: {$config_directory}

@@ -190,8 +190,12 @@ status_bar_message_configuration_is_invalid = 配置不可用: {$error}
 status_bar_message_restart_is_needed_for_configuration = 重启以使配置修改生效
 status_bar_message_failed_to_save_configuration = 保存配置修改失败: {$error}
 status_bar_message_restarted_after_crash = Space Acres在崩溃后自动重启，请在日志中查看详细信息
+# TODO: Translate
+status_bar_message_unoptimized_node_db = Node database is unoptimized and needs re-syncing for optimal performance
 status_bar_button_restart = 重启
 status_bar_button_ok = 正常
+# TODO: Translate
+status_bar_button_resync_node = Resync node
 
 about_system_information =
     配置目录: {$config_directory}

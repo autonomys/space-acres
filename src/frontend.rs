@@ -116,6 +116,7 @@ pub enum AppInput {
     StartUpgrade,
     Restart,
     CloseStatusBarWarning,
+    ResyncNode,
     HideWindow,
     ShowWindow,
     ShowHideToggle,
@@ -167,6 +168,8 @@ enum StatusBarButton {
     Ok,
     /// Show restart button
     Restart,
+    // Show resync node button
+    ResyncNode,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -203,6 +206,13 @@ impl StatusBarContents {
     fn ok_button(&self) -> bool {
         match self {
             Self::Warning { button, .. } => matches!(button, StatusBarButton::Ok),
+            _ => false,
+        }
+    }
+
+    fn resync_node_button(&self) -> bool {
+        match self {
+            Self::Warning { button, .. } => matches!(button, StatusBarButton::ResyncNode),
             _ => false,
         }
     }
@@ -264,6 +274,8 @@ pub struct App {
     exit_status_code: Rc<Cell<AppStatusCode>>,
     #[do_not_track]
     loaded: bool,
+    #[do_not_track]
+    wipe_db_after_shutdown: bool,
     #[do_not_track]
     backend_fut: Option<Box<dyn Future<Output = ()> + Send>>,
     // Keep it around so it doesn't disappear
@@ -485,6 +497,13 @@ impl AsyncComponent for App {
                             #[track = "model.changed_status_bar_contents()"]
                             set_visible: model.status_bar_contents.ok_button(),
                         },
+
+                        gtk::Button {
+                            connect_clicked => AppInput::ResyncNode,
+                            set_label: &T.status_bar_button_resync_node(),
+                            #[track = "model.changed_status_bar_contents()"]
+                            set_visible: model.status_bar_contents.resync_node_button(),
+                        },
                     },
                 },
             }
@@ -620,6 +639,7 @@ impl AsyncComponent for App {
             app_data_dir,
             exit_status_code,
             loaded: false,
+            wipe_db_after_shutdown: false,
             backend_fut: Some(backend_fut),
             _tray_icon: tray_icon,
             tracker: u8::MAX,
@@ -791,6 +811,12 @@ impl AsyncComponent for App {
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_contents(StatusBarContents::None);
             }
+            AppInput::ResyncNode => {
+                self.exit_status_code.set(AppStatusCode::Restart);
+                self.wipe_db_after_shutdown = true;
+                // Delegate to exit to do the rest
+                sender.input(AppInput::ShutDown);
+            }
             AppInput::HideWindow => {
                 root.set_visible(false);
             }
@@ -812,8 +838,14 @@ impl AsyncComponent for App {
                 root.present();
 
                 let backend_fut = self.backend_fut.take();
-                sender.spawn_oneshot_command(|| {
+                let wipe_db_after_shutdown = self.wipe_db_after_shutdown;
+                let node_path = self.current_raw_config.as_ref().map(|raw_config| raw_config.node_path().clone());
+                sender.spawn_oneshot_command(move || {
                     drop(backend_fut);
+                    // TODO: This is a temporary upgrade note that should be removed after Gemini 3h
+                    if wipe_db_after_shutdown && let Some(node_path) = node_path {
+                        crate::backend::wipe_node_db(&node_path);
+                    }
                     AppCommandOutput::Quit
                 });
             }
@@ -1011,6 +1043,12 @@ impl App {
                     raw_config,
                     chain_info,
                     chain_constants,
+                });
+            }
+            BackendNotification::UnoptimizedNodeDb => {
+                self.set_status_bar_contents(StatusBarContents::Warning {
+                    message: T.status_bar_message_unoptimized_node_db().to_string(),
+                    button: StatusBarButton::ResyncNode,
                 });
             }
             BackendNotification::Node(node_notification) => {
