@@ -161,16 +161,21 @@ impl View {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum StatusBarButton {
+    /// Show ok button
+    Ok,
+    /// Show restart button
+    Restart,
+}
+
 #[derive(Debug, Default, Eq, PartialEq)]
 enum StatusBarContents {
     #[default]
     None,
     Warning {
         message: String,
-        /// Whether to show ok button
-        ok: bool,
-        /// Whether to show restart button
-        restart: bool,
+        button: StatusBarButton,
     },
     Error(String),
 }
@@ -197,14 +202,14 @@ impl StatusBarContents {
 
     fn ok_button(&self) -> bool {
         match self {
-            Self::Warning { ok, .. } => *ok,
+            Self::Warning { button, .. } => matches!(button, StatusBarButton::Ok),
             _ => false,
         }
     }
 
     fn restart_button(&self) -> bool {
         match self {
-            Self::Warning { restart, .. } => *restart,
+            Self::Warning { button, .. } => matches!(button, StatusBarButton::Restart),
             _ => false,
         }
     }
@@ -601,8 +606,7 @@ impl AsyncComponent for App {
             status_bar_contents: if crash_notification {
                 StatusBarContents::Warning {
                     message: T.status_bar_message_restarted_after_crash().to_string(),
-                    ok: true,
-                    restart: false,
+                    button: StatusBarButton::Ok,
                 }
             } else {
                 StatusBarContents::None
@@ -965,8 +969,7 @@ impl App {
                         .status_bar_message_configuration_is_invalid(error.to_string())
                         .as_str()
                         .to_string(),
-                    ok: true,
-                    restart: false,
+                    button: StatusBarButton::Ok,
                 });
             }
             BackendNotification::ConfigSaveResult(result) => match result {
@@ -975,8 +978,7 @@ impl App {
                         message: T
                             .status_bar_message_restart_is_needed_for_configuration()
                             .to_string(),
-                        ok: false,
-                        restart: true,
+                        button: StatusBarButton::Restart,
                     });
                 }
                 Err(error) => {
