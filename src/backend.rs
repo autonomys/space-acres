@@ -257,6 +257,7 @@ pub enum BackendNotification {
         chain_info: ChainInfo,
         chain_constants: ChainConstants,
     },
+    UnoptimizedNodeDb,
     Node(NodeNotification),
     Farmer(FarmerNotification<FarmIndex>),
     Stopped {
@@ -947,6 +948,12 @@ async fn create_consensus_node(
         }
     };
 
+    if !consensus_node.optimized_node_db() {
+        notifications_sender
+            .send(BackendNotification::UnoptimizedNodeDb)
+            .await?;
+    }
+
     notifications_sender
         .send(BackendNotification::Loading(
             LoadingStep::ConsensusNodeCreatedSuccessfully,
@@ -1143,4 +1150,22 @@ pub async fn wipe(
     }
 
     Ok(())
+}
+
+// TODO: This is a temporary upgrade note that should be removed after Gemini 3h
+pub fn wipe_node_db(node_path: &Path) {
+    let node_db_path = node_path.join("db");
+    let mut attempts = 0_usize;
+
+    while node_db_path.exists()
+        && let Err(error) = std::fs::remove_dir_all(&node_db_path)
+    {
+        warn!(%error, "Failed to remove node `db` directory, trying again in a bit");
+        std::thread::sleep(Duration::from_secs(1));
+        attempts += 1;
+
+        if attempts >= 100 {
+            return;
+        }
+    }
 }
