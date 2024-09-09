@@ -8,10 +8,10 @@ Space Acres is an opinionated GUI application for farming on [Autonomys Network]
 
 ## Current status
 
-Current status of the project is Alpha.
+Current status of the project is Beta.
 
-This means that while it should generally work, expect things to not work sometimes, break in unexpected ways and error
-handling to be lacking.
+This means that it should generally work, most happy paths and edge cases are handled, many error cases have reasonable
+recovery options, etc.
 
 Current version supports Gemini 3h chain only and doesn't allow to select anything else. It supports upgrading existing
 installations from 3g.
@@ -43,14 +43,16 @@ The project at high level is structured in a few large modules:
       that abstracts away its internals
     * `node` contains consensus node with a wrapper data structure that abstracts away its internals
     * `utils` contains some low-level utilities
-* `docs` contains documentation files
-* `frontend` handles majority of frontend logic with each module corresponding to a major application screen/view
+* `frontend` handles majority of frontend logic with each module corresponding to a major application screen/view or
+  feature
 * `res` contains various non-code resources required for application operation and/or packaging
     * `app.css` contains a few small non-critical tweaks for presentation, it will likely be necessary to ship a GTK4
       theme with the app in the future to ensure consistent look
     * `linux` contains Linux-specific resources
+    * `macos` contains macOS-specific resources
+    * `translations` contains translations to various languages
     * `windows` contains Windows-specific resources
-* `main.rs` handles high-level UI and communication with backend, wiring everything together
+* `main.rs` handles CLI, instantiates frontend and backend, wiring everything together
 
 Application supports bare minimum configuration and doesn't support operator functionality (not yet anyway).
 
