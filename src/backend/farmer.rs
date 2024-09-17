@@ -31,6 +31,9 @@ use subspace_farmer::farm::{
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::plotter::cpu::CpuPlotter;
+#[cfg(feature = "_gpu")]
+use subspace_farmer::plotter::gpu::GpuPlotter;
+use subspace_farmer::plotter::Plotter;
 use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
@@ -307,6 +310,48 @@ where
     )?;
 
     let global_mutex = Arc::default();
+
+    #[cfg(feature = "_gpu")]
+    let mut modern_plotter = None::<Arc<dyn Plotter + Send + Sync>>;
+    #[cfg(not(feature = "_gpu"))]
+    let modern_plotter = None::<Arc<dyn Plotter + Send + Sync>>;
+
+    #[cfg(feature = "cuda")]
+    {
+        use subspace_farmer::plotter::gpu::cuda::CudaRecordsEncoder;
+        use subspace_proof_of_space_gpu::cuda::cuda_devices;
+
+        let cuda_devices = cuda_devices();
+        let used_cuda_devices = (0..cuda_devices.len()).collect::<Vec<_>>();
+
+        if cuda_devices.is_empty() {
+            debug!("No CUDA GPU devices found");
+        } else {
+            info!(?used_cuda_devices, "Using CUDA GPUs");
+
+            let cuda_plotter = GpuPlotter::new(
+                piece_getter.clone(),
+                Arc::new(Semaphore::new(cuda_devices.len() + 1)),
+                cuda_devices
+                    .into_iter()
+                    .map(|cuda_device| {
+                        CudaRecordsEncoder::new(cuda_device, Arc::clone(&global_mutex))
+                    })
+                    .collect::<Result<_, _>>()
+                    .map_err(|error| {
+                        anyhow::anyhow!("Failed to create CUDA records encoder: {error}")
+                    })?,
+                Arc::clone(&global_mutex),
+                kzg.clone(),
+                erasure_coding.clone(),
+                None,
+            )
+            .map_err(|error| anyhow::anyhow!("Failed to initialize CUDA plotter: {error}"))?;
+
+            modern_plotter.replace(Arc::new(cuda_plotter));
+        }
+    }
+
     let legacy_cpu_plotter = Arc::new(CpuPlotter::<_, PosTableLegacy>::new(
         piece_getter.clone(),
         Arc::clone(&downloading_semaphore),
@@ -317,16 +362,23 @@ where
         erasure_coding.clone(),
         None,
     ));
-    let modern_cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
-        piece_getter.clone(),
-        downloading_semaphore,
-        plotting_thread_pool_manager.clone(),
-        record_encoding_concurrency,
-        Arc::clone(&global_mutex),
-        kzg.clone(),
-        erasure_coding.clone(),
-        None,
-    ));
+    let modern_plotter = if let Some(modern_plotter) = modern_plotter {
+        info!("CPU plotting for v1 farms was disabled due to detected faster plotting with GPU");
+
+        modern_plotter
+    } else {
+        let modern_cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
+            piece_getter.clone(),
+            downloading_semaphore,
+            plotting_thread_pool_manager.clone(),
+            record_encoding_concurrency,
+            Arc::clone(&global_mutex),
+            kzg.clone(),
+            erasure_coding.clone(),
+            None,
+        ));
+        Arc::new(modern_cpu_plotter)
+    };
 
     let (farms, plotting_delay_senders) = {
         let farms_total = disk_farms.len();
@@ -350,7 +402,7 @@ where
                 let kzg = kzg.clone();
                 let erasure_coding = erasure_coding.clone();
                 let plotter_legacy = Arc::clone(&legacy_cpu_plotter);
-                let plotter = Arc::clone(&modern_cpu_plotter);
+                let plotter = Arc::clone(&modern_plotter);
                 let global_mutex = Arc::clone(&global_mutex);
                 let faster_read_sector_record_chunks_mode_barrier =
                     Arc::clone(&faster_read_sector_record_chunks_mode_barrier);
