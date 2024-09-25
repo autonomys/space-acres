@@ -4,7 +4,7 @@ pub(super) mod maybe_node_client;
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
 use crate::backend::PieceGetterWrapper;
-use crate::{PosTable, PosTableLegacy};
+use crate::PosTable;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use bytesize::ByteSize;
@@ -312,9 +312,9 @@ where
     let global_mutex = Arc::default();
 
     #[cfg(feature = "_gpu")]
-    let mut modern_plotter = None::<Arc<dyn Plotter + Send + Sync>>;
+    let mut plotter = None::<Arc<dyn Plotter + Send + Sync>>;
     #[cfg(not(feature = "_gpu"))]
-    let modern_plotter = None::<Arc<dyn Plotter + Send + Sync>>;
+    let plotter = None::<Arc<dyn Plotter + Send + Sync>>;
 
     #[cfg(feature = "cuda")]
     {
@@ -348,26 +348,16 @@ where
             )
             .map_err(|error| anyhow::anyhow!("Failed to initialize CUDA plotter: {error}"))?;
 
-            modern_plotter.replace(Arc::new(cuda_plotter));
+            plotter.replace(Arc::new(cuda_plotter));
         }
     }
 
-    let legacy_cpu_plotter = Arc::new(CpuPlotter::<_, PosTableLegacy>::new(
-        piece_getter.clone(),
-        Arc::clone(&downloading_semaphore),
-        plotting_thread_pool_manager.clone(),
-        record_encoding_concurrency,
-        Arc::clone(&global_mutex),
-        kzg.clone(),
-        erasure_coding.clone(),
-        None,
-    ));
-    let modern_plotter = if let Some(modern_plotter) = modern_plotter {
+    let plotter = if let Some(plotter) = plotter {
         info!("CPU plotting for v1 farms was disabled due to detected faster plotting with GPU");
 
-        modern_plotter
+        plotter
     } else {
-        let modern_cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
+        let cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
             piece_getter.clone(),
             downloading_semaphore,
             plotting_thread_pool_manager.clone(),
@@ -377,7 +367,7 @@ where
             erasure_coding.clone(),
             None,
         ));
-        Arc::new(modern_cpu_plotter)
+        Arc::new(cpu_plotter)
     };
 
     let (farms, plotting_delay_senders) = {
@@ -401,8 +391,7 @@ where
                 let max_pieces_in_sector = farmer_app_info.protocol_info.max_pieces_in_sector;
                 let kzg = kzg.clone();
                 let erasure_coding = erasure_coding.clone();
-                let plotter_legacy = Arc::clone(&legacy_cpu_plotter);
-                let plotter = Arc::clone(&modern_plotter);
+                let plotter = Arc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
                 let faster_read_sector_record_chunks_mode_barrier =
                     Arc::clone(&faster_read_sector_record_chunks_mode_barrier);
@@ -410,7 +399,7 @@ where
                     Arc::clone(&faster_read_sector_record_chunks_mode_concurrency);
 
                 async move {
-                    let farm_fut = SingleDiskFarm::new::<_, PosTableLegacy, PosTable>(
+                    let farm_fut = SingleDiskFarm::new::<_, PosTable>(
                         SingleDiskFarmOptions {
                             directory: disk_farm.directory.clone(),
                             farmer_app_info,
@@ -418,7 +407,6 @@ where
                             max_pieces_in_sector,
                             node_client,
                             reward_address,
-                            plotter_legacy,
                             plotter,
                             kzg,
                             erasure_coding,

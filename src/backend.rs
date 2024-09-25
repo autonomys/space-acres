@@ -21,7 +21,7 @@ use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, StreamExt};
-use sc_subspace_chain_specs::GEMINI_3H_CHAIN_SPEC;
+use sc_subspace_chain_specs::DEVNET_CHAIN_SPEC;
 use sp_consensus_subspace::ChainConstants;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -257,7 +257,6 @@ pub enum BackendNotification {
         chain_info: ChainInfo,
         chain_constants: ChainConstants,
     },
-    UnoptimizedNodeDb,
     Node(NodeNotification),
     Farmer(FarmerNotification<FarmIndex>),
     Stopped {
@@ -713,7 +712,8 @@ async fn load_chain_specification(
         ))
         .await?;
 
-    let chain_spec = node::load_chain_specification(GEMINI_3H_CHAIN_SPEC.as_bytes())
+    // TODO: Switch to non-devnet chain spec
+    let chain_spec = node::load_chain_specification(DEVNET_CHAIN_SPEC.as_bytes())
         .map_err(|error| anyhow::anyhow!(error))?;
 
     notifications_sender
@@ -948,12 +948,6 @@ async fn create_consensus_node(
         }
     };
 
-    if !consensus_node.optimized_node_db() {
-        notifications_sender
-            .send(BackendNotification::UnoptimizedNodeDb)
-            .await?;
-    }
-
     notifications_sender
         .send(BackendNotification::Loading(
             LoadingStep::ConsensusNodeCreatedSuccessfully,
@@ -1124,8 +1118,7 @@ pub async fn wipe(
             }))
             .await?;
 
-        // TODO: Remove "paritydb" once support for upgrade from Gemini 3g is no longer necessary
-        for subdirectory in &["db", "network", "paritydb"] {
+        for subdirectory in &["db", "network"] {
             let path = path.join(subdirectory);
 
             if fs::try_exists(&path).await.unwrap_or(true) {
@@ -1150,22 +1143,4 @@ pub async fn wipe(
     }
 
     Ok(())
-}
-
-// TODO: This is a temporary upgrade note that should be removed after Gemini 3h
-pub fn wipe_node_db(node_path: &Path) {
-    let node_db_path = node_path.join("db");
-    let mut attempts = 0_usize;
-
-    while node_db_path.exists()
-        && let Err(error) = std::fs::remove_dir_all(&node_db_path)
-    {
-        warn!(%error, "Failed to remove node `db` directory, trying again in a bit");
-        std::thread::sleep(Duration::from_secs(1));
-        attempts += 1;
-
-        if attempts >= 100 {
-            return;
-        }
-    }
 }

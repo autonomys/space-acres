@@ -188,10 +188,8 @@ status_bar_message_configuration_is_invalid = La configuración es invalida: {$e
 status_bar_message_restart_is_needed_for_configuration = La aplicación necesita reiniciarse para que los cambios tengan efecto
 status_bar_message_failed_to_save_configuration = Fallo al guardar los cambios: {$error}
 status_bar_message_restarted_after_crash = Space Acres se ha reiniciado automáticamente después de un error, mira la traza de la aplicación y del sistema para más detalles.
-status_bar_message_unoptimized_node_db = La base de datos del nodo no está optimizada y necesita resincronizarse para un rendimiento óptimo
 status_bar_button_restart = Reiniciar
 status_bar_button_ok = Vale
-status_bar_button_resync_node = Resincronizar nodo
 
 about_system_information =
     Carpeta de configuración: {$config_directory}

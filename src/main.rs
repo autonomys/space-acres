@@ -34,7 +34,6 @@ use std::time::{Duration, Instant};
 use std::{env, fs, io, process};
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_proof_of_space::chia::ChiaTable;
-use subspace_proof_of_space::chia_legacy::ChiaTableLegacy;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::prelude::*;
@@ -53,7 +52,6 @@ const LOG_READ_BUFFER: usize = ByteSize::mib(1).as_u64() as usize;
 const WINDOWS_SUBSYSTEM_WINDOWS: bool = cfg!(all(windows, not(debug_assertions)));
 const MIN_RUNTIME_DURATION_FOR_AUTORESTART: Duration = Duration::from_secs(30);
 
-type PosTableLegacy = ChiaTableLegacy;
 type PosTable = ChiaTable;
 
 fn raise_fd_limit() {

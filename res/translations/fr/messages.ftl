@@ -103,7 +103,7 @@ running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, mi
 running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocs/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} minutes restantes)
 running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocs/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} secondes restantes)
 running_node_status_syncing =
-    {$sync_kind -> 
+    {$sync_kind ->
         [dsn] Synchronisation depuis DSN
         [regular] Synchronisation régulière
         *[unknown] Type de synchronisation inconnu {$sync_kind}
@@ -188,10 +188,8 @@ status_bar_message_configuration_is_invalid = La configuration est invalide : {$
 status_bar_message_restart_is_needed_for_configuration = Redémarrez l'application pour que les modifications de configuration prennent effet
 status_bar_message_failed_to_save_configuration = Échec de la sauvegarde de la configuration : {$error}
 status_bar_message_restarted_after_crash = Space Acres s'est automatiquement redémarré après un crash. Consultez l'application et le journal système pour plus de détails
-status_bar_message_unoptimized_node_db = La base de données du nœud n'est pas optimisée, une resynchronisation est nécessaire pour des performances optimales
 status_bar_button_restart = Redémarrer
 status_bar_button_ok = OK
-status_bar_button_resync_node = Resynchroniser le nœud
 
 about_system_information =
     Répertoire de configuration : {$config_directory}
