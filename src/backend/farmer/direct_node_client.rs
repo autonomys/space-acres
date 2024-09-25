@@ -643,11 +643,12 @@ where
             .max_segment_index()
             .unwrap_or(SegmentIndex::ZERO);
 
-        let last_segment_headers = (SegmentIndex::ZERO..=last_segment_index)
+        let mut last_segment_headers = (SegmentIndex::ZERO..=last_segment_index)
             .rev()
             .take(limit as usize)
             .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
             .collect::<Vec<_>>();
+        last_segment_headers.reverse();
 
         Ok(last_segment_headers)
     }
