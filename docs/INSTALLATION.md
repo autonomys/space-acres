@@ -52,8 +52,8 @@ this application may sometimes work fine and sometimes have a hard time syncing 
 
 For Windows go to [the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached
 file with `.msi` extension. It is not digitally signed, so you'll have to agree to accept the risk when downloading and
-installing it for now. Note that while things might work on other versions of Windows, **only Windows 10 and 11** with
-latest updates supported.
+installing it for now. Note that while things might work on other versions of Windows, **only Windows 11** with
+latest updates is supported.
 
 ### Dependencies
 
@@ -72,7 +72,7 @@ Currently, there are two ways to get Space Acres on Linux:
 
 ### Ubuntu
 
-For **Ubuntu 22.04 or newer** (older versions not supported) go
+For **Ubuntu 24.04 or newer** (older versions not supported) go
 to [the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached
 file with `.deb` extension for your architecture (most likely `amd64`).
 
