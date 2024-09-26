@@ -170,13 +170,19 @@ jobs:
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
         if: runner.os == 'macOS'
 
-      - name: Build app (Linux or Windows, normal, CUDA)
+      - name: Build app (Linux, normal, CUDA)
         # CXX for CUDA
         env:
           CXX: g++-12
           RUSTFLAGS: ${{ matrix.build.rustflags }}
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --features cuda
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
+
+      - name: Build app (Windows, normal, CUDA)
+        env:
+          RUSTFLAGS: ${{ matrix.build.rustflags }}
+        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --features cuda
+        if: runner.os == 'Windows'
 
       - name: Create bundle (macOS)
         run: |
