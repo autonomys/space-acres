@@ -1,12 +1,12 @@
 use crate::backend::node::{ChainInfo, SyncState};
 use crate::backend::NodeNotification;
 use crate::frontend::translations::{AsDefaultStr, T};
+use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
-use relm4_icons::icon_name;
 use simple_moving_average::{SingleSumSMA, SMA};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -103,7 +103,7 @@ impl Component for NodeView {
                             .unwrap_or_default(),
 
                         gtk::Image {
-                            set_icon_name: Some(icon_name::SSD),
+                            set_icon_name: Some(icon_names::SSD),
                         },
 
                         gtk::LevelBar {

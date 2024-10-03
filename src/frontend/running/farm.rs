@@ -1,11 +1,11 @@
 use crate::backend::farmer::DiskFarm;
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::NotificationExt;
+use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
 use relm4::prelude::*;
-use relm4_icons::icon_name;
 use simple_moving_average::{SingleSumSMA, SMA};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -177,7 +177,7 @@ impl FactoryComponent for FarmWidget {
                         set_hexpand: true,
 
                         gtk::Image {
-                            set_icon_name: Some(icon_name::WARNING),
+                            set_icon_name: Some(icon_names::WARNING),
                         }
                     },
                     None => {
@@ -215,9 +215,9 @@ impl FactoryComponent for FarmWidget {
                                     gtk::Image {
                                         #[track = "self.changed_proving_result() || self.changed_auditing_time_score() || self.changed_proving_time_score()"]
                                         set_icon_name: Some(match self.farm_score() {
-                                            ..=0.4 => icon_name::SPEEDOMETER4,
-                                            ..=0.8 => icon_name::SPEEDOMETER3,
-                                            _ => icon_name::SPEEDOMETER2,
+                                            ..=0.4 => icon_names::SPEEDOMETER4,
+                                            ..=0.8 => icon_names::SPEEDOMETER3,
+                                            _ => icon_names::SPEEDOMETER2,
                                         }),
                                     },
                                 },
@@ -235,7 +235,7 @@ impl FactoryComponent for FarmWidget {
                                     set_visible: self.farm_details && self.auditing_time.get_num_samples() > 0,
 
                                     gtk::Image {
-                                        set_icon_name: Some(icon_name::PUZZLE_PIECE),
+                                        set_icon_name: Some(icon_names::PUZZLE_PIECE),
                                     },
 
                                     gtk::LevelBar {
@@ -259,7 +259,7 @@ impl FactoryComponent for FarmWidget {
                                     set_visible: self.farm_details && self.proving_time.get_num_samples() > 0,
 
                                     gtk::Image {
-                                        set_icon_name: Some(icon_name::PROCESSOR),
+                                        set_icon_name: Some(icon_names::PROCESSOR),
                                     },
 
                                     gtk::LevelBar {
@@ -271,7 +271,7 @@ impl FactoryComponent for FarmWidget {
                                 },
 
                                 gtk::Image {
-                                    set_icon_name: Some(icon_name::WARNING),
+                                    set_icon_name: Some(icon_names::WARNING),
                                     #[track = "self.changed_non_fatal_farming_error()"]
                                     set_tooltip: {
                                         let last_error = self.non_fatal_farming_error
