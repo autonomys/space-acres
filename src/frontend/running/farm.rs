@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::SectorIndex;
+use subspace_core_primitives::sectors::SectorIndex;
 use subspace_farmer::farm::{
     FarmingError, FarmingNotification, ProvingResult, SectorExpirationDetails,
     SectorPlottingDetails, SectorUpdate,

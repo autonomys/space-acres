@@ -1,4 +1,5 @@
 use async_lock::RwLock as AsyncRwLock;
+use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
@@ -12,20 +13,31 @@ use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::kad::RecordKey;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::libp2p::Multiaddr;
+use subspace_networking::protocols::request_response::handlers::cached_piece_by_index::{
+    CachedPieceByIndexRequest, CachedPieceByIndexRequestHandler, CachedPieceByIndexResponse,
+    PieceResult,
+};
+use subspace_networking::protocols::request_response::handlers::piece_by_index::{
+    PieceByIndexRequest, PieceByIndexRequestHandler, PieceByIndexResponse,
+};
+use subspace_networking::protocols::request_response::handlers::segment_header::{
+    SegmentHeaderBySegmentIndexesRequestHandler, SegmentHeaderRequest, SegmentHeaderResponse,
+};
 use subspace_networking::utils::multihash::ToMultihash;
 use subspace_networking::utils::strip_peer_id;
 use subspace_networking::{
     construct, Config, KademliaMode, KnownPeersManager, KnownPeersManagerConfig, Node, NodeRunner,
-    PieceByIndexRequest, PieceByIndexRequestHandler, PieceByIndexResponse,
-    SegmentHeaderBySegmentIndexesRequestHandler, SegmentHeaderRequest, SegmentHeaderResponse,
+    WeakNode,
 };
 use subspace_rpc_primitives::MAX_SEGMENT_HEADERS_PER_REQUEST;
-use tracing::{debug, error, info, info_span, Instrument};
+use tracing::{debug, error, info, info_span, warn, Instrument};
 
 /// How many segment headers can be requested at a time.
 ///
 /// Must be the same as RPC limit since all requests go to the node anyway.
-const SEGMENT_HEADER_NUMBER_LIMIT: u64 = MAX_SEGMENT_HEADERS_PER_REQUEST as u64;
+const SEGMENT_HEADERS_LIMIT: u32 = MAX_SEGMENT_HEADERS_PER_REQUEST as u32;
+/// Max number of cached pieces to accept per request
+const MAX_CACHED_PIECES: usize = 128;
 
 /// Network options
 #[derive(Debug)]
@@ -113,6 +125,7 @@ where
     })
     .map(Box::new)?;
 
+    let maybe_weak_node = Arc::new(Mutex::new(None::<WeakNode>));
     let default_config = Config::new(protocol_prefix, keypair.into(), farmer_cache.clone(), None);
     let config = Config {
         reserved_peers,
@@ -120,7 +133,64 @@ where
         allow_non_global_addresses_in_dht: enable_private_ips,
         known_peers_registry,
         request_response_protocols: vec![
-            PieceByIndexRequestHandler::create(move |_, &PieceByIndexRequest { piece_index }| {
+            {
+                let maybe_weak_node = Arc::clone(&maybe_weak_node);
+                let farmer_cache = farmer_cache.clone();
+
+                CachedPieceByIndexRequestHandler::create(move |peer_id, request| {
+                    let CachedPieceByIndexRequest {
+                        piece_index,
+                        mut cached_pieces,
+                    } = request;
+                    debug!(?piece_index, "Cached piece request received");
+
+                    let maybe_weak_node = Arc::clone(&maybe_weak_node);
+                    let farmer_cache = farmer_cache.clone();
+
+                    async move {
+                        let piece_from_cache =
+                            farmer_cache.get_piece(piece_index.to_multihash()).await;
+                        cached_pieces.truncate(MAX_CACHED_PIECES);
+                        let cached_pieces = farmer_cache.has_pieces(cached_pieces).await;
+
+                        Some(CachedPieceByIndexResponse {
+                            result: match piece_from_cache {
+                                Some(piece) => PieceResult::Piece(piece),
+                                None => {
+                                    let maybe_node = maybe_weak_node
+                                        .lock()
+                                        .as_ref()
+                                        .expect("Always called after network instantiation; qed")
+                                        .upgrade();
+
+                                    let closest_peers = if let Some(node) = maybe_node {
+                                        node.get_closest_local_peers(
+                                            piece_index.to_multihash(),
+                                            Some(peer_id),
+                                        )
+                                        .await
+                                        .inspect_err(|error| {
+                                            warn!(%error, "Failed to get closest local peers");
+                                        })
+                                        .unwrap_or_default()
+                                    } else {
+                                        Vec::new()
+                                    };
+
+                                    PieceResult::ClosestPeers(closest_peers.into())
+                                }
+                            },
+                            cached_pieces,
+                        })
+                    }
+                    .in_current_span()
+                })
+            },
+            PieceByIndexRequestHandler::create(move |_, request| {
+                let PieceByIndexRequest {
+                    piece_index,
+                    mut cached_pieces,
+                } = request;
                 debug!(?piece_index, "Piece request received. Trying cache...");
 
                 let weak_plotted_pieces = weak_plotted_pieces.clone();
@@ -128,10 +198,15 @@ where
 
                 async move {
                     let key = RecordKey::from(piece_index.to_multihash());
-                    let piece_from_store = farmer_cache.get_piece(key).await;
+                    let piece_from_cache = farmer_cache.get_piece(key).await;
+                    cached_pieces.truncate(MAX_CACHED_PIECES);
+                    let cached_pieces = farmer_cache.has_pieces(cached_pieces).await;
 
-                    if let Some(piece) = piece_from_store {
-                        Some(PieceByIndexResponse { piece: Some(piece) })
+                    if let Some(piece) = piece_from_cache {
+                        Some(PieceByIndexResponse {
+                            piece: Some(piece),
+                            cached_pieces,
+                        })
                     } else {
                         debug!(
                             ?piece_index,
@@ -153,7 +228,10 @@ where
 
                         let piece = read_piece_fut.await;
 
-                        Some(PieceByIndexResponse { piece })
+                        Some(PieceByIndexResponse {
+                            piece,
+                            cached_pieces,
+                        })
                     }
                 }
                 .in_current_span()
@@ -162,7 +240,6 @@ where
                 debug!(?req, "Segment headers request received.");
 
                 let node_client = node_client.clone();
-                let req = req.clone();
 
                 async move {
                     let internal_result = match req {
@@ -174,20 +251,16 @@ where
 
                             node_client.segment_headers(segment_indexes).await
                         }
-                        SegmentHeaderRequest::LastSegmentHeaders {
-                            mut segment_header_number,
-                        } => {
-                            if segment_header_number > SEGMENT_HEADER_NUMBER_LIMIT {
+                        SegmentHeaderRequest::LastSegmentHeaders { mut limit } => {
+                            if limit > SEGMENT_HEADERS_LIMIT {
                                 debug!(
-                                    %segment_header_number,
+                                    %limit,
                                     "Segment header number exceeded the limit."
                                 );
 
-                                segment_header_number = SEGMENT_HEADER_NUMBER_LIMIT;
+                                limit = SEGMENT_HEADERS_LIMIT;
                             }
-                            node_client
-                                .last_segment_headers(segment_header_number)
-                                .await
+                            node_client.last_segment_headers(limit).await
                         }
                     };
 

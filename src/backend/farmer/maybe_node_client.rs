@@ -2,7 +2,8 @@ use arc_swap::ArcSwapOption;
 use futures::Stream;
 use std::pin::Pin;
 use std::sync::Arc;
-use subspace_core_primitives::SegmentHeader;
+use subspace_core_primitives::pieces::{Piece, PieceIndex};
+use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use subspace_farmer::node_client::{Error, NodeClient, NodeClientExt};
 use subspace_rpc_primitives::{
     FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
@@ -63,10 +64,7 @@ impl NodeClient for MaybeNodeClient {
 
     async fn subscribe_archived_segment_headers(
         &self,
-    ) -> Result<
-        Pin<Box<dyn Stream<Item = subspace_core_primitives::SegmentHeader> + Send + 'static>>,
-        Error,
-    > {
+    ) -> Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.subscribe_archived_segment_headers().await,
             None => Err("Inner node client not injected yet".into()),
@@ -75,18 +73,15 @@ impl NodeClient for MaybeNodeClient {
 
     async fn segment_headers(
         &self,
-        segment_indexes: Vec<subspace_core_primitives::SegmentIndex>,
-    ) -> Result<Vec<Option<subspace_core_primitives::SegmentHeader>>, Error> {
+        segment_indexes: Vec<SegmentIndex>,
+    ) -> Result<Vec<Option<SegmentHeader>>, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.segment_headers(segment_indexes).await,
             None => Err("Inner node client not injected yet".into()),
         }
     }
 
-    async fn piece(
-        &self,
-        piece_index: subspace_core_primitives::PieceIndex,
-    ) -> Result<Option<subspace_core_primitives::Piece>, Error> {
+    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.piece(piece_index).await,
             None => Err("Inner node client not injected yet".into()),
@@ -95,7 +90,7 @@ impl NodeClient for MaybeNodeClient {
 
     async fn acknowledge_archived_segment_header(
         &self,
-        segment_index: subspace_core_primitives::SegmentIndex,
+        segment_index: SegmentIndex,
     ) -> Result<(), Error> {
         match &*self.inner.load() {
             Some(inner) => {
@@ -110,7 +105,7 @@ impl NodeClient for MaybeNodeClient {
 
 #[async_trait::async_trait]
 impl NodeClientExt for MaybeNodeClient {
-    async fn last_segment_headers(&self, limit: u64) -> Result<Vec<Option<SegmentHeader>>, Error> {
+    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error> {
         match &*self.inner.load() {
             Some(inner) => inner.last_segment_headers(limit).await,
             None => Err("Inner node client not injected yet".into()),

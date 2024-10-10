@@ -31,14 +31,14 @@ merge-assets.append = [
 include = ["res/windows/wix/space-acres.wxs"]
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.89"
 arc-swap = "1.7.1"
 async-lock = "3.4.0"
 async-oneshot = "0.5.9"
-async-trait = "0.1.80"
+async-trait = "0.1.83"
 backoff = { version = "0.4.0", features = ["futures", "tokio"] }
 bytesize = "1.3.0"
-clap = { version = "4.5.8", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 dark-light = "1.1.1"
 dirs = "5.0.1"
 duct = "0.13.7"
@@ -46,68 +46,69 @@ event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
 file-rotate = "0.7.6"
 fluent-langneg = "0.14.1"
-fluent-static = "0.3.2"
-frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-fs4 = "0.8.4"
-futures = "0.3.30"
+fluent-static = "0.4.0"
+frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+fs4 = "0.10.0"
+futures = "0.3.31"
 futures-timer = "3.0.3"
 gtk = { version = "0.7.3", package = "gtk4" }
 hex = "0.4.3"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25.2", default-features = false, features = ["png"] }
 mimalloc = "0.1.43"
 names = "0.14.0"
-notify-rust = { version = "4.11.1", features = ["images"] }
-open = "5.2.0"
-pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
+notify-rust = { version = "4.11.3", features = ["images"] }
+open = "5.3.0"
+pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
 parity-scale-codec = "3.6.12"
 parking_lot = "0.12.3"
 relm4 = "0.7.0-rc.1"
 relm4-components = { version = "0.7.0-rc.1", default-features = false }
 relm4-icons = { version = "0.7.0-alpha.2", features = ["checkmark", "cross", "grid-filled", "menu-large", "pause", "processor", "puzzle-piece", "size-horizontally", "speedometer2", "speedometer3", "speedometer4", "ssd", "wallet2", "warning"] }
-reqwest = { version = "0.12.4", default-features = false, features = ["json", "rustls-tls"] }
-sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-consensus-slots = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-sc-informant = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-network-types = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-rpc = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-sc-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
+reqwest = { version = "0.12.8", default-features = false, features = ["json", "rustls-tls"] }
+sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-consensus-slots = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+sc-informant = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-network-types = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-rpc = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+sc-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
 schnellru = "0.2.3"
 semver = "1.0.23"
-serde = { version = "1.0.209", features = ["derive"] }
-serde_json = "1.0.127"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
 simple_moving_average = "1.0.2"
-sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sp-blockchain = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sp-consensus = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-sp-objects = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "5626154d0781ac9a6ffd5a6207ed237f425ae631", default-features = false }
-subspace-archiving = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-fake-runtime-api = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e", default-features = false }
-subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-networking = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-proof-of-space-gpu = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e", optional = true }
-subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-subspace-service = { git = "https://github.com/subspace/subspace", rev = "6dc72222145aaf4ac3d925913b81467eac02f02e" }
-supports-color = "3.0.0"
+sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sp-blockchain = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sp-consensus = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+sp-domains-fraud-proof = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+sp-objects = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
+subspace-archiving = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-fake-runtime-api = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0", default-features = false }
+subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-kzg = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-networking = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-proof-of-space-gpu = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0", optional = true }
+subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+subspace-service = { git = "https://github.com/subspace/subspace", rev = "6c0c789a674cba083718bc09512c32923fd5fde0" }
+supports-color = "3.0.1"
 sys-locale = "0.3.1"
-tempfile = "3.10.1"
-thiserror = "1.0.61"
+tempfile = "3.13.0"
+thiserror = "1.0.64"
 thread-priority = "1.1.0"
-tokio = { version = "1.38.0", features = ["fs", "time"] }
+tokio = { version = "1.40.0", features = ["fs", "time"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 tracker = "0.2.2"
@@ -117,13 +118,13 @@ native-dialog = "0.7.0"
 tracing-panic = "0.1.2"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-tray-icon = "0.16.0"
+tray-icon = "0.19.0"
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 ksni = "0.2.2"
 
 [build-dependencies]
-fluent-static-codegen = "0.3.2"
+fluent-static-codegen = "0.5.0"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
@@ -137,6 +138,11 @@ cuda = [
     "_gpu",
     "subspace-farmer/cuda",
     "subspace-proof-of-space-gpu/cuda",
+]
+rocm = [
+    "_gpu",
+    "subspace-farmer/rocm",
+    "subspace-proof-of-space-gpu/rocm",
 ]
 _gpu = []
 
@@ -191,6 +197,7 @@ subspace-archiving = { opt-level = 3 }
 subspace-core-primitives = { opt-level = 3 }
 subspace-erasure-coding = { opt-level = 3 }
 subspace-farmer-components = { opt-level = 3 }
+subspace-kzg = { opt-level = 3 }
 subspace-proof-of-space = { opt-level = 3 }
 subspace-proof-of-time = { opt-level = 3 }
 substrate-bip39 = { opt-level = 3 }
@@ -199,10 +206,6 @@ uint = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
-
-[profile.release]
-# Substrate runtime requires unwinding.
-panic = "unwind"
 
 [profile.production]
 inherits = "release"
@@ -214,3 +217,12 @@ lto = "fat"
 litep2p = { git = "https://github.com/subspace/litep2p", rev = "1ea540c6af3ed85a62355a106311740533553677" }
 # TODO: Remove once something newer than 0.15.3 is released with support for `NUMBER()` built-in function and used in `fluent-static`
 fluent-bundle = { git = "https://github.com/projectfluent/fluent-rs", rev = "bda4736095a4a60a9a042b336d0789c22461905d" }
+
+# Reason: We need to patch substrate dependency of frontier to our fork
+# TODO: Remove if/when we are using upstream substrate instead of fork
+[patch."https://github.com/paritytech/polkadot-sdk.git"]
+sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42" }
+sp-io = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42" }
+sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42" }
+sp-runtime-interface = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42" }
+staging-xcm = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42" }

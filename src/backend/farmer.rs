@@ -21,8 +21,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, fs};
-use subspace_core_primitives::crypto::kzg::Kzg;
-use subspace_core_primitives::{PublicKey, Record, SectorIndex};
+use subspace_core_primitives::pieces::Record;
+use subspace_core_primitives::sectors::SectorIndex;
+use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{
@@ -42,6 +43,7 @@ use subspace_farmer::utils::{
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
 };
 use subspace_farmer_components::plotting::PlottedSector;
+use subspace_kzg::Kzg;
 use thread_priority::ThreadPriority;
 use tokio::sync::{watch, Barrier, Semaphore};
 use tracing::{debug, error, info, info_span, Instrument};
@@ -349,6 +351,42 @@ where
             .map_err(|error| anyhow::anyhow!("Failed to initialize CUDA plotter: {error}"))?;
 
             plotter.replace(Arc::new(cuda_plotter));
+        }
+    }
+
+    #[cfg(feature = "rocm")]
+    {
+        use subspace_farmer::plotter::gpu::rocm::RocmRecordsEncoder;
+        use subspace_proof_of_space_gpu::rocm::rocm_devices;
+
+        let rocm_devices = rocm_devices();
+        let used_rocm_devices = (0..rocm_devices.len()).collect::<Vec<_>>();
+
+        if rocm_devices.is_empty() {
+            debug!("No ROCm GPU devices found");
+        } else {
+            info!(?used_rocm_devices, "Using ROCm GPUs");
+
+            let rocm_plotter = GpuPlotter::new(
+                piece_getter.clone(),
+                Arc::new(Semaphore::new(rocm_devices.len() + 1)),
+                rocm_devices
+                    .into_iter()
+                    .map(|rocm_device| {
+                        RocmRecordsEncoder::new(rocm_device, Arc::clone(&global_mutex))
+                    })
+                    .collect::<Result<_, _>>()
+                    .map_err(|error| {
+                        anyhow::anyhow!("Failed to create ROCm records encoder: {error}")
+                    })?,
+                Arc::clone(&global_mutex),
+                kzg.clone(),
+                erasure_coding.clone(),
+                None,
+            )
+            .map_err(|error| anyhow::anyhow!("Failed to initialize ROCm plotter: {error}"))?;
+
+            plotter.replace(Arc::new(rocm_plotter));
         }
     }
 

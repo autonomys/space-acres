@@ -20,7 +20,9 @@ use relm4_icons::icon_name;
 use sp_consensus_subspace::ChainConstants;
 use std::num::NonZeroU8;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::{solution_range_to_sectors, BlockNumber, Piece, SolutionRange};
+use subspace_core_primitives::pieces::Piece;
+use subspace_core_primitives::solutions::{solution_range_to_pieces, SolutionRange};
+use subspace_core_primitives::BlockNumber;
 use subspace_farmer::farm::{
     FarmingNotification, ProvingResult, SectorPlottingDetails, SectorUpdate,
 };
@@ -410,15 +412,12 @@ impl RunningView {
                             self.farmer_state.last_reward_received_time = Instant::now();
                         }
 
-                        let network_space_pledged_sectors = solution_range_to_sectors(
+                        let network_space_pledged_pieces = solution_range_to_pieces(
                             imported_block.solution_range,
                             self.farmer_state.slot_probability,
-                            // It doesn't really matter what we use as pieces in sectors, just need
-                            // to be the same in the next expression
-                            2,
                         );
                         let network_space_pledged =
-                            u128::from(network_space_pledged_sectors) * 2 * Piece::SIZE as u128;
+                            u128::from(network_space_pledged_pieces) * Piece::SIZE as u128;
                         self.farmer_state.network_space_pledged = network_space_pledged;
 
                         self.update_reward_eta_progress(imported_block.voting_solution_range);
@@ -516,15 +515,10 @@ impl RunningView {
         // higher perceived fraction of the space pledged that will increase reward frequency from
         // block reward to vote reward, which is exactly what we want without having access to
         // expected number of votes per block
-        let network_voting_space_pledged_sectors = solution_range_to_sectors(
-            voting_solution_range,
-            self.farmer_state.slot_probability,
-            // It doesn't really matter what we use as pieces in sectors, just need
-            // to be the same in the next expression
-            2,
-        );
+        let network_voting_space_pledged_pieces =
+            solution_range_to_pieces(voting_solution_range, self.farmer_state.slot_probability);
         let network_voting_space_pledged =
-            u128::from(network_voting_space_pledged_sectors) * 2 * Piece::SIZE as u128;
+            u128::from(network_voting_space_pledged_pieces) * Piece::SIZE as u128;
 
         // Take into consideration how much space was plotted so far
         let local_space_pledged = if self.farmer_state.sectors_total == 0 {

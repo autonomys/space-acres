@@ -15,7 +15,6 @@ use sc_client_api::client::BlockchainEvents;
 use sc_client_api::{HeaderBackend, StorageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus_slots::SlotProportion;
-use sc_informant::OutputFormat;
 use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig};
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec, NoExtension};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
@@ -32,7 +31,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::{BlockNumber, PublicKey, SolutionRange};
+use subspace_core_primitives::solutions::SolutionRange;
+use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_fake_runtime_api::RuntimeApi;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
@@ -231,7 +231,7 @@ impl ConsensusNode {
                             },
                             target: sync_status.best_seen_block.unwrap_or_default(),
                         }
-                    } else if sync_status.num_connected_peers > 0 {
+                    } else if self.full_node.sync_service.num_connected_peers() > 0 {
                         SyncState::Idle
                     } else {
                         SyncState::Unknown
@@ -353,13 +353,14 @@ fn pot_external_entropy(chain_spec: &ChainSpec) -> Result<Vec<u8>, sc_service::E
         .properties()
         .get("potExternalEntropy")
         .map(|d| match d.clone() {
-            Value::String(s) => Ok(s),
-            Value::Null => Ok(String::new()),
+            Value::String(s) => Ok(Some(s)),
+            Value::Null => Ok(None),
             _ => Err(sc_service::Error::Other(
                 "Failed to decode PoT initial key".to_string(),
             )),
         })
-        .transpose()?;
+        .transpose()?
+        .flatten();
     Ok(maybe_chain_spec_pot_external_entropy
         .unwrap_or_default()
         .into_bytes())
@@ -462,9 +463,6 @@ fn create_consensus_chain_config(
         telemetry_endpoints,
         force_authoring: false,
         chain_spec: chain_spec.into(),
-        informant_output_format: OutputFormat {
-            enable_color: false,
-        },
     }
 }
 

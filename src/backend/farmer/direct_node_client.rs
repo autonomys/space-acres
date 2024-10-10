@@ -1,7 +1,6 @@
 use async_lock::Mutex as AsyncMutex;
 use futures::channel::mpsc;
 use futures::{future, FutureExt, Stream, StreamExt};
-use parity_scale_codec::{Decode, Encode};
 use parking_lot::Mutex;
 use sc_client_api::{AuxStore, BlockBackend, HeaderBackend};
 use sc_consensus_subspace::archiver::{
@@ -14,8 +13,7 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use schnellru::{ByLength, LruMap};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
-use sp_consensus_subspace::{ChainConstants, FarmerPublicKey, FarmerSignature, SubspaceApi};
-use sp_core::crypto::ByteArray;
+use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use sp_core::H256;
 use sp_objects::ObjectsApi;
 use std::collections::hash_map::Entry;
@@ -26,14 +24,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_archiving::archiver::NewArchivedSegment;
-use subspace_core_primitives::crypto::kzg::Kzg;
-use subspace_core_primitives::{
-    BlockHash, HistorySize, Piece, PieceIndex, PublicKey, SegmentHeader, SegmentIndex, SlotNumber,
-    Solution,
-};
+use subspace_core_primitives::pieces::{Piece, PieceIndex};
+use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use subspace_core_primitives::solutions::Solution;
+use subspace_core_primitives::{BlockHash, PublicKey, SlotNumber};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::node_client::{Error, NodeClient, NodeClientExt};
 use subspace_farmer_components::FarmerProtocolInfo;
+use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{
     FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
@@ -110,9 +108,7 @@ pub(in super::super) struct DirectNodeClient<Client> {
     new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
     archived_segment_notification_stream: SubspaceNotificationStream<ArchivedSegmentNotification>,
-    #[allow(clippy::type_complexity)]
-    solution_response_senders:
-        Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution<PublicKey, PublicKey>>>>>,
+    solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution<PublicKey>>>>>,
     reward_signature_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
     segment_headers_store: SegmentHeadersStore<Client>,
@@ -137,7 +133,7 @@ impl<Client> Debug for DirectNodeClient<Client> {
 impl<Client> DirectNodeClient<Client>
 where
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + BlockBackend<Block> + 'static,
-    Client::Api: SubspaceApi<Block, FarmerPublicKey> + ObjectsApi<Block> + 'static,
+    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block> + 'static,
 {
     pub fn new(config: NodeClientConfig<Client>) -> Result<Self, ApiError> {
         let info = config.client.info();
@@ -191,7 +187,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, FarmerPublicKey> + ObjectsApi<Block> + 'static,
+    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block> + 'static,
 {
     async fn farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
         let last_segment_index = self
@@ -277,17 +273,12 @@ where
                 // into data structure `sc-consensus-subspace` expects
                 let forward_solution_fut = async move {
                     while let Some(solution) = response_receiver.next().await {
-                        let public_key = FarmerPublicKey::from_slice(solution.public_key.as_ref())
-                            .expect("Always correct length; qed");
-                        let reward_address =
-                            FarmerPublicKey::from_slice(solution.reward_address.as_ref())
-                                .expect("Always correct length; qed");
-
+                        let public_key = solution.public_key;
                         let sector_index = solution.sector_index;
 
                         let solution = Solution {
-                            public_key: public_key.clone(),
-                            reward_address,
+                            public_key,
+                            reward_address: solution.reward_address,
                             sector_index,
                             history_size: solution.history_size,
                             piece_offset: solution.piece_offset,
@@ -371,18 +362,7 @@ where
                 let forward_signature_fut = async move {
                     if let Ok(reward_signature) = response_receiver.await {
                         if let Some(signature) = reward_signature.signature {
-                            match FarmerSignature::decode(&mut signature.encode().as_ref()) {
-                                Ok(signature) => {
-                                    let _ = signature_sender.unbounded_send(signature);
-                                }
-                                Err(error) => {
-                                    warn!(
-                                        "Failed to convert signature of length {}: {}",
-                                        signature.len(),
-                                        error
-                                    );
-                                }
-                            }
+                            let _ = signature_sender.unbounded_send(signature);
                         }
                     }
                 };
@@ -402,10 +382,7 @@ where
                 // This will be sent to the farmer
                 RewardSigningInfo {
                     hash: hash.into(),
-                    public_key: public_key
-                        .as_slice()
-                        .try_into()
-                        .expect("Public key is always 32 bytes; qed"),
+                    public_key,
                 }
             },
         );
@@ -635,9 +612,9 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, FarmerPublicKey> + ObjectsApi<Block> + 'static,
+    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block> + 'static,
 {
-    async fn last_segment_headers(&self, limit: u64) -> Result<Vec<Option<SegmentHeader>>, Error> {
+    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error> {
         let last_segment_index = self
             .segment_headers_store
             .max_segment_index()
@@ -648,6 +625,7 @@ where
             .take(limit as usize)
             .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
             .collect::<Vec<_>>();
+
         last_segment_headers.reverse();
 
         Ok(last_segment_headers)
