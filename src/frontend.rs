@@ -99,8 +99,9 @@ impl NotificationExt for Notification {
 }
 
 #[thread_local]
-static PIXBUF_ABOUT_IMG: LazyCell<gtk::gdk_pixbuf::Pixbuf> = LazyCell::new(|| {
-    gtk::gdk_pixbuf::Pixbuf::from_read(ABOUT_IMAGE).expect("Statically correct image; qed")
+static PIXBUF_ABOUT_IMG: LazyCell<gtk::gdk::Texture> = LazyCell::new(|| {
+    gtk::gdk::Texture::from_bytes(&glib::Bytes::from_static(ABOUT_IMAGE))
+        .expect("Statically correct image; qed")
 });
 
 #[derive(Debug)]
@@ -329,7 +330,7 @@ impl AsyncComponent for App {
 
                             gtk::Image {
                                 set_height_request: 256,
-                                set_from_pixbuf: Some(&*PIXBUF_ABOUT_IMG),
+                                set_from_paintable: Some(&*PIXBUF_ABOUT_IMG),
                             },
 
                             gtk::Label {
@@ -359,7 +360,7 @@ impl AsyncComponent for App {
 
                             gtk::Image {
                                 set_height_request: 256,
-                                set_from_pixbuf: Some(&*PIXBUF_ABOUT_IMG),
+                                set_from_paintable: Some(&*PIXBUF_ABOUT_IMG),
                             },
 
                             gtk::Label {
@@ -567,7 +568,7 @@ impl AsyncComponent for App {
             .website(env!("CARGO_PKG_REPOSITORY"))
             .website_label("GitHub")
             .comments(env!("CARGO_PKG_DESCRIPTION"))
-            .logo(&gtk::gdk::Texture::for_pixbuf(&PIXBUF_ABOUT_IMG))
+            .logo(&*PIXBUF_ABOUT_IMG)
             .system_information({
                 let config_directory = dirs::config_local_dir()
                     .map(|config_local_dir| {
@@ -768,7 +769,7 @@ impl AsyncComponent for App {
                 }
             }
             AppInput::ShowAboutDialog => {
-                self.about_dialog.show();
+                self.about_dialog.present();
             }
             AppInput::InitialConfiguration => {
                 self.set_current_view(View::Configuration);

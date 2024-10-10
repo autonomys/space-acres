@@ -51,7 +51,7 @@ frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "587181
 fs4 = "0.10.0"
 futures = "0.3.31"
 futures-timer = "3.0.3"
-gtk = { version = "0.7.3", package = "gtk4" }
+gtk = { version = "0.7.3", package = "gtk4", features = ["v4_14"] }
 hex = "0.4.3"
 image = { version = "0.25.2", default-features = false, features = ["png"] }
 mimalloc = "0.1.43"
