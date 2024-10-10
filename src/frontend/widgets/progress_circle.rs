@@ -49,6 +49,7 @@ impl Component for ProgressCircle {
                 move |drawing_area, cr, width, height| {
                     let progress = *progress.borrow();
 
+                    #[allow(deprecated, reason = "Not clear what is the replacement, see https://discourse.gnome.org/t/replacement-for-gtk-style-context-get-color/23026?u=nazar-pc")]
                     let color = drawing_area.style_context().color();
 
                     // Center coordinates
