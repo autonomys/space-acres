@@ -354,6 +354,42 @@ where
         }
     }
 
+    #[cfg(feature = "rocm")]
+    {
+        use subspace_farmer::plotter::gpu::rocm::RocmRecordsEncoder;
+        use subspace_proof_of_space_gpu::rocm::rocm_devices;
+
+        let rocm_devices = rocm_devices();
+        let used_rocm_devices = (0..rocm_devices.len()).collect::<Vec<_>>();
+
+        if rocm_devices.is_empty() {
+            debug!("No ROCm GPU devices found");
+        } else {
+            info!(?used_rocm_devices, "Using ROCm GPUs");
+
+            let rocm_plotter = GpuPlotter::new(
+                piece_getter.clone(),
+                Arc::new(Semaphore::new(rocm_devices.len() + 1)),
+                rocm_devices
+                    .into_iter()
+                    .map(|rocm_device| {
+                        RocmRecordsEncoder::new(rocm_device, Arc::clone(&global_mutex))
+                    })
+                    .collect::<Result<_, _>>()
+                    .map_err(|error| {
+                        anyhow::anyhow!("Failed to create ROCm records encoder: {error}")
+                    })?,
+                Arc::clone(&global_mutex),
+                kzg.clone(),
+                erasure_coding.clone(),
+                None,
+            )
+            .map_err(|error| anyhow::anyhow!("Failed to initialize ROCm plotter: {error}"))?;
+
+            plotter.replace(Arc::new(rocm_plotter));
+        }
+    }
+
     let plotter = if let Some(plotter) = plotter {
         info!("CPU plotting for v1 farms was disabled due to detected faster plotting with GPU");
 

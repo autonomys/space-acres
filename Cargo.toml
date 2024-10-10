@@ -139,6 +139,11 @@ cuda = [
     "subspace-farmer/cuda",
     "subspace-proof-of-space-gpu/cuda",
 ]
+rocm = [
+    "_gpu",
+    "subspace-farmer/rocm",
+    "subspace-proof-of-space-gpu/rocm",
+]
 _gpu = []
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
