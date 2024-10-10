@@ -295,6 +295,7 @@ jobs:
           echo "Notarizing"
           # Notarize the Dmg using notarytool
           xcrun notarytool submit target/bundle/space-acres-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
+          xcrun stapler staple target/bundle/space-acres-$version.dmg
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'

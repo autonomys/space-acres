@@ -30,8 +30,8 @@ use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
-use subspace_core_primitives::crypto::kzg::{embedded_kzg_settings, Kzg};
-use subspace_core_primitives::{BlockNumber, Piece, PieceIndex, PublicKey};
+use subspace_core_primitives::pieces::{Piece, PieceIndex};
+use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
 use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
@@ -41,6 +41,7 @@ use subspace_farmer::farmer_piece_getter::{
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_farmer_components::PieceGetter;
+use subspace_kzg::Kzg;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::libp2p::Multiaddr;
@@ -419,7 +420,7 @@ async fn load(
         )
         .await?;
 
-    let kzg = Kzg::new(embedded_kzg_settings());
+    let kzg = Kzg::new();
     let piece_provider = PieceProvider::new(
         node.clone(),
         Some(SegmentCommitmentPieceValidator::new(

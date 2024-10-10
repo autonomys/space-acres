@@ -21,8 +21,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, fs};
-use subspace_core_primitives::crypto::kzg::Kzg;
-use subspace_core_primitives::{PublicKey, Record, SectorIndex};
+use subspace_core_primitives::pieces::Record;
+use subspace_core_primitives::sectors::SectorIndex;
+use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{
@@ -42,6 +43,7 @@ use subspace_farmer::utils::{
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
 };
 use subspace_farmer_components::plotting::PlottedSector;
+use subspace_kzg::Kzg;
 use thread_priority::ThreadPriority;
 use tokio::sync::{watch, Barrier, Semaphore};
 use tracing::{debug, error, info, info_span, Instrument};
