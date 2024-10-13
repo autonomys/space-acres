@@ -278,10 +278,8 @@ impl Cli {
         });
 
         app.set_global_css(GLOBAL_CSS);
-        println!("Initializing icons");
-        println!("icon names example: {:?}", icon_names::MENU_LARGE);
-        println!("icon bytes size: {:?}", icon_names::GRESOURCE_BYTES.len());
-        relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES);
+
+        relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
 
         // Prefer dark theme in cross-platform way if environment is configured that way
         if let Some(settings) = gtk::Settings::default() {
