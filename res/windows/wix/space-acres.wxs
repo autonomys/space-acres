@@ -173,6 +173,9 @@
                         <Component Id='gtk4_ffi_8.dll' Guid='eb810a85-6565-42ac-a079-6015a21b3960'>
                             <File Id='ffi_8.dll' Name='ffi-8.dll' DiskId='1' Source='target\wix\gtk4\bin\ffi-8.dll' />
                         </Component>
+                        <Component Id='gtk4_fontconfig_1.dll' Guid='109f0657-261a-4a58-8315-e8642a1803f4'>
+                            <File Id='fontconfig_1.dll' Name='fontconfig-1.dll' DiskId='1' Source='target\wix\gtk4\bin\fontconfig-1.dll' />
+                        </Component>
                         <Component Id='gtk4_freetype_6.dll' Guid='0c9779a7-9283-4740-8ea8-16a8a29826af'>
                             <File Id='freetype_6.dll' Name='freetype-6.dll' DiskId='1' Source='target\wix\gtk4\bin\freetype-6.dll' />
                         </Component>
@@ -235,6 +238,9 @@
                         </Component>
                         <Component Id='gtk4_jpeg62.dll' Guid='42892585-e55f-4816-9747-e3287b303281'>
                             <File Id='jpeg62.dll' Name='jpeg62.dll' DiskId='1' Source='target\wix\gtk4\bin\jpeg62.dll' />
+                        </Component>
+                        <Component Id='gtk4_libexpat.dll' Guid='b651545a-c0d3-4f67-a311-c6a5100626ce'>
+                            <File Id='libexpat.dll' Name='libexpat.dll' DiskId='1' Source='target\wix\gtk4\bin\libexpat.dll' />
                         </Component>
                         <Component Id='gtk4_libpng16.dll' Guid='f1eb894a-fd88-469d-81ea-640791560a1e'>
                             <File Id='libpng16.dll' Name='libpng16.dll' DiskId='1' Source='target\wix\gtk4\bin\libpng16.dll' />
@@ -388,6 +394,7 @@
             <ComponentRef Id='gtk4_cairo_script_interpreter_2.dll'/>
             <ComponentRef Id='gtk4_epoxy_0.dll'/>
             <ComponentRef Id='gtk4_ffi_8.dll'/>
+            <ComponentRef Id='gtk4_fontconfig_1.dll'/>
             <ComponentRef Id='gtk4_freetype_6.dll'/>
             <ComponentRef Id='gtk4_fribidi_0.dll'/>
             <ComponentRef Id='gtk4_gdk_pixbuf_2.0_0.dll'/>
@@ -409,6 +416,7 @@
             <ComponentRef Id='gtk4_iconv.dll'/>
             <ComponentRef Id='gtk4_intl.dll'/>
             <ComponentRef Id='gtk4_jpeg62.dll'/>
+            <ComponentRef Id='gtk4_libexpat.dll'/>
             <ComponentRef Id='gtk4_libpng16.dll'/>
             <ComponentRef Id='gtk4_libxml2.dll'/>
             <ComponentRef Id='gtk4_pango_1.0_0.dll'/>
