@@ -20,12 +20,12 @@ use async_lock::RwLock as AsyncRwLock;
 use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
-use futures::{future, select, SinkExt, StreamExt};
+use futures::{future, select, SinkExt, Stream, StreamExt};
 use sc_subspace_chain_specs::DEVNET_CHAIN_SPEC;
 use sp_consensus_subspace::ChainConstants;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::num::{NonZeroU8, NonZeroUsize};
+use std::num::NonZeroU8;
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::{Arc, Weak};
@@ -60,9 +60,6 @@ pub type CacheIndex = u8;
 
 /// Get piece retry attempts number.
 const PIECE_GETTER_MAX_RETRIES: u16 = 7;
-/// Global limit on combined piece getter, a nice number that should result in enough pieces
-/// downloading successfully during DSN sync
-const PIECE_GETTER_MAX_CONCURRENCY: NonZeroUsize = NonZeroUsize::new(128).expect("Not zero; qed");
 /// Defines initial duration between get_piece calls.
 const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
 /// Defines max duration between get_piece calls.
@@ -90,11 +87,20 @@ impl DsnSyncPieceGetter for PieceGetterWrapper {
 
 #[async_trait::async_trait]
 impl PieceGetter for PieceGetterWrapper {
-    async fn get_piece(
-        &self,
-        piece_index: PieceIndex,
-    ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
+    async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
         self.0.get_piece(piece_index).await
+    }
+
+    async fn get_pieces<'a, PieceIndices>(
+        &'a self,
+        piece_indices: PieceIndices,
+    ) -> anyhow::Result<
+        Box<dyn Stream<Item = (PieceIndex, anyhow::Result<Option<Piece>>)> + Send + Unpin + 'a>,
+    >
+    where
+        PieceIndices: IntoIterator<Item = PieceIndex, IntoIter: Send> + Send + 'a,
+    {
+        self.0.get_pieces(piece_indices).await
     }
 }
 
@@ -127,11 +133,20 @@ struct WeakPieceGetterWrapper(
 
 #[async_trait::async_trait]
 impl PieceGetter for WeakPieceGetterWrapper {
-    async fn get_piece(
-        &self,
-        piece_index: PieceIndex,
-    ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
+    async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
         self.0.get_piece(piece_index).await
+    }
+
+    async fn get_pieces<'a, PieceIndices>(
+        &'a self,
+        piece_indices: PieceIndices,
+    ) -> anyhow::Result<
+        Box<dyn Stream<Item = (PieceIndex, anyhow::Result<Option<Piece>>)> + Send + Unpin + 'a>,
+    >
+    where
+        PieceIndices: IntoIterator<Item = PieceIndex, IntoIter: Send> + Send + 'a,
+    {
+        self.0.get_pieces(piece_indices).await
     }
 }
 
@@ -423,11 +438,7 @@ async fn load(
     let kzg = Kzg::new();
     let piece_provider = PieceProvider::new(
         node.clone(),
-        Some(SegmentCommitmentPieceValidator::new(
-            node.clone(),
-            maybe_node_client.clone(),
-            kzg.clone(),
-        )),
+        SegmentCommitmentPieceValidator::new(node.clone(), maybe_node_client.clone(), kzg.clone()),
     );
 
     let piece_getter = PieceGetterWrapper::new(FarmerPieceGetter::new(
@@ -446,7 +457,6 @@ async fn load(
                 ..ExponentialBackoff::default()
             },
         },
-        PIECE_GETTER_MAX_CONCURRENCY,
     ));
 
     let create_consensus_node_fut = create_consensus_node(

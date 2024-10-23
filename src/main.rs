@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(
-    const_option,
     let_chains,
     result_flattening,
     thread_local,
