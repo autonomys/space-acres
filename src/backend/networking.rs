@@ -10,7 +10,6 @@ use subspace_farmer::farmer_cache::FarmerCache;
 use subspace_farmer::node_client::NodeClientExt;
 use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
-use subspace_networking::libp2p::kad::RecordKey;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::protocols::request_response::handlers::cached_piece_by_index::{
@@ -36,8 +35,6 @@ use tracing::{debug, error, info, info_span, warn, Instrument};
 ///
 /// Must be the same as RPC limit since all requests go to the node anyway.
 const SEGMENT_HEADERS_LIMIT: u32 = MAX_SEGMENT_HEADERS_PER_REQUEST as u32;
-/// Max number of cached pieces to accept per request
-const MAX_CACHED_PIECES: usize = 128;
 
 /// Network options
 #[derive(Debug)]
@@ -140,17 +137,18 @@ where
                 CachedPieceByIndexRequestHandler::create(move |peer_id, request| {
                     let CachedPieceByIndexRequest {
                         piece_index,
-                        mut cached_pieces,
+                        cached_pieces,
                     } = request;
                     debug!(?piece_index, "Cached piece request received");
 
                     let maybe_weak_node = Arc::clone(&maybe_weak_node);
                     let farmer_cache = farmer_cache.clone();
+                    let mut cached_pieces = Arc::unwrap_or_clone(cached_pieces);
 
                     async move {
                         let piece_from_cache =
                             farmer_cache.get_piece(piece_index.to_multihash()).await;
-                        cached_pieces.truncate(MAX_CACHED_PIECES);
+                        cached_pieces.truncate(CachedPieceByIndexRequest::RECOMMENDED_LIMIT);
                         let cached_pieces = farmer_cache.has_pieces(cached_pieces).await;
 
                         Some(CachedPieceByIndexResponse {
@@ -189,17 +187,17 @@ where
             PieceByIndexRequestHandler::create(move |_, request| {
                 let PieceByIndexRequest {
                     piece_index,
-                    mut cached_pieces,
+                    cached_pieces,
                 } = request;
                 debug!(?piece_index, "Piece request received. Trying cache...");
 
                 let weak_plotted_pieces = weak_plotted_pieces.clone();
                 let farmer_cache = farmer_cache.clone();
+                let mut cached_pieces = Arc::unwrap_or_clone(cached_pieces);
 
                 async move {
-                    let key = RecordKey::from(piece_index.to_multihash());
-                    let piece_from_cache = farmer_cache.get_piece(key).await;
-                    cached_pieces.truncate(MAX_CACHED_PIECES);
+                    let piece_from_cache = farmer_cache.get_piece(piece_index.to_multihash()).await;
+                    cached_pieces.truncate(PieceByIndexRequest::RECOMMENDED_LIMIT);
                     let cached_pieces = farmer_cache.has_pieces(cached_pieces).await;
 
                     if let Some(piece) = piece_from_cache {
@@ -213,16 +211,14 @@ where
                             "No piece in the cache. Trying archival storage..."
                         );
 
-                        let read_piece_fut = {
-                            match weak_plotted_pieces.upgrade() {
-                                Some(plotted_pieces) => plotted_pieces
-                                    .try_read()?
-                                    .read_piece(piece_index)?
-                                    .in_current_span(),
-                                None => {
-                                    debug!("A readers and pieces are already dropped");
-                                    return None;
-                                }
+                        let read_piece_fut = match weak_plotted_pieces.upgrade() {
+                            Some(plotted_pieces) => plotted_pieces
+                                .try_read()?
+                                .read_piece(piece_index)?
+                                .in_current_span(),
+                            None => {
+                                debug!("A readers and pieces are already dropped");
+                                return None;
                             }
                         };
 
@@ -244,6 +240,17 @@ where
                 async move {
                     let internal_result = match req {
                         SegmentHeaderRequest::SegmentIndexes { segment_indexes } => {
+                            let segment_indexes = Arc::unwrap_or_clone(segment_indexes);
+
+                            if segment_indexes.len() > SEGMENT_HEADERS_LIMIT as usize {
+                                debug!(
+                                    "segment_indexes length exceed the limit: {} ",
+                                    segment_indexes.len()
+                                );
+
+                                return None;
+                            }
+
                             debug!(
                                 segment_indexes_count = ?segment_indexes.len(),
                                 "Segment headers request received."

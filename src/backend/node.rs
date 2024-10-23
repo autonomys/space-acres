@@ -506,6 +506,7 @@ pub(super) async fn create_consensus_node(
             base: consensus_chain_config,
             // Domain node needs slots notifications for bundle production
             force_new_slot_notifications: false,
+            create_object_mappings: false,
             subspace_networking: SubspaceNetworking::Reuse {
                 node,
                 bootstrap_nodes: dsn_bootstrap_nodes,

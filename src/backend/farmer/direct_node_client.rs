@@ -29,7 +29,7 @@ use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentInde
 use subspace_core_primitives::solutions::Solution;
 use subspace_core_primitives::{BlockHash, PublicKey, SlotNumber};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_farmer::node_client::{Error, NodeClient, NodeClientExt};
+use subspace_farmer::node_client::{NodeClient, NodeClientExt};
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
@@ -189,7 +189,7 @@ where
         + 'static,
     Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block> + 'static,
 {
-    async fn farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
+    async fn farmer_app_info(&self) -> anyhow::Result<FarmerAppInfo> {
         let last_segment_index = self
             .segment_headers_store
             .max_segment_index()
@@ -219,14 +219,14 @@ where
 
         farmer_app_info.map_err(|error| {
             error!("Failed to get data from runtime API: {}", error);
-            "Internal error".to_string().into()
+            anyhow::anyhow!("Internal error")
         })
     }
 
     async fn submit_solution_response(
         &self,
         solution_response: SolutionResponse,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         let slot = solution_response.slot_number;
         let mut solution_response_senders = self.solution_response_senders.lock();
 
@@ -241,14 +241,14 @@ where
                 "Solution was ignored, likely because farmer was too slow"
             );
 
-            return Err("Solution was ignored".to_string().into());
+            return Err(anyhow::anyhow!("Solution was ignored"));
         }
 
         Ok(())
     }
     async fn subscribe_slot_info(
         &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = SlotInfo> + Send + 'static>>, Error> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SlotInfo> + Send + 'static>>> {
         let executor = self.subscription_executor.clone();
         let solution_response_senders = self.solution_response_senders.clone();
 
@@ -330,7 +330,7 @@ where
 
     async fn subscribe_reward_signing(
         &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>, Error> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>> {
         let executor = self.subscription_executor.clone();
         let reward_signature_senders = self.reward_signature_senders.clone();
 
@@ -393,7 +393,7 @@ where
     async fn submit_reward_signature(
         &self,
         reward_signature: RewardSignatureResponse,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         let reward_signature_senders = self.reward_signature_senders.clone();
 
         let mut reward_signature_senders = reward_signature_senders.lock();
@@ -409,7 +409,7 @@ where
 
     async fn subscribe_archived_segment_headers(
         &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>, Error> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SegmentHeader> + Send + 'static>>> {
         let archived_segment_acknowledgement_senders =
             self.archived_segment_acknowledgement_senders.clone();
 
@@ -494,7 +494,7 @@ where
     async fn acknowledge_archived_segment_header(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         let archived_segment_acknowledgement_senders =
             self.archived_segment_acknowledgement_senders.clone();
 
@@ -529,7 +529,7 @@ where
         Ok(())
     }
 
-    async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
+    async fn piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
         let archived_segment = {
             let mut cached_archived_segment = self.cached_archived_segment.lock().await;
 
@@ -569,14 +569,14 @@ where
                         Ok(Err(error)) => {
                             error!(%error, "Failed to re-create genesis segment");
 
-                            return Err("Failed to re-create genesis segment".to_string().into());
+                            return Err(anyhow::anyhow!("Failed to re-create genesis segment"));
                         }
                         Err(error) => {
                             error!(%error, "Blocking task failed to re-create genesis segment");
 
-                            return Err("Blocking task failed to re-create genesis segment"
-                                .to_string()
-                                .into());
+                            return Err(anyhow::anyhow!(
+                                "Blocking task failed to re-create genesis segment"
+                            ));
                         }
                     }
                 }
@@ -594,7 +594,7 @@ where
     async fn segment_headers(
         &self,
         segment_indexes: Vec<SegmentIndex>,
-    ) -> Result<Vec<Option<SegmentHeader>>, Error> {
+    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         Ok(segment_indexes
             .into_iter()
             .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
@@ -614,7 +614,7 @@ where
         + 'static,
     Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block> + 'static,
 {
-    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error> {
+    async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         let last_segment_index = self
             .segment_headers_store
             .max_segment_index()
