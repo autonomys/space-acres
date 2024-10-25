@@ -127,13 +127,6 @@ jobs:
         run: brew install automake
         if: runner.os == 'macOS'
 
-      # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
-      - name: Remove msys64
-        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
-        if: runner.os == 'Windows'
-        # Doesn't exist on self-hosted runners
-        continue-on-error: true
-
       - name: AArch64 cross-compile packages
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends g++-aarch64-linux-gnu gcc-aarch64-linux-gnu libc6-dev-arm64-cross
         if: matrix.build.target == 'aarch64-unknown-linux-gnu'
