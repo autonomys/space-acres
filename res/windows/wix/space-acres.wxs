@@ -137,13 +137,6 @@
                                 Source='$(var.CargoTargetBinDir)\space-acres-modern.exe'
                                 KeyPath='yes'/>
                         </Component>
-                        <!-- TODO: Next block is for cleanup after 0.1.5 -> 0.1.6 upgrade, remove once enough time has passed -->
-                        <Component Id="PcreCleanup" Guid="64d35867-a002-4ac5-8704-ba15236c4ca1">
-                          <RemoveFile Id="pcre2_16.dll" Name="pcre2-16.dll" On="both" />
-                          <RemoveFile Id="pcre2_32.dll" Name="pcre2-32.dll" On="both" />
-                          <RemoveFile Id="pcre2_8.dll" Name="pcre2-8.dll" On="both" />
-                          <RemoveFile Id="pcre2_posix.dll" Name="pcre2-posix.dll" On="both" />
-                        </Component>
 
                         <Component Id='gtk4_gdbus.exe' Guid='230b7624-23b4-4a74-91f5-d864032a058a'>
                             <File Id='gdbus.exe' Name='gdbus.exe' DiskId='1' Source='target\wix\gtk4\bin\gdbus.exe' />
@@ -384,7 +377,6 @@
 
             <ComponentRef Id='binary0'/>
             <ComponentRef Id='binary1'/>
-            <ComponentRef Id='PcreCleanup'/>
             <ComponentRef Id='gtk4_gdbus.exe'/>
             <ComponentRef Id='gtk4_gspawn_win64_helper.exe'/>
             <ComponentRef Id='gtk4_gspawn_win64_helper_console.exe'/>
