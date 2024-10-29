@@ -51,7 +51,7 @@ frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "587181
 fs4 = "0.10.0"
 futures = "0.3.31"
 futures-timer = "3.0.3"
-gtk = { version = "0.7.3", package = "gtk4", features = ["v4_14"] }
+gtk = { version = "0.9.2", package = "gtk4", features = ["v4_14"] }
 hex = "0.4.3"
 image = { version = "0.25.4", default-features = false, features = ["png"] }
 mimalloc = "0.1.43"
@@ -61,9 +61,10 @@ open = "5.3.0"
 pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
 parity-scale-codec = "3.6.12"
 parking_lot = "0.12.3"
-relm4 = "0.7.0-rc.1"
-relm4-components = { version = "0.7.0-rc.1", default-features = false }
-relm4-icons = { version = "0.7.0-alpha.2", features = ["checkmark", "cross", "grid-filled", "menu-large", "pause", "processor", "puzzle-piece", "size-horizontally", "speedometer2", "speedometer3", "speedometer4", "ssd", "wallet2", "warning"] }
+relm4 = "0.9.1"
+relm4-components = { version = "0.9.1", default-features = false }
+# TODO: Switch to upstream release 0.10.0+ that includes https://github.com/Relm4/icons/pull/19
+relm4-icons = { version = "0.9.0", git = "https://github.com/Relm4/icons", rev = "74dc5af44e0dc6bb397cbb6c32d6d57661a26601" }
 reqwest = { version = "0.12.8", default-features = false, features = ["json", "rustls-tls"] }
 sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
 sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
@@ -125,6 +126,8 @@ ksni = "0.2.2"
 
 [build-dependencies]
 fluent-static-codegen = "0.5.0"
+# TODO: Switch to upstream release, right now it is unreleased
+relm4-icons-build = { version = "0.1.0", git = "https://github.com/Relm4/icons", rev = "74dc5af44e0dc6bb397cbb6c32d6d57661a26601" }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"

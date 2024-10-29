@@ -7,6 +7,7 @@ use crate::frontend::configuration::farm::{
 };
 use crate::frontend::configuration::utils::is_directory_writable;
 use crate::frontend::translations::{AsDefaultStr, T};
+use crate::icon_names;
 use gtk::glib;
 use gtk::prelude::*;
 use relm4::factory::AsyncFactoryVecDeque;
@@ -14,7 +15,6 @@ use relm4::prelude::*;
 use relm4_components::open_dialog::{
     OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
 };
-use relm4_icons::icon_name;
 use std::ops::Deref;
 use std::path::PathBuf;
 use subspace_farmer::utils::ss58::parse_ss58_reward_address;
@@ -104,9 +104,9 @@ where
 
     fn icon(&self) -> Option<&'static str> {
         if self.is_valid {
-            Some(icon_name::CHECKMARK)
+            Some(icon_names::CHECKMARK)
         } else {
-            Some(icon_name::CROSS)
+            Some(icon_names::CROSS)
         }
     }
 }
@@ -217,7 +217,7 @@ impl AsyncComponent for ConfigurationView {
                                                 )
                                                 .as_str(),
                                         ),
-                                        set_primary_icon_name: Some(icon_name::SSD),
+                                        set_primary_icon_name: Some(icon_names::SSD),
                                         set_primary_icon_activatable: false,
                                         set_primary_icon_sensitive: false,
                                         #[track = "model.node_path.changed_is_valid()"]
@@ -290,7 +290,7 @@ impl AsyncComponent for ConfigurationView {
                                                 )
                                                 .as_str(),
                                         ),
-                                        set_primary_icon_name: Some(icon_name::WALLET2),
+                                        set_primary_icon_name: Some(icon_names::WALLET2),
                                         set_primary_icon_activatable: false,
                                         set_primary_icon_sensitive: false,
                                         #[track = "model.reward_address.changed_is_valid()"]

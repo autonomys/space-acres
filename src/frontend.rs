@@ -14,7 +14,7 @@ use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::AppStatusCode;
+use crate::{icon_names, AppStatusCode};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::glib;
@@ -23,7 +23,6 @@ use notify_rust::Notification;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
-use relm4_icons::icon_name;
 use std::any::Any;
 use std::cell::{Cell, LazyCell};
 use std::future::Future;
@@ -300,7 +299,7 @@ impl AsyncComponent for App {
                         //  cases, would be nice to just hide corresponding menu item instead
                         gtk::MenuButton {
                             set_direction: gtk::ArrowType::None,
-                            set_icon_name: icon_name::MENU_LARGE,
+                            set_icon_name: icon_names::MENU_LARGE,
                             set_popover: Some(&gtk::PopoverMenu::from_model(Some(&main_menu_without_change_configuration))),
                             #[track = "model.changed_current_raw_config()"]
                             set_visible: model.current_raw_config.is_none(),
@@ -308,7 +307,7 @@ impl AsyncComponent for App {
 
                         gtk::MenuButton {
                             set_direction: gtk::ArrowType::None,
-                            set_icon_name: icon_name::MENU_LARGE,
+                            set_icon_name: icon_names::MENU_LARGE,
                             set_popover: Some(&gtk::PopoverMenu::from_model(Some(&main_menu))),
                             #[track = "model.changed_current_raw_config()"]
                             set_visible: model.current_raw_config.is_some(),
@@ -330,7 +329,7 @@ impl AsyncComponent for App {
 
                             gtk::Image {
                                 set_height_request: 256,
-                                set_from_paintable: Some(&*PIXBUF_ABOUT_IMG),
+                                set_paintable: Some(&*PIXBUF_ABOUT_IMG),
                             },
 
                             gtk::Label {
@@ -360,7 +359,7 @@ impl AsyncComponent for App {
 
                             gtk::Image {
                                 set_height_request: 256,
-                                set_from_paintable: Some(&*PIXBUF_ABOUT_IMG),
+                                set_paintable: Some(&*PIXBUF_ABOUT_IMG),
                             },
 
                             gtk::Label {
@@ -563,8 +562,7 @@ impl AsyncComponent for App {
             .program_name("Space Acres")
             .version(env!("CARGO_PKG_VERSION"))
             .authors(env!("CARGO_PKG_AUTHORS").split(':').collect::<Vec<_>>())
-            // TODO: Use https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/6643 once available
-            .license("Zero-Clause BSD: https://opensource.org/license/0bsd/")
+            .license_type(gtk::License::_0bsd)
             .website(env!("CARGO_PKG_REPOSITORY"))
             .website_label("GitHub")
             .comments(env!("CARGO_PKG_DESCRIPTION"))
