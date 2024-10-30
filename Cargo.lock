@@ -9261,16 +9261,18 @@ checksum = "1d3b924557df1cddc687b60b313c4b76620fdbf0e463afa4b29f67193ccf37f9"
 
 [[package]]
 name = "relm4-icons"
-version = "0.9.0"
-source = "git+https://github.com/Relm4/icons?rev=74dc5af44e0dc6bb397cbb6c32d6d57661a26601#74dc5af44e0dc6bb397cbb6c32d6d57661a26601"
+version = "0.10.0-beta.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef4b1a664ccea4662eea207c48191d403b46ea512eb385b8f7f571a1a45a0dda"
 dependencies = [
  "gtk4",
 ]
 
 [[package]]
 name = "relm4-icons-build"
-version = "0.1.0"
-source = "git+https://github.com/Relm4/icons?rev=74dc5af44e0dc6bb397cbb6c32d6d57661a26601#74dc5af44e0dc6bb397cbb6c32d6d57661a26601"
+version = "0.10.0-beta.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a085f4290a4820566b547621859f0acb388cb493cf10f0e4c7293a471fc695e"
 dependencies = [
  "gvdb",
  "serde",
