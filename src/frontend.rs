@@ -409,6 +409,8 @@ impl AsyncComponent for App {
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
                                 set_label: T.stopped_message_with_error(error.to_string()).as_str(),
+                                set_selectable: true,
+                                set_wrap: true,
                             },
 
                             gtk::Box {
@@ -439,6 +441,8 @@ impl AsyncComponent for App {
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
                                 set_label: &T.error_message(error.to_string()).as_str(),
+                                set_selectable: true,
+                                set_wrap: true,
                             },
 
                             gtk::Box {

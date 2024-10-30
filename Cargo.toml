@@ -63,8 +63,7 @@ parity-scale-codec = "3.6.12"
 parking_lot = "0.12.3"
 relm4 = "0.9.1"
 relm4-components = { version = "0.9.1", default-features = false }
-# TODO: Switch to upstream release 0.10.0+ that includes https://github.com/Relm4/icons/pull/19
-relm4-icons = { version = "0.9.0", git = "https://github.com/Relm4/icons", rev = "74dc5af44e0dc6bb397cbb6c32d6d57661a26601" }
+relm4-icons = "0.10.0-beta.0"
 reqwest = { version = "0.12.8", default-features = false, features = ["json", "rustls-tls"] }
 sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
 sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "5871818e1d736f1843eb9078f886290695165c42", default-features = false }
@@ -126,8 +125,7 @@ ksni = "0.2.2"
 
 [build-dependencies]
 fluent-static-codegen = "0.5.0"
-# TODO: Switch to upstream release, right now it is unreleased
-relm4-icons-build = { version = "0.1.0", git = "https://github.com/Relm4/icons", rev = "74dc5af44e0dc6bb397cbb6c32d6d57661a26601" }
+relm4-icons-build = "0.10.0-beta.0"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
