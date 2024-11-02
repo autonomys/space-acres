@@ -103,7 +103,7 @@ running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, 
 running_node_status_syncing =
     {$sync_kind ->
         [dsn] Синхронізація з DSN
-        [regular] Звичайна sync
+        [regular] Звичайна синхронізація
         *[unknown] Невідомий тип синхронізації {$sync_kind}
     } #{$best_block_number}/{$target_block}{$sync_speed}
 running_node_status_synced = Синхронізовано, best block #{$best_block_number}
