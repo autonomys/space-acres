@@ -93,7 +93,7 @@ configuration_dialog_button_cancel = Відмінити
 
 running_title = Запущено
 running_node_title = {$chain_name} вузол консенсусу
-running_node_title_tooltip = Натисніть , щоб відкрити в файловому менеджері.
+running_node_title_tooltip = Натисніть щоб відкрити в файловому менеджері.
 running_node_free_disk_space_tooltip = Вільний дисковий простір: {$size} remaining
 running_node_status_connecting = Підключення до мережі, best block #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} блоки/с
