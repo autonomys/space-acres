@@ -106,7 +106,7 @@ running_node_status_syncing =
         [regular] Звичайна синхронізація
         *[unknown] Невідомий тип синхронізації {$sync_kind}
     } #{$best_block_number}/{$target_block}{$sync_speed}
-running_node_status_synced = Синхронізовано, best block #{$best_block_number}
+running_node_status_synced = Синхронізовано, кращий блок #{$best_block_number}
 running_farmer_title = Фармер
 running_farmer_button_expand_details = Показати деталі про кожну ферму
 running_farmer_button_pause_plotting = Призупення плотингу/реплотинг, зверніть увагу, що в даний момент кодування секторів не буде перервано.
