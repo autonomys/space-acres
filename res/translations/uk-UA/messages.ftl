@@ -121,7 +121,7 @@ running_farmer_next_reward_estimate =
         [more_than_a_week] більше тижня
         *[unknown] невідомо
     }
-running_farmer_farm_tooltip = Натисніть , щоб відкрити в файловому менеджері
+running_farmer_farm_tooltip = Натисніть щоб відкрити в файловому менеджері
 running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} Успішні підписи винагороди, перегляньте деталі ферми, щоб побачити більше інформації.
 running_farmer_farm_auditing_performance_tooltip = Аудит ефективності: середній час {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, ліміт часу {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Підтвердження ефективності : середній час {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, ліміт часу {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
