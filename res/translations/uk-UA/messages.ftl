@@ -191,7 +191,7 @@ status_bar_button_ok = Ок
 
 about_system_information =
     Каталог конфігурації: {$config_directory}
-    Каталог даних (including logs): {$data_directory}
+    Каталог даних (включаючи журнали): {$data_directory}
 
 tray_icon_open = Відкрити
 tray_icon_quit = Вийти
