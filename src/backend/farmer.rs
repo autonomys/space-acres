@@ -185,29 +185,26 @@ pub struct DiskFarm {
 
 /// Arguments for farmer
 #[derive(Debug)]
-pub(super) struct FarmerOptions<FarmIndex, CacheIndex, OnFarmInitialized> {
+pub(super) struct FarmerOptions<FarmIndex, OnFarmInitialized> {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
     pub(super) node_client: MaybeNodeClient,
     pub(super) piece_getter: PieceGetterWrapper,
     pub(super) plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
-    pub(super) farmer_cache: FarmerCache<CacheIndex>,
-    pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient, CacheIndex>,
+    pub(super) farmer_cache: FarmerCache,
+    pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
     pub(super) kzg: Kzg,
     pub(super) reduce_plotting_cpu_load: bool,
     pub(super) on_farm_initialized: OnFarmInitialized,
 }
 
-pub(super) async fn create_farmer<FarmIndex, CacheIndex, OnFarmInitialized>(
-    farmer_options: FarmerOptions<FarmIndex, CacheIndex, OnFarmInitialized>,
+pub(super) async fn create_farmer<FarmIndex, OnFarmInitialized>(
+    farmer_options: FarmerOptions<FarmIndex, OnFarmInitialized>,
 ) -> anyhow::Result<Farmer<FarmIndex>>
 where
     FarmIndex:
         Hash + Eq + Copy + fmt::Display + fmt::Debug + TryFrom<usize> + Send + Sync + 'static,
     usize: From<FarmIndex>,
-    CacheIndex: Hash + Eq + Copy + fmt::Debug + fmt::Display + Send + Sync + 'static,
-    usize: From<CacheIndex>,
-    CacheIndex: TryFrom<usize>,
     OnFarmInitialized: Fn(FarmIndex),
 {
     let span = info_span!("Farmer");

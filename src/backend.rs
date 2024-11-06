@@ -21,7 +21,7 @@ use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{future, select, SinkExt, Stream, StreamExt};
-use sc_subspace_chain_specs::DEVNET_CHAIN_SPEC;
+use sc_subspace_chain_specs::MAINNET_CHAIN_SPEC;
 use sp_consensus_subspace::ChainConstants;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -56,7 +56,6 @@ use tokio::runtime::Handle;
 use tracing::{error, info_span, warn, Instrument};
 
 pub type FarmIndex = u8;
-pub type CacheIndex = u8;
 
 /// Get piece retry attempts number.
 const PIECE_GETTER_MAX_RETRIES: u16 = 7;
@@ -67,12 +66,7 @@ const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 
 #[derive(Debug, Clone)]
 struct PieceGetterWrapper(
-    FarmerPieceGetter<
-        FarmIndex,
-        CacheIndex,
-        SegmentCommitmentPieceValidator<MaybeNodeClient>,
-        MaybeNodeClient,
-    >,
+    FarmerPieceGetter<FarmIndex, SegmentCommitmentPieceValidator<MaybeNodeClient>, MaybeNodeClient>,
 );
 
 #[async_trait::async_trait]
@@ -108,7 +102,6 @@ impl PieceGetterWrapper {
     fn new(
         farmer_piece_getter: FarmerPieceGetter<
             FarmIndex,
-            CacheIndex,
             SegmentCommitmentPieceValidator<MaybeNodeClient>,
             MaybeNodeClient,
         >,
@@ -125,7 +118,6 @@ impl PieceGetterWrapper {
 struct WeakPieceGetterWrapper(
     WeakFarmerPieceGetter<
         FarmIndex,
-        CacheIndex,
         SegmentCommitmentPieceValidator<MaybeNodeClient>,
         MaybeNodeClient,
     >,
@@ -300,7 +292,7 @@ struct LoadedBackend {
     config_file_path: PathBuf,
     consensus_node: ConsensusNode,
     farmer: Farmer<FarmIndex>,
-    node_runner: NodeRunner<FarmerCache<CacheIndex>>,
+    node_runner: NodeRunner<FarmerCache>,
 }
 
 enum BackendLoadingResult {
@@ -724,7 +716,7 @@ async fn load_chain_specification(
         .await?;
 
     // TODO: Switch to non-devnet chain spec
-    let chain_spec = node::load_chain_specification(DEVNET_CHAIN_SPEC.as_bytes())
+    let chain_spec = node::load_chain_specification(MAINNET_CHAIN_SPEC.as_bytes())
         .map_err(|error| anyhow::anyhow!(error))?;
 
     notifications_sender
@@ -780,10 +772,10 @@ async fn create_networking_stack(
 ) -> anyhow::Result<(
     MaybeNodeClient,
     Node,
-    NodeRunner<FarmerCache<CacheIndex>>,
+    NodeRunner<FarmerCache>,
     Keypair,
-    FarmerCache<CacheIndex>,
-    FarmerCacheWorker<MaybeNodeClient, CacheIndex>,
+    FarmerCache,
+    FarmerCacheWorker<MaybeNodeClient>,
 )> {
     notifications_sender
         .send(BackendNotification::Loading(
@@ -973,8 +965,8 @@ async fn create_farmer(
     reward_address: PublicKey,
     disk_farms: Vec<DiskFarm>,
     plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
-    farmer_cache: FarmerCache<CacheIndex>,
-    farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient, CacheIndex>,
+    farmer_cache: FarmerCache,
+    farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
     node_client: MaybeNodeClient,
     kzg: Kzg,
     reduce_plotting_cpu_load: bool,

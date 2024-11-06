@@ -44,13 +44,11 @@ use subspace_service::config::{
 };
 use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
-use tokio::fs;
 use tokio::time::MissedTickBehavior;
 use tracing::{error, info_span};
 
-// TODO: This corresponds to Gemini 3h and needs to be updated to the next network
 pub(super) const GENESIS_HASH: &str =
-    "0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34";
+    "66455a580aabff303720aa83adbe6c44502922251c03ba73686d5245da9e21bd";
 const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 /// Roughly 138k empty blocks can fit into one archived segment, hence we need to not allow to prune
 /// more blocks that this
@@ -517,27 +515,34 @@ pub(super) async fn create_consensus_node(
             sync,
         };
 
-        // TODO: Remove once support for upgrade from Gemini 3g is no longer necessary
-        if fs::try_exists(base_path.join("paritydb"))
-            .await
-            .unwrap_or_default()
-        {
-            return Err(ConsensusNodeCreationError::IncompatibleChain {
-                compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
-            });
-        }
-
-        let partial_components = subspace_service::new_partial::<PosTable, RuntimeApi>(
+        let partial_components_result = subspace_service::new_partial::<PosTable, RuntimeApi>(
             &consensus_chain_config.base,
             match consensus_chain_config.sync {
                 ChainSyncMode::Full => false,
                 ChainSyncMode::Snap => true,
             },
             &pot_external_entropy,
-        )
-        .map_err(|error| {
-            sc_service::Error::Other(format!("Failed to build a full subspace node: {error:?}"))
-        })?;
+        );
+
+        let partial_components = match partial_components_result {
+            Ok(partial_components) => partial_components,
+            Err(error) => {
+                // TODO: This is a workaround to what and how initialization does, remove this at
+                //  some point in the future once upgrade from Gemini networks is no longer needed
+                if error.to_string().contains(
+                    "env:ext_fraud_proof_runtime_interface_derive_bundle_digest_version_2",
+                ) {
+                    return Err(ConsensusNodeCreationError::IncompatibleChain {
+                        compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
+                    });
+                } else {
+                    return Err(sc_service::Error::Other(format!(
+                        "Failed to build a full subspace node: {error:?}"
+                    ))
+                    .into());
+                }
+            }
+        };
 
         if hex::encode(partial_components.client.info().genesis_hash) != GENESIS_HASH {
             return Err(ConsensusNodeCreationError::IncompatibleChain {
