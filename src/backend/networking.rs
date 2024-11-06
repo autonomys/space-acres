@@ -81,7 +81,7 @@ impl Default for NetworkOptions {
 }
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn create_network<FarmIndex, CacheIndex, NC>(
+pub fn create_network<FarmIndex, NC>(
     protocol_prefix: String,
     base_path: &Path,
     NetworkOptions {
@@ -98,15 +98,12 @@ pub fn create_network<FarmIndex, CacheIndex, NC>(
     }: NetworkOptions,
     weak_plotted_pieces: Weak<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     node_client: NC,
-    farmer_cache: FarmerCache<CacheIndex>,
-) -> Result<(Node, NodeRunner<FarmerCache<CacheIndex>>), anyhow::Error>
+    farmer_cache: FarmerCache,
+) -> Result<(Node, NodeRunner<FarmerCache>), anyhow::Error>
 where
     FarmIndex: Hash + Eq + Copy + fmt::Debug + Send + Sync + 'static,
     usize: From<FarmIndex>,
     NC: NodeClientExt + Clone,
-    CacheIndex: Hash + Eq + Copy + fmt::Debug + fmt::Display + Send + Sync + 'static,
-    usize: From<CacheIndex>,
-    CacheIndex: TryFrom<usize>,
 {
     let span = info_span!("Network");
     let _enter = span.enter();
@@ -302,22 +299,21 @@ where
         ..default_config
     };
 
-    construct(config)
-        .map(|(node, node_runner)| {
-            node.on_new_listener(Arc::new({
-                let node = node.clone();
+    let (node, node_runner) = construct(config)?;
+    maybe_weak_node.lock().replace(node.downgrade());
 
-                move |address| {
-                    info!(
-                        "DSN listening on {}",
-                        address.clone().with(Protocol::P2p(node.id()))
-                    );
-                }
-            }))
-            .detach();
+    node.on_new_listener(Arc::new({
+        let node = node.clone();
 
-            // Consider returning HandlerId instead of each `detach()` calls for other usages.
-            (node, node_runner)
-        })
-        .map_err(Into::into)
+        move |address| {
+            info!(
+                "DSN listening on {}",
+                address.clone().with(Protocol::P2p(node.id()))
+            );
+        }
+    }))
+    .detach();
+
+    // Consider returning HandlerId instead of each `detach()` calls for other usages.
+    Ok((node, node_runner))
 }
