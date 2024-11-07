@@ -527,11 +527,14 @@ pub(super) async fn create_consensus_node(
         let partial_components = match partial_components_result {
             Ok(partial_components) => partial_components,
             Err(error) => {
+                error!(?error, "Failed to build a full subspace node");
                 // TODO: This is a workaround to what and how initialization does, remove this at
                 //  some point in the future once upgrade from Gemini networks is no longer needed
                 if error.to_string().contains(
                     "env:ext_fraud_proof_runtime_interface_derive_bundle_digest_version_2",
-                ) {
+                ) || error.to_string().contains(
+                    "State already discarded for 0x0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34",
+                )  {
                     return Err(ConsensusNodeCreationError::IncompatibleChain {
                         compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
                     });
@@ -568,7 +571,8 @@ pub(super) async fn create_consensus_node(
         )
         .await
         .map_err(|error| {
-            sc_service::Error::Other(format!("Failed to build a full subspace node 3: {error:?}"))
+            error!(?error, "Failed to build a full subspace node 2");
+            sc_service::Error::Other(format!("Failed to build a full subspace node 2: {error:?}"))
         })?;
 
         let direct_node_client = DirectNodeClient::new(NodeClientConfig {
