@@ -527,6 +527,7 @@ pub(super) async fn create_consensus_node(
         let partial_components = match partial_components_result {
             Ok(partial_components) => partial_components,
             Err(error) => {
+                error!(?error, "Failed to build a full subspace node");
                 // TODO: This is a workaround to what and how initialization does, remove this at
                 //  some point in the future once upgrade from Gemini networks is no longer needed
                 if error.to_string().contains(
@@ -570,7 +571,8 @@ pub(super) async fn create_consensus_node(
         )
         .await
         .map_err(|error| {
-            sc_service::Error::Other(format!("Failed to build a full subspace node 3: {error:?}"))
+            error!(?error, "Failed to build a full subspace node 2");
+            sc_service::Error::Other(format!("Failed to build a full subspace node 2: {error:?}"))
         })?;
 
         let direct_node_client = DirectNodeClient::new(NodeClientConfig {
