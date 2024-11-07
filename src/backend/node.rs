@@ -531,7 +531,9 @@ pub(super) async fn create_consensus_node(
                 //  some point in the future once upgrade from Gemini networks is no longer needed
                 if error.to_string().contains(
                     "env:ext_fraud_proof_runtime_interface_derive_bundle_digest_version_2",
-                ) {
+                ) || error.to_string().contains(
+                    "State already discarded for 0x0c121c75f4ef450f40619e1fca9d1e8e7fbabc42c895bc4790801e85d5a91c34",
+                )  {
                     return Err(ConsensusNodeCreationError::IncompatibleChain {
                         compatible_chain: consensus_chain_config.base.chain_spec.name().to_string(),
                     });
