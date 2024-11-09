@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  The "cargo wix" subcommand provides a variety of predefined variables available
+  for customization of this template. The values for each variable are set at
+  installer creation time. The following variables are available:
+
+  TargetTriple      = The rustc target triple name.
+  TargetEnv         = The rustc target environment. This is typically either
+                      "msvc" or "gnu" depending on the toolchain downloaded and
+                      installed.
+  TargetVendor      = The rustc target vendor. This is typically "pc", but Rust
+                      does support other vendors, like "uwp".
+  CargoTargetBinDir = The complete path to the directory containing the
+                      binaries (exes) to include. The default would be
+                      "target\release\". If an explicit rustc target triple is
+                      used, i.e. cross-compiling, then the default path would
+                      be "target\<CARGO_TARGET>\<CARGO_PROFILE>",
+                      where "<CARGO_TARGET>" is replaced with the "CargoTarget"
+                      variable value and "<CARGO_PROFILE>" is replaced with the
+                      value from the "CargoProfile" variable. This can also
+                      be overridden manually with the "target-bin-dir" flag.
+  CargoTargetDir    = The path to the directory for the build artifacts, i.e.
+                      "target".
+  CargoProfile      = The cargo profile used to build the binaries
+                      (usually "debug" or "release").
+  Version           = The version for the installer. The default is the
+                      "Major.Minor.Fix" semantic versioning number of the Rust
+                      package.
+-->
+
+<?if $(var.Platform) = "x64" ?>
+    <?define Arch = "x86_64" ?>
+<?else ?>
+    <?define Arch = "arm64" ?>
+<?endif ?>
+
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'
+     xmlns:bal='http://schemas.microsoft.com/wix/BalExtension'
+     xmlns:util='http://schemas.microsoft.com/wix/UtilExtension'>
+    <Bundle
+        Name='Space Acres'
+        IconSourceFile='res\windows\space-acres.ico'
+        UpgradeCode='ba3cd06f-3967-4bdf-ae00-aa538249fd5a'
+        Manufacturer='Nazar Mokrynskyi'
+        Version='$(var.Version)'>
+        <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.HyperlinkLicense" >
+            <bal:WixStandardBootstrapperApplication
+                LicenseUrl=""
+                LogoFile="res\windows\wix\icon.png"
+                SuppressOptionsUI="yes"
+            />
+        </BootstrapperApplicationRef>
+
+        <!-- Microsoft Visual C++ 2015-2022 Redistributable (x64) runtime msi package version -->
+        <util:ProductSearch
+            Id="VCRedistVersionFound"
+            Result="version"
+            Variable="VCRedistVersionFound"
+            UpgradeCode="36F68A90-239C-34DF-B58C-64B30153CE35" />
+
+        <!-- Microsoft Visual C++ 2015-2022 Redistributable version -->
+        <Variable Name="VCRedistVersionDesired" Type="version" Value="14.40.33816.0" />
+
+        <Chain>
+            <MsiPackage
+                Id="SpaceAcres"
+                Compressed="yes"
+                SourceFile="$(var.CargoTargetDir)\wix\space-acres-$(var.Version)-$(var.Arch).msi"
+                DisplayInternalUI="yes"
+                Visible="no"
+            />
+
+            <ExePackage
+                Id="vc_redist.x64.exe"
+                Name="vc_redist.x64.14.40.33816.0.exe"
+                Cache="no"
+                Compressed="no"
+                PerMachine="yes"
+                Permanent="yes"
+                DetectCondition="VCRedistVersionFound >= VCRedistVersionDesired"
+                DownloadUrl="https://download.visualstudio.microsoft.com/download/pr/368cc6bf-087b-49f9-93e6-ab05b70a58e0/814E9DA5EC5E5D6A8FA701999D1FC3BADDF7F3ADC528E202590E9B1CB73E4A11/VC_redist.x64.exe"
+                InstallCommand="/install /passive /norestart" >
+                <RemotePayload
+                    ProductName="Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.40.33816"
+                    Description="Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.40.33816"
+                    Version="14.40.33816.0"
+                    Hash="ba92a00f0f55dcae85c1bbd098efe606bd080b3c"
+                    Size="25502344" />
+            </ExePackage>
+        </Chain>
+    </Bundle>
+</Wix>
