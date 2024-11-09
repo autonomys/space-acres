@@ -15,6 +15,7 @@ use sc_client_api::client::BlockchainEvents;
 use sc_client_api::{HeaderBackend, StorageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus_slots::SlotProportion;
+use sc_consensus_subspace::archiver::CreateObjectMappings;
 use sc_network::config::{Ed25519Secret, NodeKeyConfig, NonReservedPeerMode, SetConfig};
 use sc_service::{BlocksPruning, Configuration, GenericChainSpec, NoExtension};
 use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
@@ -504,7 +505,7 @@ pub(super) async fn create_consensus_node(
             base: consensus_chain_config,
             // Domain node needs slots notifications for bundle production
             force_new_slot_notifications: false,
-            create_object_mappings: false,
+            create_object_mappings: CreateObjectMappings::No,
             subspace_networking: SubspaceNetworking::Reuse {
                 node,
                 bootstrap_nodes: dsn_bootstrap_nodes,
@@ -568,6 +569,7 @@ pub(super) async fn create_consensus_node(
             None,
             true,
             SlotProportion::new(3f32 / 4f32),
+            None,
         )
         .await
         .map_err(|error| {

@@ -54,7 +54,7 @@ pub(super) const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
 /// very long period of writing zeroes on Windows, see https://stackoverflow.com/q/78058306/3806795
 const MAX_SPACE_PLEDGED_FOR_PLOT_CACHE_ON_WINDOWS: u64 = ByteSize::tib(7).as_u64();
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);
-const MAX_PLOTTING_SECTORS_PER_FARM: NonZeroUsize = NonZeroUsize::new(4).expect("Not zero; qed");
+const MAX_PLOTTING_SECTORS_PER_FARM: NonZeroUsize = NonZeroUsize::new(2).expect("Not zero; qed");
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct InitialFarmState {
@@ -331,7 +331,7 @@ where
 
             let cuda_plotter = GpuPlotter::new(
                 piece_getter.clone(),
-                Arc::new(Semaphore::new(cuda_devices.len() + 1)),
+                Arc::new(Semaphore::new(cuda_devices.len() * 3)),
                 cuda_devices
                     .into_iter()
                     .map(|cuda_device| {
@@ -367,7 +367,7 @@ where
 
             let rocm_plotter = GpuPlotter::new(
                 piece_getter.clone(),
-                Arc::new(Semaphore::new(rocm_devices.len() + 1)),
+                Arc::new(Semaphore::new(rocm_devices.len() * 3)),
                 rocm_devices
                     .into_iter()
                     .map(|rocm_device| {

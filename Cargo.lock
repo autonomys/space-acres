@@ -81,7 +81,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e01ed3140b2f8d422c68afa1ed2e85d996ea619c988ac834d255db32138655cb"
 dependencies = [
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -198,7 +198,7 @@ dependencies = [
  "actix-router",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -442,7 +442,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -465,7 +465,7 @@ checksum = "0ae92a5119aa49cdbcf6b9f893fe4e1d98b04ccbf82ee0584ad948a44a734dea"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -633,7 +633,7 @@ dependencies = [
  "nom",
  "num-traits",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -649,7 +649,7 @@ dependencies = [
  "nom",
  "num-traits",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -673,7 +673,7 @@ checksum = "965c2d33e53cb6b267e148a4cb0760bc01f4904c1cd4bb4002a085bb016d1490"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "synstructure 0.13.1",
 ]
 
@@ -696,7 +696,7 @@ checksum = "7b18050c2cd6fe86c3a76584ef5e0baf286d038cda203eb6223df2cc413565f7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -833,7 +833,7 @@ checksum = "3b43422f69d8ff38f95f1b2bb76517c91589a924d1559a0e935d7c8ce0274c11"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -868,7 +868,7 @@ checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1394,7 +1394,7 @@ dependencies = [
  "glib 0.18.5",
  "libc",
  "once_cell",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -1666,7 +1666,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2065,7 +2065,7 @@ checksum = "f64009896348fc5af4222e9cf7d7d82a95a256c634ebcf61c53e4ea461422242"
 [[package]]
 name = "cross-domain-message-gossip"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "domain-block-preprocessor",
  "fp-account",
@@ -2086,7 +2086,7 @@ dependencies = [
  "sp-messenger",
  "sp-runtime",
  "subspace-runtime-primitives",
- "thiserror",
+ "thiserror 2.0.1",
  "tracing",
 ]
 
@@ -2215,7 +2215,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2376,7 +2376,7 @@ checksum = "d65d7ce8132b7c0e54497a4d9a55a1c2a0912a0d786cf894472ba818fba45762"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2389,7 +2389,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2410,7 +2410,7 @@ dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "unicode-xid",
 ]
 
@@ -2545,7 +2545,7 @@ checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2575,7 +2575,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "syn 2.0.82",
+ "syn 2.0.87",
  "termcolor",
  "toml 0.8.19",
  "walkdir",
@@ -2584,7 +2584,7 @@ dependencies = [
 [[package]]
 name = "domain-block-preprocessor"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "domain-runtime-primitives",
@@ -2617,7 +2617,7 @@ dependencies = [
 [[package]]
 name = "domain-runtime-primitives"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "fp-account",
  "frame-support",
@@ -2813,7 +2813,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2833,7 +2833,7 @@ checksum = "a1ab991c1362ac86c61ab6f556cff143daa22e5a15e4e189df818b2fd19fe65b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2854,7 +2854,7 @@ checksum = "de0d48a183585823424a4ce1aa132d174a6a81bd540895822eb4c8373a8e49e8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2951,7 +2951,7 @@ dependencies = [
  "prettyplease 0.2.22",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2998,7 +2998,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e182f7dbc2ef73d9ef67351c5fbbea084729c48362d3ce9dd44c28e32e277fe5"
 dependencies = [
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3181,7 +3181,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "thiserror",
+ "thiserror 1.0.65",
  "unic-langid",
 ]
 
@@ -3191,7 +3191,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a530c4694a6a8d528794ee9bbd8ba0122e779629ac908d15ad5a7ae7763a33d"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3200,7 +3200,7 @@ version = "0.11.1"
 source = "git+https://github.com/projectfluent/fluent-rs?rev=bda4736095a4a60a9a042b336d0789c22461905d#bda4736095a4a60a9a042b336d0789c22461905d"
 dependencies = [
  "memchr",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3245,7 +3245,7 @@ checksum = "1a5c6c585bc94aaf2c7b51dd4c2ba22680844aba4c687be581871a6f518c5742"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3278,7 +3278,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835f84f38484cc86f110a805655697908257fb9a7af005234060891557198e9"
 dependencies = [
  "nonempty",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3400,7 +3400,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sp-crypto-hashing",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3412,7 +3412,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3422,7 +3422,7 @@ source = "git+https://github.com/subspace/polkadot-sdk?rev=5871818e1d736f1843eb9
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3600,7 +3600,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3900,7 +3900,7 @@ dependencies = [
  "once_cell",
  "pin-project-lite",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3966,7 +3966,7 @@ dependencies = [
  "memchr",
  "once_cell",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -4001,7 +4001,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4014,7 +4014,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4199,7 +4199,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4232,7 +4232,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4465,7 +4465,7 @@ dependencies = [
  "once_cell",
  "rand",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tokio",
  "tracing",
@@ -4488,7 +4488,7 @@ dependencies = [
  "rand",
  "resolv-conf",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -4640,7 +4640,7 @@ dependencies = [
  "hwlocality-sys",
  "libc",
  "num_enum",
- "thiserror",
+ "thiserror 1.0.65",
  "windows-sys 0.59.0",
 ]
 
@@ -5042,7 +5042,7 @@ checksum = "c34819042dc3d3971c46c2190835914dfbe0c3c13f61449b2997f4e9722dfa60"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -5183,7 +5183,7 @@ dependencies = [
  "combine",
  "jni-sys",
  "log",
- "thiserror",
+ "thiserror 1.0.65",
  "walkdir",
 ]
 
@@ -5247,7 +5247,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-rustls 0.26.0",
  "tokio-util",
@@ -5275,7 +5275,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -5291,7 +5291,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -5313,7 +5313,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -5330,7 +5330,7 @@ dependencies = [
  "http 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5395,7 +5395,7 @@ dependencies = [
  "dbus",
  "dbus-codegen",
  "dbus-tree",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5558,7 +5558,7 @@ dependencies = [
  "multiaddr 0.18.2",
  "pin-project",
  "rw-stream-sink 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5594,7 +5594,7 @@ dependencies = [
  "multiaddr 0.18.2",
  "pin-project",
  "rw-stream-sink 0.4.0 (git+https://github.com/autonomys/rust-libp2p?rev=3f6238a86bda615ee9ec54462147f6a5d7891b6d)",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5640,7 +5640,7 @@ dependencies = [
  "quick-protobuf-codec 0.3.1",
  "rand",
  "rand_core",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "void",
  "web-time",
@@ -5692,7 +5692,7 @@ dependencies = [
  "rand",
  "rw-stream-sink 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "unsigned-varint 0.7.2",
  "void",
 ]
@@ -5718,7 +5718,7 @@ dependencies = [
  "rw-stream-sink 0.4.0 (git+https://github.com/autonomys/rust-libp2p?rev=3f6238a86bda615ee9ec54462147f6a5d7891b6d)",
  "serde",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "unsigned-varint 0.8.0",
  "void",
@@ -5806,7 +5806,7 @@ dependencies = [
  "quick-protobuf",
  "quick-protobuf-codec 0.2.0",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "void",
 ]
 
@@ -5827,7 +5827,7 @@ dependencies = [
  "quick-protobuf",
  "quick-protobuf-codec 0.3.1",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "void",
 ]
@@ -5846,7 +5846,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2 0.10.8",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "zeroize",
 ]
@@ -5874,7 +5874,7 @@ dependencies = [
  "rand",
  "sha2 0.10.8",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "uint 0.9.5",
  "unsigned-varint 0.7.2",
  "void",
@@ -5902,7 +5902,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "uint 0.9.5",
  "void",
@@ -6005,7 +6005,7 @@ dependencies = [
  "sha2 0.10.8",
  "snow",
  "static_assertions",
- "thiserror",
+ "thiserror 1.0.65",
  "x25519-dalek",
  "zeroize",
 ]
@@ -6029,7 +6029,7 @@ dependencies = [
  "sha2 0.10.8",
  "snow",
  "static_assertions",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "x25519-dalek",
  "zeroize",
@@ -6105,7 +6105,7 @@ dependencies = [
  "ring 0.16.20",
  "rustls 0.21.12",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -6127,7 +6127,7 @@ dependencies = [
  "ring 0.17.8",
  "rustls 0.23.14",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -6225,7 +6225,7 @@ dependencies = [
  "proc-macro-warning 0.4.2",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6236,7 +6236,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6286,7 +6286,7 @@ dependencies = [
  "ring 0.16.20",
  "rustls 0.21.12",
  "rustls-webpki 0.101.7",
- "thiserror",
+ "thiserror 1.0.65",
  "x509-parser 0.15.1",
  "yasna",
 ]
@@ -6304,7 +6304,7 @@ dependencies = [
  "ring 0.17.8",
  "rustls 0.23.14",
  "rustls-webpki 0.101.7",
- "thiserror",
+ "thiserror 1.0.65",
  "x509-parser 0.16.0",
  "yasna",
 ]
@@ -6370,7 +6370,7 @@ dependencies = [
  "pin-project-lite",
  "rw-stream-sink 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "soketto",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "webpki-roots 0.25.4",
 ]
@@ -6384,7 +6384,7 @@ dependencies = [
  "futures",
  "libp2p-core 0.40.1",
  "log",
- "thiserror",
+ "thiserror 1.0.65",
  "yamux 0.12.1",
 ]
 
@@ -6396,7 +6396,7 @@ dependencies = [
  "either",
  "futures",
  "libp2p-core 0.42.0",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "yamux 0.12.1",
  "yamux 0.13.3",
@@ -6570,7 +6570,7 @@ dependencies = [
  "snow",
  "socket2 0.5.7",
  "static_assertions",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite",
@@ -6697,7 +6697,7 @@ dependencies = [
  "macro_magic_core",
  "macro_magic_macros",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6711,7 +6711,7 @@ dependencies = [
  "macro_magic_core_macros",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6722,7 +6722,7 @@ checksum = "b02abfe41815b5bd98dbd4260173db2c116dda171dc0fe7838cb206333b83308"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6733,7 +6733,7 @@ checksum = "73ea28ee64b88876bf45277ed9a5817c1817df061a74f2b988971a12570e5869"
 dependencies = [
  "macro_magic_core",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6931,7 +6931,7 @@ dependencies = [
  "rand_chacha",
  "rand_distr",
  "subtle 2.6.1",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -7020,7 +7020,7 @@ dependencies = [
  "cfg-if",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7039,7 +7039,7 @@ dependencies = [
  "objc2-foundation",
  "once_cell",
  "png",
- "thiserror",
+ "thiserror 1.0.65",
  "windows-sys 0.59.0",
 ]
 
@@ -7215,7 +7215,7 @@ checksum = "254a5372af8fc138e36684761d3c0cdb758a4410e938babcff1c860ce14ddbfc"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7253,7 +7253,7 @@ dependencies = [
  "objc_id",
  "once_cell",
  "raw-window-handle",
- "thiserror",
+ "thiserror 1.0.65",
  "versions",
  "wfd",
  "which",
@@ -7295,7 +7295,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "paste",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7309,7 +7309,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -7334,7 +7334,7 @@ checksum = "a4a43439bf756eed340bdf8feba761e2d50c7d47175d87545cd5cbe4a137c4d1"
 dependencies = [
  "cc",
  "libc",
- "thiserror",
+ "thiserror 1.0.65",
  "winapi",
 ]
 
@@ -7472,7 +7472,7 @@ checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7542,7 +7542,7 @@ checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7815,7 +7815,7 @@ dependencies = [
  "proc-macro2",
  "proc-macro2-diagnostics",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8159,7 +8159,7 @@ checksum = "a4502d8515ca9f32f1fb543d987f63d95a14934883db45bdb48060b6b69257f8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8273,7 +8273,7 @@ dependencies = [
  "polkavm-common",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8283,7 +8283,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ba81f7b5faac81e528eb6158a6f3c9e0bb1008e0ffa19653bc8dea925ecb429"
 dependencies = [
  "polkavm-derive-impl",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8408,7 +8408,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "479cf940fbbb3426c32c5d5176f62ad57549a0bb84773423ba8be9d089f5faba"
 dependencies = [
  "proc-macro2",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8430,7 +8430,7 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17d47ce914bf4de440332250b0edd23ce48c005f59fab39d3335866b114f11a"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "toml 0.5.11",
 ]
 
@@ -8490,7 +8490,7 @@ checksum = "3d1eaa7fa0aa1929ffdf7eeb6eac234dde6268914a14ad44d23521ab6a9b258e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8501,7 +8501,7 @@ checksum = "834da187cfe638ae8abb0203f0b33e5ccdb02a28e7199f2f47b3e2754f50edca"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8521,7 +8521,7 @@ checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "version_check",
  "yansi",
 ]
@@ -8542,7 +8542,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8021cf59c8ec9c432cfc2526ac6b8aa508ecaf29cd415f271b8406c1b851c3fd"
 dependencies = [
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8556,7 +8556,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "parking_lot 0.12.3",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8591,7 +8591,7 @@ checksum = "440f724eba9f6996b75d63681b0a92b06947f1457076d503a4d2e2c8f56442b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8653,7 +8653,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-types 0.12.6",
  "regex",
- "syn 2.0.82",
+ "syn 2.0.87",
  "tempfile",
 ]
 
@@ -8680,7 +8680,7 @@ dependencies = [
  "itertools 0.12.1",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8764,7 +8764,7 @@ dependencies = [
  "asynchronous-codec 0.6.2",
  "bytes",
  "quick-protobuf",
- "thiserror",
+ "thiserror 1.0.65",
  "unsigned-varint 0.7.2",
 ]
 
@@ -8776,7 +8776,7 @@ dependencies = [
  "asynchronous-codec 0.7.0",
  "bytes",
  "quick-protobuf",
- "thiserror",
+ "thiserror 1.0.65",
  "unsigned-varint 0.8.0",
 ]
 
@@ -8802,7 +8802,7 @@ dependencies = [
  "quinn-udp 0.3.2",
  "rustc-hash 1.1.0",
  "rustls 0.20.9",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "webpki",
@@ -8821,7 +8821,7 @@ dependencies = [
  "quinn-udp 0.4.1",
  "rustc-hash 1.1.0",
  "rustls 0.21.12",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -8840,7 +8840,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.14",
  "socket2 0.5.7",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -8857,7 +8857,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "rustls 0.20.9",
  "slab",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tracing",
  "webpki",
@@ -8875,7 +8875,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "rustls 0.21.12",
  "slab",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tracing",
 ]
@@ -8892,7 +8892,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.14",
  "slab",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tracing",
 ]
@@ -9030,7 +9030,7 @@ dependencies = [
  "rand_chacha",
  "simd_helpers",
  "system-deps 6.2.2",
- "thiserror",
+ "thiserror 1.0.65",
  "v_frame",
  "wasm-bindgen",
 ]
@@ -9140,7 +9140,7 @@ checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom",
  "libredox",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9160,7 +9160,7 @@ checksum = "bcc303e793d3734489387d205e9b186fac9c6cfacedd98cbb2e8a5943595f3e6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -9287,7 +9287,7 @@ checksum = "5a895a7455441a857d100ca679bd24a92f91d28b5e3df63296792ac1af2eddde"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -9414,7 +9414,7 @@ dependencies = [
  "netlink-packet-route",
  "netlink-proto",
  "nix 0.24.3",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -9725,7 +9725,7 @@ dependencies = [
  "log",
  "sp-core",
  "sp-wasm-interface",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9800,7 +9800,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -9876,7 +9876,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9905,7 +9905,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-subspace"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "futures",
@@ -9939,7 +9939,7 @@ dependencies = [
  "subspace-kzg",
  "subspace-proof-of-space",
  "subspace-verification",
- "thiserror",
+ "thiserror 2.0.1",
  "tokio",
  "tracing",
 ]
@@ -9947,7 +9947,7 @@ dependencies = [
 [[package]]
 name = "sc-consensus-subspace-rpc"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-oneshot",
  "futures",
@@ -9975,14 +9975,14 @@ dependencies = [
  "subspace-kzg",
  "subspace-networking",
  "subspace-rpc-primitives",
- "thiserror",
+ "thiserror 2.0.1",
  "tracing",
 ]
 
 [[package]]
 name = "sc-domains"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "sc-client-api",
  "sc-executor",
@@ -10031,7 +10031,7 @@ dependencies = [
  "sc-allocator",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-instrument",
 ]
 
@@ -10092,7 +10092,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-keystore",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10121,7 +10121,7 @@ dependencies = [
  "sp-keystore",
  "sp-mixnet",
  "sp-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10166,7 +10166,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "unsigned-varint 0.7.2",
@@ -10230,7 +10230,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core",
  "sp-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10265,7 +10265,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -10302,7 +10302,7 @@ dependencies = [
  "multiaddr 0.18.2",
  "multihash 0.19.1",
  "rand",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -10343,7 +10343,7 @@ dependencies = [
 [[package]]
 name = "sc-proof-of-time"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "core_affinity",
  "derive_more 1.0.0",
@@ -10428,7 +10428,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "sp-version",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10482,7 +10482,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "sp-version",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
 ]
@@ -10545,7 +10545,7 @@ dependencies = [
  "static_init",
  "substrate-prometheus-endpoint",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -10571,14 +10571,14 @@ dependencies = [
  "fs4 0.7.0",
  "log",
  "sp-core",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
 [[package]]
 name = "sc-subspace-block-relay"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -10597,14 +10597,30 @@ dependencies = [
  "strum_macros",
  "subspace-core-primitives",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 2.0.1",
  "tracing",
 ]
 
 [[package]]
 name = "sc-subspace-chain-specs"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
+
+[[package]]
+name = "sc-subspace-sync-common"
+version = "0.1.0"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
+dependencies = [
+ "array-bytes",
+ "futures",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-network",
+ "sc-network-sync",
+ "sp-blockchain",
+ "sp-runtime",
+ "tracing",
+]
 
 [[package]]
 name = "sc-sysinfo"
@@ -10643,7 +10659,7 @@ dependencies = [
  "sc-utils",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-timer",
 ]
 
@@ -10670,7 +10686,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "sp-tracing",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
@@ -10684,7 +10700,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10711,7 +10727,7 @@ dependencies = [
  "sp-tracing",
  "sp-transaction-pool",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10727,7 +10743,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core",
  "sp-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10951,7 +10967,7 @@ checksum = "7e85ad2009c50b58e87caa8cd6dac16bdf511bbfb7af6c33df902396aa480fa5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10974,7 +10990,7 @@ checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11260,7 +11276,7 @@ dependencies = [
  "sp-state-machine",
  "sp-trie",
  "sp-version",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -11274,7 +11290,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11306,7 +11322,7 @@ dependencies = [
 [[package]]
 name = "sp-auto-id"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -11330,7 +11346,7 @@ dependencies = [
 [[package]]
 name = "sp-block-fees"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "domain-runtime-primitives",
@@ -11354,7 +11370,7 @@ dependencies = [
  "sp-database",
  "sp-runtime",
  "sp-state-machine",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -11370,7 +11386,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -11425,7 +11441,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-subspace"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "log",
@@ -11447,7 +11463,7 @@ dependencies = [
  "subspace-kzg",
  "subspace-proof-of-space",
  "subspace-verification",
- "thiserror",
+ "thiserror 2.0.1",
 ]
 
 [[package]]
@@ -11490,7 +11506,7 @@ dependencies = [
  "sp-storage",
  "ss58-registry",
  "substrate-bip39 0.6.0 (git+https://github.com/subspace/polkadot-sdk?rev=5871818e1d736f1843eb9078f886290695165c42)",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "w3f-bls",
  "zeroize",
@@ -11516,7 +11532,7 @@ source = "git+https://github.com/subspace/polkadot-sdk?rev=5871818e1d736f1843eb9
 dependencies = [
  "quote",
  "sp-crypto-hashing",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11535,13 +11551,13 @@ source = "git+https://github.com/subspace/polkadot-sdk?rev=5871818e1d736f1843eb9
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
 name = "sp-domain-digests"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "parity-scale-codec",
  "sp-runtime",
@@ -11550,7 +11566,7 @@ dependencies = [
 [[package]]
 name = "sp-domain-sudo"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -11561,7 +11577,7 @@ dependencies = [
 [[package]]
 name = "sp-domains"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "blake2 0.10.6",
  "domain-runtime-primitives",
@@ -11593,7 +11609,7 @@ dependencies = [
 [[package]]
 name = "sp-domains-fraud-proof"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "domain-block-preprocessor",
  "domain-runtime-primitives",
@@ -11621,14 +11637,14 @@ dependencies = [
  "sp-weights",
  "subspace-core-primitives",
  "subspace-runtime-primitives",
- "thiserror",
+ "thiserror 2.0.1",
  "trie-db",
 ]
 
 [[package]]
 name = "sp-executive"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -11667,7 +11683,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -11712,14 +11728,14 @@ name = "sp-maybe-compressed-blob"
 version = "11.0.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=5871818e1d736f1843eb9078f886290695165c42#5871818e1d736f1843eb9078f886290695165c42"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
 
 [[package]]
 name = "sp-messenger"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-trait",
  "frame-support",
@@ -11741,7 +11757,7 @@ dependencies = [
 [[package]]
 name = "sp-messenger-host-functions"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "domain-block-preprocessor",
  "parity-scale-codec",
@@ -11792,13 +11808,13 @@ dependencies = [
  "sp-core",
  "sp-debug-derive",
  "sp-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
 name = "sp-objects"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "sp-api",
  "subspace-core-primitives",
@@ -11890,7 +11906,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11935,7 +11951,7 @@ dependencies = [
  "sp-externalities",
  "sp-panic-handler",
  "sp-trie",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
 ]
@@ -11960,7 +11976,7 @@ dependencies = [
  "sp-externalities",
  "sp-runtime",
  "sp-runtime-interface",
- "thiserror",
+ "thiserror 1.0.65",
  "x25519-dalek",
 ]
 
@@ -11984,7 +12000,7 @@ dependencies = [
 [[package]]
 name = "sp-subspace-mmr"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12007,7 +12023,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents",
  "sp-runtime",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -12061,7 +12077,7 @@ dependencies = [
  "schnellru",
  "sp-core",
  "sp-externalities",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "trie-db",
  "trie-root",
@@ -12081,7 +12097,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version-proc-macro",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -12093,7 +12109,7 @@ dependencies = [
  "proc-macro-warning 1.0.2",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -12168,7 +12184,6 @@ dependencies = [
  "sc-client-db",
  "sc-consensus-slots",
  "sc-consensus-subspace",
- "sc-informant",
  "sc-network",
  "sc-network-types",
  "sc-rpc",
@@ -12182,11 +12197,9 @@ dependencies = [
  "serde_json",
  "simple_moving_average",
  "sp-api",
- "sp-blockchain",
  "sp-consensus",
  "sp-consensus-subspace",
  "sp-core",
- "sp-domains-fraud-proof",
  "sp-objects",
  "sp-runtime",
  "subspace-archiving",
@@ -12205,7 +12218,7 @@ dependencies = [
  "supports-color",
  "sys-locale",
  "tempfile",
- "thiserror",
+ "thiserror 2.0.1",
  "thread-priority",
  "tokio",
  "tracing",
@@ -12370,13 +12383,13 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
 name = "subspace-archiving"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "parity-scale-codec",
  "rayon",
@@ -12384,13 +12397,13 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-erasure-coding",
  "subspace-kzg",
- "thiserror",
+ "thiserror 2.0.1",
 ]
 
 [[package]]
 name = "subspace-core-primitives"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "blake3",
  "bytes",
@@ -12409,7 +12422,7 @@ dependencies = [
 [[package]]
 name = "subspace-erasure-coding"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "kzg",
  "rust-kzg-blst",
@@ -12420,7 +12433,7 @@ dependencies = [
 [[package]]
 name = "subspace-fake-runtime-api"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "domain-runtime-primitives",
  "frame-support",
@@ -12452,7 +12465,7 @@ dependencies = [
 [[package]]
 name = "subspace-farmer"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "anyhow",
  "async-lock",
@@ -12496,7 +12509,7 @@ dependencies = [
  "subspace-verification",
  "substrate-bip39 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile",
- "thiserror",
+ "thiserror 2.0.1",
  "thread-priority",
  "tokio",
  "tokio-stream",
@@ -12508,7 +12521,7 @@ dependencies = [
 [[package]]
 name = "subspace-farmer-components"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "anyhow",
  "async-lock",
@@ -12532,7 +12545,7 @@ dependencies = [
  "subspace-kzg",
  "subspace-proof-of-space",
  "subspace-verification",
- "thiserror",
+ "thiserror 2.0.1",
  "tokio",
  "tracing",
  "winapi",
@@ -12541,7 +12554,7 @@ dependencies = [
 [[package]]
 name = "subspace-kzg"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "derive_more 1.0.0",
  "kzg",
@@ -12556,7 +12569,7 @@ dependencies = [
 [[package]]
 name = "subspace-metrics"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "actix-web",
  "prometheus",
@@ -12567,7 +12580,7 @@ dependencies = [
 [[package]]
 name = "subspace-networking"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -12595,7 +12608,7 @@ dependencies = [
  "serde_json",
  "subspace-core-primitives",
  "subspace-metrics",
- "thiserror",
+ "thiserror 2.0.1",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -12607,7 +12620,7 @@ dependencies = [
 [[package]]
 name = "subspace-proof-of-space"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "chacha20",
  "derive_more 1.0.0",
@@ -12623,7 +12636,7 @@ dependencies = [
 [[package]]
 name = "subspace-proof-of-space-gpu"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "blst",
  "cc",
@@ -12636,17 +12649,17 @@ dependencies = [
 [[package]]
 name = "subspace-proof-of-time"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "aes 0.9.0-pre.2",
  "subspace-core-primitives",
- "thiserror",
+ "thiserror 2.0.1",
 ]
 
 [[package]]
 name = "subspace-rpc-primitives"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "hex",
  "parity-scale-codec",
@@ -12659,7 +12672,7 @@ dependencies = [
 [[package]]
 name = "subspace-runtime-primitives"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12675,7 +12688,7 @@ dependencies = [
 [[package]]
 name = "subspace-service"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -12714,6 +12727,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-service",
  "sc-subspace-block-relay",
+ "sc-subspace-sync-common",
  "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
@@ -12754,7 +12768,7 @@ dependencies = [
  "subspace-verification",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
- "thiserror",
+ "thiserror 2.0.1",
  "tokio",
  "tracing",
 ]
@@ -12762,14 +12776,14 @@ dependencies = [
 [[package]]
 name = "subspace-verification"
 version = "0.1.0"
-source = "git+https://github.com/subspace/subspace?rev=85aba66baea8bb3a74e28e272e7c88751d26999c#85aba66baea8bb3a74e28e272e7c88751d26999c"
+source = "git+https://github.com/subspace/subspace?rev=f26446d5a803c8f188481025bf96b162c327d18e#f26446d5a803c8f188481025bf96b162c327d18e"
 dependencies = [
  "parity-scale-codec",
  "schnorrkel",
  "subspace-core-primitives",
  "subspace-kzg",
  "subspace-proof-of-space",
- "thiserror",
+ "thiserror 2.0.1",
 ]
 
 [[package]]
@@ -12827,7 +12841,7 @@ dependencies = [
  "hyper-util",
  "log",
  "prometheus",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -12865,9 +12879,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.82"
+version = "2.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83540f837a8afc019423a8edb95b52a8effe46957ee402287f4292fae35be021"
+checksum = "25aa4ce346d03a6dcd68dd8b4010bcb74e54e62c90c573f394c46eae99aba32d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12903,7 +12917,7 @@ checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -13045,7 +13059,16 @@ version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d11abd9594d9b38965ef50805c5e469ca9cc6f197f883f717e0269a3057b3d5"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.65",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07c1e40dd48a282ae8edc36c732cbc219144b87fb6a4c7316d611c6b1f06ec0c"
+dependencies = [
+ "thiserror-impl 2.0.1",
 ]
 
 [[package]]
@@ -13056,7 +13079,18 @@ checksum = "ae71770322cbd277e69d762a16c444af02aa0575ac0d174f0b9562d3b37f8602"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "874aa7e446f1da8d9c3a5c95b1c5eb41d800045252121dc7f8e0ba370cee55f5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -13193,7 +13227,7 @@ checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -13375,7 +13409,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -13456,7 +13490,7 @@ checksum = "dc19eb2373ccf3d1999967c26c3d44534ff71ae5d8b9dacf78f4b13132229e48"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -13475,7 +13509,7 @@ dependencies = [
  "objc2-foundation",
  "once_cell",
  "png",
- "thiserror",
+ "thiserror 1.0.65",
  "windows-sys 0.59.0",
 ]
 
@@ -13519,7 +13553,7 @@ dependencies = [
  "rand",
  "smallvec",
  "socket2 0.4.10",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tokio",
  "tracing",
@@ -13544,7 +13578,7 @@ dependencies = [
  "once_cell",
  "rand",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tokio",
  "tracing",
@@ -13566,7 +13600,7 @@ dependencies = [
  "rand",
  "resolv-conf",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "trust-dns-proto 0.23.2",
@@ -13599,7 +13633,7 @@ dependencies = [
  "rand",
  "rustls 0.21.12",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
  "utf-8",
 ]
@@ -13717,7 +13751,7 @@ checksum = "1ed7f4237ba393424195053097c1516bd4590dc82b84f2f97c5c69e12704555b"
 dependencies = [
  "proc-macro-hack",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "unic-langid-impl",
 ]
 
@@ -13901,7 +13935,7 @@ dependencies = [
  "rand_core",
  "sha2 0.10.8",
  "sha3",
- "thiserror",
+ "thiserror 1.0.65",
  "zeroize",
 ]
 
@@ -13952,7 +13986,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "wasm-bindgen-shared",
 ]
 
@@ -13986,7 +14020,7 @@ checksum = "4c74f6e152a76a2ad448e223b0fc0b6b5747649c3d769cc6bf45737bf97d0ed6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -14104,7 +14138,7 @@ dependencies = [
  "log",
  "object 0.30.4",
  "target-lexicon",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
  "wasmtime-cranelift-shared",
  "wasmtime-environ",
@@ -14139,7 +14173,7 @@ dependencies = [
  "object 0.30.4",
  "serde",
  "target-lexicon",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
  "wasmtime-types",
 ]
@@ -14222,7 +14256,7 @@ checksum = "a4f6fffd2a1011887d57f07654dd112791e872e3ff4a2e626aee8059ee17f06f"
 dependencies = [
  "cranelift-entity",
  "serde",
- "thiserror",
+ "thiserror 1.0.65",
  "wasmparser",
 ]
 
@@ -14404,7 +14438,7 @@ checksum = "f6fc35f58ecd95a9b71c4f2329b911016e6bec66b3f2e6a4aad86bd2e99e2f9b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -14415,7 +14449,7 @@ checksum = "08990546bf4edef8f431fa6326e032865f27138718c587dc21bc0265bbcb57cc"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -14791,7 +14825,7 @@ dependencies = [
  "nom",
  "oid-registry 0.6.1",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -14809,7 +14843,7 @@ dependencies = [
  "oid-registry 0.7.1",
  "ring 0.17.8",
  "rusticata-macros",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -14832,7 +14866,7 @@ dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -14953,7 +14987,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "zvariant_utils",
 ]
 
@@ -14986,7 +15020,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -15006,7 +15040,7 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -15146,7 +15180,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
  "zvariant_utils",
 ]
 
@@ -15158,5 +15192,5 @@ checksum = "c51bcff7cc3dbb5055396bcf774748c3dab426b4b8659046963523cee4808340"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
