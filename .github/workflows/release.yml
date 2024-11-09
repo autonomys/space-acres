@@ -323,6 +323,9 @@ jobs:
           # & "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir target\wix\gtk4 -gg -sfrag -template:fragment -out target\wix\gtk4.wxs -cg GTK -dr GTK
           
           cargo wix --target ${{ matrix.build.target }} --profile production --no-build --nocapture
+          # Create bundle with Microsoft Visual C++ Redistributable in it
+          Remove-Item target\wix\space-acres.wixobj -Confirm:$false
+          cargo wix --profile release --no-build --nocapture --include res\windows\wix\bundle.wxs -C -ext -C WixBalExtension
 
           Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
         if: runner.os == 'Windows'
@@ -333,7 +336,7 @@ jobs:
           
           dotnet tool install --global AzureSignTool
 
-          (Get-ChildItem -Path target\wix -Include space-acres-*.msi -Recurse) | ForEach-Object {
+          (Get-ChildItem -Path target\wix -Include space-acres-*.exe -Recurse) | ForEach-Object {
             Write("Signing $($_)");
           
             AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
@@ -433,7 +436,7 @@ jobs:
         with:
           name: installer-${{ matrix.build.suffix }}
           path: |
-            target/wix/*.msi
+            target/wix/*.exe
           if-no-files-found: error
         if: runner.os == 'Windows'
 
@@ -442,6 +445,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          asset_paths: '["target/wix/*.msi"]'
+          asset_paths: '["target/wix/*.exe"]'
         if: runner.os == 'Windows' && github.event_name == 'push' && github.ref_type == 'tag'
 

@@ -26,6 +26,9 @@ merge-assets.append = [
     ["target/release/space-acres-modern", "/usr/bin/space-acres-modern", "755"],
 ]
 
+[package.metadata.winres]
+ProductName = "Space Acres"
+
 [package.metadata.wix]
 # Custom location to keep the root of the project cleaner
 include = ["res/windows/wix/space-acres.wxs"]
