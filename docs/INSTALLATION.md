@@ -34,7 +34,7 @@ to disk in near-perfect for SSD way, effectively doing write leveling if SSD is 
 **RAID of any kind is pointless and can only harm** performance and/or rewards. RAID0 will most likely make things
 slower rather than faster (application benefits from knowing underlying hardware topology). RAID1 or any other
 redundancy level is 100% pointless too since farms are stateless and can be removed if disk breaks without losing data
-on other disks, it'll just make thing slower and reduce effective capacity that can be used for farming, *reducing
+on other disks, it'll just make things slower and reduce effective capacity that can be used for farming, *reducing
 farming rewards for literally no benefit in exchange*.
 
 ### Networking
