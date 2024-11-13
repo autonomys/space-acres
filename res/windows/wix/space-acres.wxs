@@ -474,12 +474,12 @@
             -->
             <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>
             <Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>
-            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">
-                WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
-            </Publish>
-            <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Run Space Acres" />
+            <!--<Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">-->
+                <!--WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed-->
+            <!--</Publish>-->
+            <!--<Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Run Space Acres" />-->
         </UI>
-        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
+        <!--<Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>-->
 
         <!--
           Enabling the EULA dialog in the installer requires uncommenting
@@ -510,8 +510,8 @@
         -->
         <!--<WixVariable Id='WixUIDialogBmp' Value='wix\Dialog.bmp'/>-->
 
-        <Property Id="WixShellExecTarget" Value="[#space_acres.exe]" />
-        <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+        <!--<Property Id="WixShellExecTarget" Value="[#space_acres.exe]" />-->
+        <!--<CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />-->
 
         <CustomAction Id='RemoveConfigsAndLogs' Directory="Bin" ExeCommand="[#space_acres.exe] --uninstall" Return='ignore' />
         <InstallExecuteSequence>
