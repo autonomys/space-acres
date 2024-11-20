@@ -389,7 +389,7 @@ where
     }
 
     let plotter = if let Some(plotter) = plotter {
-        info!("CPU plotting for v1 farms was disabled due to detected faster plotting with GPU");
+        info!("CPU plotting was disabled due to detected faster plotting with GPU");
 
         plotter
     } else {
