@@ -44,8 +44,8 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install GTK4 and libfuse2 (Linux)
-        # libfuse2 is needed for AppImage to run
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev libdbus-1-dev libfuse2
+        # libfuse2 is needed for AppImage to run, librsvg2-dev is needed for AppImage to support SVG icons properly
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libgtk-4-dev libdbus-1-dev libfuse2 librsvg2-dev
         if: runner.os == 'Linux'
 
       - name: Configure GTK4 cache (Windows)
