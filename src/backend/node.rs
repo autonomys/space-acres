@@ -509,6 +509,8 @@ pub(super) async fn create_consensus_node(
             subspace_networking: SubspaceNetworking::Reuse {
                 node,
                 bootstrap_nodes: dsn_bootstrap_nodes,
+                // This will not be used since we provide piece getter explicitly below
+                max_connections: 0,
             },
             dsn_piece_getter: Some(piece_getter),
             is_timekeeper: false,

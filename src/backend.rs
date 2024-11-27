@@ -16,7 +16,7 @@ use crate::backend::node::{
     dsn_bootstrap_nodes, BlockImportedNotification, ChainInfo, ChainSpec, ConsensusNode,
     ConsensusNodeCreationError, SyncState, GENESIS_HASH,
 };
-use async_lock::RwLock as AsyncRwLock;
+use async_lock::{RwLock as AsyncRwLock, Semaphore};
 use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
@@ -63,6 +63,8 @@ const PIECE_GETTER_MAX_RETRIES: u16 = 7;
 const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
 /// Defines max duration between get_piece calls.
 const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
+/// Multiplier on top of outgoing connections number for piece downloading purposes
+const PIECE_PROVIDER_MULTIPLIER: usize = 10;
 
 #[derive(Debug, Clone)]
 struct PieceGetterWrapper(
@@ -417,20 +419,28 @@ async fn load(
 
     let plotted_pieces = Arc::new(AsyncRwLock::new(PlottedPieces::default()));
 
-    let (maybe_node_client, node, node_runner, network_keypair, farmer_cache, farmer_cache_worker) =
-        create_networking_stack(
-            &config,
-            GENESIS_HASH.to_string(),
-            &chain_spec,
-            Arc::downgrade(&plotted_pieces),
-            notifications_sender,
-        )
-        .await?;
+    let (
+        maybe_node_client,
+        node,
+        node_runner,
+        network_keypair,
+        farmer_cache,
+        farmer_cache_worker,
+        out_connections,
+    ) = create_networking_stack(
+        &config,
+        GENESIS_HASH.to_string(),
+        &chain_spec,
+        Arc::downgrade(&plotted_pieces),
+        notifications_sender,
+    )
+    .await?;
 
     let kzg = Kzg::new();
     let piece_provider = PieceProvider::new(
         node.clone(),
         SegmentCommitmentPieceValidator::new(node.clone(), maybe_node_client.clone(), kzg.clone()),
+        Semaphore::new(out_connections as usize * PIECE_PROVIDER_MULTIPLIER),
     );
 
     let piece_getter = PieceGetterWrapper::new(FarmerPieceGetter::new(
@@ -776,6 +786,7 @@ async fn create_networking_stack(
     Keypair,
     FarmerCache,
     FarmerCacheWorker<MaybeNodeClient>,
+    u32,
 )> {
     notifications_sender
         .send(BackendNotification::Loading(
@@ -881,6 +892,7 @@ async fn create_networking_stack(
         network_options.pending_in_connections = 500;
         network_options.pending_out_connections = 500;
     }
+    let out_connections = network_options.out_connections;
     let maybe_node_client = MaybeNodeClient::default();
 
     let (farmer_cache, farmer_cache_worker) = FarmerCache::new(
@@ -912,6 +924,7 @@ async fn create_networking_stack(
         network_keypair,
         farmer_cache,
         farmer_cache_worker,
+        out_connections,
     ))
 }
 

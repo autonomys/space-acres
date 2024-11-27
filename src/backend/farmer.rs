@@ -6,7 +6,7 @@ use crate::backend::utils::{Handler, HandlerFn};
 use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
-use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
+use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
 use bytesize::ByteSize;
 use event_listener_primitives::HandlerId;
 use futures::channel::{mpsc, oneshot};
@@ -45,7 +45,7 @@ use subspace_farmer::utils::{
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_kzg::Kzg;
 use thread_priority::ThreadPriority;
-use tokio::sync::{watch, Barrier, Semaphore};
+use tokio::sync::{watch, Barrier};
 use tracing::{debug, error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
