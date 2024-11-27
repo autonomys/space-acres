@@ -20,11 +20,13 @@ installations from 3g.
 
 Current features:
 
-* Configuration (reward address, node location, multiple farms, P2P ports)
+* Configuration (reward address, node location, multiple farms, P2P ports and some advanced options)
 * Node sync with displayed progress, speed and ETA
 * Farmer plotting/farming piece cache/plotting/replotting progress display and speed calculation
 * Farmer auditing/proving performance indicators
 * Farmer sector state visualization
+* Desktop notifications with rewards and other notable events
+* Very easy to use
 
 Upcoming features/capabilities: see open issues, also consider contributing if something is missing!
 
