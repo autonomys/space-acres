@@ -261,8 +261,8 @@
                         <Directory Id='gdk_pixbuf_2.0' Name='gdk-pixbuf-2.0'>
                             <Directory Id='gdk_pixbuf_2.10.0' Name='2.10.0'>
                                 <Directory Id='loaders' Name='loaders'>
-                                    <Component Id='gdk_pixbuf_loaders' Guid='613bbf0a-780c-4d31-aaab-a81d556c289c'>
-                                        <File Id='libpixbufloader_svg.dll' Name='libpixbufloader-svg.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0\loaders\libpixbufloader-svg.dll' />
+                                    <Component Id='gdk_pixbuf_loaders' Guid='9784a105-19c9-407c-ab12-28ff80683c51'>
+                                        <File Id='libpixbufloader_svg.dll' Name='libpixbufloader_svg.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0\loaders\libpixbufloader_svg.dll' />
                                     </Component>
                                 </Directory>
 

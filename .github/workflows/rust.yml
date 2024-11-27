@@ -216,11 +216,21 @@ jobs:
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
           
           # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
+          Get-ChildItem C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders\*.dll | ForEach-Object { $_.Name } > actual-pixbuf-loaders.log
+          if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-pixbuf-loaders.log) -DifferenceObject (Get-Content -Path actual-pixbuf-loaders.log)) {
+            Write-Output "Expected pixbuf -loaders:"
+            Get-Content res\windows\wix\expected-pixbuf-loaders.log
+            Write-Output "`r`nActual pixbuf loaders:"
+            Get-Content actual-pixbuf-loaders.log
+            Throw "Actual pixbuf loaders do not match expected"
+          }
+          
+          # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
           Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
             Write-Output "Expected DLLs:"
             Get-Content res\windows\wix\expected-dlls.log
-            Write-Output "Actual DLLs:"
+            Write-Output "`r`nActual DLLs:"
             Get-Content actual-dlls.log
             Throw "Actual DLLs do not match expected"
           }
@@ -269,5 +279,5 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: cargo nextest run --locked --no-tests pass
-        run: cargo -Zgitoxide -Zgit nextest run --locked --no-tests pass
+      - name: cargo nextest run --locked --no-tests=pass
+        run: cargo -Zgitoxide -Zgit nextest run --locked --no-tests=pass
