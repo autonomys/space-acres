@@ -95,7 +95,7 @@ configuration_dialog_button_cancel = İptal
 
 running_title = Running
 running_node_title = {$chain_name} consensus node
-running_node_title_tooltip = Click to open in file manager
+running_node_title_tooltip = Dosya yöneticisinde açmak için tıklayın
 running_node_free_disk_space_tooltip = Free disk space: {$size} remaining
 running_node_status_connecting = Connecting to the network, best block #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
@@ -108,56 +108,56 @@ running_node_status_syncing =
         [regular] Regular sync
         *[unknown] Unknown sync kind {$sync_kind}
     } #{$best_block_number}/{$target_block}{$sync_speed}
-running_node_status_synced = Synced, best block #{$best_block_number}
+running_node_status_synced = Senkronize edildi, en iyi blok #{$best_block_number}
 running_farmer_title = Çiftçi
-running_farmer_button_expand_details = Expand details about each farm
-running_farmer_button_pause_plotting = Pause plotting/replotting, note that currently encoding sectors will not be interrupted
-running_farmer_account_balance_tooltip = Total account balance and coins farmed since application started, click to see details in Astral
-running_farmer_piece_cache_sync = Piece cache sync {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
+running_farmer_button_expand_details = Her bir çiftlik hakkında detayları genişlet
+running_farmer_button_pause_plotting = Alan oluşturmayı/yeni veri alanı hazırlamayı duraklat, unutmayın, şu anda oluşturulmakta olan alanlar tamamlanacak
+running_farmer_account_balance_tooltip = Uygulama başlatıldığından beri toplam hesap bakiyesi ve üretilen coinler, detayları Astral'de görmek için tıklayın
+running_farmer_piece_cache_sync = Parça önbelleği senkronizasyonu {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
     Next reward estimate: {$eta_string ->
-        [any_time_now] any time now
+        [any_time_now] hemen şimdi
         [less_than_an_hour] bir saatten az
         [today] bugün
         [this_week] bu hafta
         [more_than_a_week] bir haftadan fazla
         *[unknown] bilinmiyor
     }
-running_farmer_farm_tooltip = Click to open in file manager
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} successful reward signatures, expand farm details to see more information
-running_farmer_farm_auditing_performance_tooltip = Auditing performance: average time {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
-running_farmer_farm_proving_performance_tooltip = Proving performance: average time {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
-running_farmer_farm_non_fatal_error_tooltip = Non-fatal farming error happened and was recovered, see logs for more details: {$error}
-running_farmer_farm_crashed = Farm crashed: {$error}
-running_farmer_farm_plotting_speed =  ({NUMBER($a_sector_time, minimumFractionDigits: 2, maximumFractionDigits: 2)} m/sector, {NUMBER($b_sectors_per_hour, minimumFractionDigits: 2, maximumFractionDigits: 2)} sectors/h)
+running_farmer_farm_tooltip = Dosya yöneticisinde açmak için tıklayın
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} başarılı ödül imzaları, daha fazla bilgi için çiftlik detaylarını genişletin
+running_farmer_farm_auditing_performance_tooltip = Denetim performansı: ortalama süre {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn, zaman limiti {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn
+running_farmer_farm_proving_performance_tooltip = Kanıt performansı: ortalama süre {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn, zaman limiti {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn
+running_farmer_farm_non_fatal_error_tooltip = Riskli olmayan bir çiftçilik hatası oluştu ve düzeltildi, daha fazla detay için loglara bakın: {$error}
+running_farmer_farm_crashed = Çiftlik çöktü: {$error}
+running_farmer_farm_plotting_speed =  ({NUMBER($a_sector_time, minimumFractionDigits: 2, maximumFractionDigits: 2)} dakika/sektör, {NUMBER($b_sectors_per_hour, minimumFractionDigits: 2, maximumFractionDigits: 2)} sektörler/saat)
 running_farmer_farm_plotting_initial =
     {$pausing_state ->
-        [pausing] Pausing initial plotting
-        [paused] Paused initial plotting
-        *[no] Initial plotting
+        [pausing] Başlangıç veri alanı oluşturma duraklatılıyor
+        [paused] Başlangıç veri alanı oluşturma duraklatıldı
+        *[no] Başlangıç veri alanı oluşturma
     } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
-        [yes] farming
-        *[no] not farming
+        [yes] çiftçilik yapılıyor
+        *[no] çiftçilik yapılmıyor
     }
 running_farmer_farm_replotting =
     {$pausing_state ->
-        [pausing] Pausing initial plotting
-        [paused] Paused initial plotting
-        *[default] Replotting
+        [pausing] Yeniden veri alanı oluşturma duraklatılıyor
+        [paused] Yeniden veri alanı oluşturma duraklatıldı
+        *[default] Yeniden veri alanı oluşturma
     } {NUMBER($b_progress, minimumFractionDigits: 2, maximumFractionDigits: 2)}%{$plotting_speed}, {$farming ->
-        [yes] farming
-        *[no] not farming
+        [yes] çiftçilik yapılıyor
+        *[no] çiftçilik yapılmıyor
     }
-running_farmer_farm_farming = Farming
+running_farmer_farm_farming = Çiftçilik yapılıyor
 running_farmer_farm_waiting_for_node_to_sync = Node senkronize olmak için bekliyor
-running_farmer_farm_sector = Sector {$sector_index}
-running_farmer_farm_sector_up_to_date = Sector {$sector_index}: up to date
-running_farmer_farm_sector_waiting_to_be_plotted = Sector {$sector_index}: waiting to be plotted
-running_farmer_farm_sector_about_to_expire = Sector {$sector_index}: about to expire, waiting to be replotted
-running_farmer_farm_sector_expired = Sector {$sector_index}: expired, waiting to be replotted
-running_farmer_farm_sector_downloading = Sector {$sector_index}: downloading
-running_farmer_farm_sector_encoding = Sector {$sector_index}: encoding
-running_farmer_farm_sector_writing = Sector {$sector_index}: writing
+running_farmer_farm_sector = Sektör {$sector_index}
+running_farmer_farm_sector_up_to_date = Sektör {$sector_index}: güncel
+running_farmer_farm_sector_waiting_to_be_plotted = Sektör {$sector_index}: veri alanı oluşturulmak için bekleniyor
+running_farmer_farm_sector_about_to_expire = Sektör {$sector_index}: süresi dolmak üzere, yeniden veri alanı oluşturulmak için bekleniyor
+running_farmer_farm_sector_expired = Sektör {$sector_index}: süresi dolmuş, yeniden veri alanı oluşturulmak için bekleniyor
+running_farmer_farm_sector_downloading = Sektör {$sector_index}: indiriliyor
+running_farmer_farm_sector_encoding = Sektör {$sector_index}: kodlanıyor
+running_farmer_farm_sector_writing = Sektör {$sector_index}: yazılıyor
 
 shutting_down_title = Kapatılıyor
 shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
