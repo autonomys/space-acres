@@ -51,12 +51,12 @@ loading_wiping_node_data_step_wiping_node = Node verilerii bu konudma temizleniy
 loading_wiping_node_data_step_success = Node verileri başarıyla temizlendi
 
 configuration_title = Konfigürasyon
-reconfiguration_title = Reconfiguration
+reconfiguration_title = Yeniden konfigürrasyon
 configuration_node_path = Node dosya yolu
 configuration_node_path_placeholder = Örnek: {$path}
-configuration_node_path_tooltip = Node dosyalarının saklanacağı mutlak dosya yolu. En az 100 GiB alan ayırmaya hazırlıklı olun, kaliteli bir SSD önerilir.
+configuration_node_path_tooltip = Node dosyalarının saklanacağı mutlak dosya yolu. En az 100 GiB alan ayırmaya hazırlıklı olun, kaliteli bir SSD önerilir
 configuration_node_path_button_select = Seç
-configuration_node_path_error_doesnt_exist_or_write_permissions = Folder doesn't exist or user is lacking write permissions
+configuration_node_path_error_doesnt_exist_or_write_permissions = Klasör mevcut değil ya da kullanıcı yazma iznine sahip değil
 configuration_reward_address = Ödül adresi
 configuration_reward_address_placeholder = Örnek: {$address}
 configuration_reward_address_tooltip = Subwallet, polkadot{"{"}.js{"}"} uzantısı veya herhangi bir Substrate cüzdanını kullanarak bu adresi oluşturun (SS58 formatındaki herhangi bir Substrate ağ adresi kullanılabilir)
@@ -64,26 +64,26 @@ configuration_reward_address_button_create_wallet = Cüzdan oluştur
 configuration_reward_address_error_evm_address = Bu bir Substrate (SS58) adresi olmalı (herhangi bir ağ uygun), EVM adresi olmamalı
 configuration_farm = Maden {$index} Yolu ve Boyutu
 configuration_farm_path_placeholder = Örnek: {$path}
-configuration_farm_path_tooltip = Absolute path where farm files will be stored, any SSD works, high endurance not necessary
+configuration_farm_path_tooltip = Çiftlik dosyalarının saklanacağı mutlak dosya yolu. Herhangi bir SSD uygundur, yüksek dayanıklılık gerekli değildir
 configuration_farm_path_button_select = Seç
-configuration_farm_path_error_doesnt_exist_or_write_permissions = Folder doesn't exist or user is lacking write permissions
+configuration_farm_path_error_doesnt_exist_or_write_permissions = Klasör mevcut değil ya da kullanıcı yazma iznine sahip değil
 configuration_farm_size_kind_fixed = Sabit boyut
 configuration_farm_size_kind_free_percentage = Boş alanın %'si
 configuration_farm_fixed_size_placeholder = Örnek: 4T, 2.5TB, 500GiB, vb.
-configuration_farm_fixed_size_tooltip = Size of the farm in whichever units you prefer, any amount of space above 2 GB works
-configuration_farm_free_percentage_size_placeholder = Example: 100%, 1.1%, etc.
-configuration_farm_free_percentage_size_tooltip = Percentage of free disk space to occupy by this farm, anything above 0% works, but at least 2 GB of free space should remain on disk to avoid errors
+configuration_farm_fixed_size_tooltip = Çiftlik boyutunu istediğiniz birimle girin. 2 GB üzerinde herhangi bir alan uygundur
+configuration_farm_free_percentage_size_placeholder = Örnek: 100%, 1.1%, vb.
+configuration_farm_free_percentage_size_tooltip = Bu çiftliğin kaplayacağı boş disk alanının yüzdesi 0%'dan büyük bir değer olmalıdır, ancak hataları önlemek için disk üzerinde en az 2 GB boş alan kalmalıdır
 configuration_farm_delete = Bu çiftliği sil
-configuration_advanced = Advanced configuration
-configuration_advanced_farmer = Madenci Konfigürasyonu
+configuration_advanced = Gelişmiş Konfigürasyon
+configuration_advanced_farmer = Çiftçi Konfigürasyonu
 configuration_advanced_farmer_reduce_plotting_cpu_load = Reduce plotting CPU load
 configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Initial plotting uses all CPU cores by default, while with this option it will start using half of the cores like replotting, improving system responsiveness for other tasks
-configuration_advanced_network = Network configuration
-configuration_advanced_network_default_port_number_tooltip = Default port number is {$port}
-configuration_advanced_network_substrate_port = Substrate (blockchain) P2P port (TCP):
-configuration_advanced_network_subspace_port = Subspace (DSN) P2P port (TCP):
-configuration_advanced_network_faster_networking = Faster networking:
-configuration_advanced_network_faster_networking_tooltip = By default networking is optimized for consumer routers, but if you have more powerful setup, faster networking may improve sync speed and other processes
+configuration_advanced_network = Ağ konfigürasyonu
+configuration_advanced_network_default_port_number_tooltip = Varsayılan port numarası {$port}
+configuration_advanced_network_substrate_port = Substrate (blok zinciri) P2P portu (TCP):
+configuration_advanced_network_subspace_port = Subspace (DSN) P2P portu (TCP):
+configuration_advanced_network_faster_networking = Daha Hızlı Ağ:
+configuration_advanced_network_faster_networking_tooltip = Varsayılan olarak ağ, tüketici yönlendiricilerine göre optimize edilmiştir. Ancak daha güçlü bir kurulumunuz varsa, daha hızlı ağ seçeneği senkronizasyon hızını ve diğer süreçleri iyileştirebilir
 configuration_button_add_farm = Çiftlik Ekle
 configuration_button_help = Yardım
 configuration_button_cancel = İptal
@@ -109,7 +109,7 @@ running_node_status_syncing =
         *[unknown] Unknown sync kind {$sync_kind}
     } #{$best_block_number}/{$target_block}{$sync_speed}
 running_node_status_synced = Synced, best block #{$best_block_number}
-running_farmer_title = Farmer
+running_farmer_title = Çiftçi
 running_farmer_button_expand_details = Expand details about each farm
 running_farmer_button_pause_plotting = Pause plotting/replotting, note that currently encoding sectors will not be interrupted
 running_farmer_account_balance_tooltip = Total account balance and coins farmed since application started, click to see details in Astral
@@ -121,7 +121,7 @@ running_farmer_next_reward_estimate =
         [today] bugün
         [this_week] bu hafta
         [more_than_a_week] bir haftadan fazla
-        *[unknown] unknown
+        *[unknown] bilinmiyor
     }
 running_farmer_farm_tooltip = Click to open in file manager
 running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} successful reward signatures, expand farm details to see more information
@@ -149,7 +149,7 @@ running_farmer_farm_replotting =
         *[no] not farming
     }
 running_farmer_farm_farming = Farming
-running_farmer_farm_waiting_for_node_to_sync = Waiting for node to sync
+running_farmer_farm_waiting_for_node_to_sync = Node senkronize olmak için bekliyor
 running_farmer_farm_sector = Sector {$sector_index}
 running_farmer_farm_sector_up_to_date = Sector {$sector_index}: up to date
 running_farmer_farm_sector_waiting_to_be_plotted = Sector {$sector_index}: waiting to be plotted
@@ -165,15 +165,15 @@ shutting_down_description = This may take a couple of seconds to a few minutes d
 stopped_title = Durduruldu
 stopped_message = Durduruldu 🛑
 stopped_message_with_error = Stopped with error: {$error}
-stopped_button_show_logs = Show logs
-stopped_button_help_from_community = Help from community
+stopped_button_show_logs = Logları göster
+stopped_button_help_from_community = Topluluktan yardım iste
 
 error_title = Error
 error_message = Error: {$error}
 error_message_failed_to_send_config_to_backend = Failed to send config to backend: {$error}
 error_message_failed_to_send_pause_plotting_to_backend = Failed to send pause plotting to backend: {$error}
 error_button_show_logs = Show logs
-error_button_help_from_community = Help from community
+error_button_help_from_community = Topluluktan yardım iste
 
 new_version_available = Version {$version} available 🎉
 new_version_available_button_open = Open releases page
