@@ -4,7 +4,7 @@ welcome_message =
 
     Devam etmeden önce 3 şeye ihtiyacınız var:
     ✔ Ödülleri alacağınız bir cüzdan adresi (use Subwallet, polkadot{"{"}.js{"}"} uzantısı veya Substrate ağı ile uyumlu herhangi bir cüzdan kullanabilirsiniz)
-    ✔  Node verilerini depolamak için kaliteli bir SSD'de 100GB alan
+    ✔  Node verilerini depolamak için kaliteli bir SSD'de 100GiB alan
     ✔ Farm amacıyla kullanabileceğiniz herhangi bir SSD (veya birden fazla), ne kadar alan ayırabilirseniz o kadar ödül kazanırsınız
 welcome_button_continue = Devam Et
 
