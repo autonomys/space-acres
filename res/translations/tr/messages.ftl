@@ -1,8 +1,8 @@
 welcome_title = Hoşgeldin
 welcome_message =
-    Space Acres is an opinionated GUI application for farming on Autonomys Network.
+    Space Acres, Autonomys Network üzerinde farming yapmak için tasarlanmış, belirli tercihleri olan bir grafik arayüz uygulamasıdır.
 
-    Before continuing you need 3 things:
+    Devam etmeden önce 3 şeye ihtiyacınız var:
     ✔ Ödülleri alacağınız bir cüzdan adresi (use Subwallet, polkadot{"{"}.js{"}"} uzantısı veya Substrate ağı ile uyumlu herhangi bir cüzdan kullanabilirsiniz)
     ✔  Node verilerini depolamak için kaliteli bir SSD'de 100GB alan
     ✔ Farm amacıyla kullanabileceğiniz herhangi bir SSD (veya birden fazla), ne kadar alan ayırabilirseniz o kadar ödül kazanırsınız
@@ -15,7 +15,7 @@ upgrade_message =
     Daha önce çalıştırdığınız ağ, muhtemelen Autonomys'in önceki sürümüne katıldığınız için artık Space Acres'in bu sürümüyle uyumlu değil.
 
     Ancak endişelenmeyin, tek bir tıklama ile desteklenen mevcut ağa geçiş yapabilirsiniz!
-upgrade_button_upgrade = Upgrade to {$chain_name}
+upgrade_button_upgrade = Buna yükselt {$chain_name}
 
 loading_title = Yükleniyor
 loading_configuration_title = Konfigürasyon Yükleniyor
@@ -76,8 +76,8 @@ configuration_farm_free_percentage_size_tooltip = Bu çiftliğin kaplayacağı b
 configuration_farm_delete = Bu çiftliği sil
 configuration_advanced = Gelişmiş Konfigürasyon
 configuration_advanced_farmer = Çiftçi Konfigürasyonu
-configuration_advanced_farmer_reduce_plotting_cpu_load = Reduce plotting CPU load
-configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Initial plotting uses all CPU cores by default, while with this option it will start using half of the cores like replotting, improving system responsiveness for other tasks
+configuration_advanced_farmer_reduce_plotting_cpu_load = Çizim CPU yükünü azalt
+configuration_advanced_farmer_reduce_plotting_cpu_load_tooltip = Başlangıç çizimi varsayılan olarak tüm CPU çekirdeklerini kullanır. Bu seçenek etkinleştirildiğinde, yeniden çizimde olduğu gibi sadece çekirdeklerin yarısını kullanır. Bu, diğer görevler için sistemin daha duyarlı olmasını sağlar
 configuration_advanced_network = Ağ konfigürasyonu
 configuration_advanced_network_default_port_number_tooltip = Varsayılan port numarası {$port}
 configuration_advanced_network_substrate_port = Substrate (blok zinciri) P2P portu (TCP):
@@ -93,20 +93,20 @@ configuration_button_start = Başlat
 configuration_dialog_button_select = Seç
 configuration_dialog_button_cancel = İptal
 
-running_title = Running
-running_node_title = {$chain_name} consensus node
+running_title = Çalışıyor
+running_node_title = {$chain_name} konsensüs düğümü
 running_node_title_tooltip = Dosya yöneticisinde açmak için tıklayın
-running_node_free_disk_space_tooltip = Free disk space: {$size} remaining
-running_node_status_connecting = Connecting to the network, best block #{$block_number}
-running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
-running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} hours remaining)
-running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} minutes remaining)
-running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} seconds remaining)
+running_node_free_disk_space_tooltip = Boş disk alanı: {$size} kaldı
+running_node_status_connecting = Ağa bağlanılıyor, en iyi blok #{$block_number}
+running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn
+running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} saat kaldı)
+running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} dakika kaldı)
+running_node_status_syncing_speed_seconds_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} saniye kaldı)
 running_node_status_syncing =
     {$sync_kind ->
-        [dsn] Syncing from DSN
-        [regular] Regular sync
-        *[unknown] Unknown sync kind {$sync_kind}
+        [dsn] DSN'den senkronize ediliyor
+        [regular] Normal senkronizasyon
+        *[unknown] Bilinmeyen senkronizasyon türü {$sync_kind}
     } #{$best_block_number}/{$target_block}{$sync_speed}
 running_node_status_synced = Senkronize edildi, en iyi blok #{$best_block_number}
 running_farmer_title = Çiftçi
@@ -160,51 +160,51 @@ running_farmer_farm_sector_encoding = Sektör {$sector_index}: kodlanıyor
 running_farmer_farm_sector_writing = Sektör {$sector_index}: yazılıyor
 
 shutting_down_title = Kapatılıyor
-shutting_down_description = This may take a couple of seconds to a few minutes depending on what application is doing
+shutting_down_description = Uygulamanın yaptığı işleme bağlı olarak bu birkaç saniyeden birkaç dakikaya kadar sürebilir
 
 stopped_title = Durduruldu
 stopped_message = Durduruldu 🛑
-stopped_message_with_error = Stopped with error: {$error}
+stopped_message_with_error = Hata ile durduruldu: {$error}
 stopped_button_show_logs = Logları göster
 stopped_button_help_from_community = Topluluktan yardım iste
 
-error_title = Error
-error_message = Error: {$error}
-error_message_failed_to_send_config_to_backend = Failed to send config to backend: {$error}
-error_message_failed_to_send_pause_plotting_to_backend = Failed to send pause plotting to backend: {$error}
-error_button_show_logs = Show logs
+error_title = Hata
+error_message = Hata: {$error}
+error_message_failed_to_send_config_to_backend = Konfigürasyon verileri arka uca iletilemedi: {$error}
+error_message_failed_to_send_pause_plotting_to_backend = Çizimi duraklatmayı arka uca göndermek başarısız oldu: {$error}
+error_button_show_logs = Logları göster
 error_button_help_from_community = Topluluktan yardım iste
 
-new_version_available = Version {$version} available 🎉
-new_version_available_button_open = Open releases page
+new_version_available = Sürüm {$version} mevcut 🎉
+new_version_available_button_open = Sürümler sayfasını aç
 
-main_menu_show_logs = Show logs in file manager
+main_menu_show_logs = Logları dosya yöneticisinde göster
 main_menu_change_configuration = Konfigürasyonu değiştir
 main_menu_share_feedback = Geribildirim bırak
 main_menu_about = Hakkında
 main_menu_exit = Çıkış
 
-status_bar_message_configuration_is_invalid = Configuration is invalid: {$error}
-status_bar_message_restart_is_needed_for_configuration = Application restart is needed for configuration changes to take effect
-status_bar_message_failed_to_save_configuration = Failed to save configuration changes: {$error}
-status_bar_message_restarted_after_crash = Space Acres automatically restarted after crash, check application and system logs for details
+status_bar_message_configuration_is_invalid = Konfigürasyon geçersiz: {$error}
+status_bar_message_restart_is_needed_for_configuration = Konfigürasyon değişikliklerinin etkili olması için uygulamanın yeniden başlatılması gerekiyor
+status_bar_message_failed_to_save_configuration = Konfigürasyon değişiklikleri kaydedilemedi: {$error}
+status_bar_message_restarted_after_crash = Space Acres çökme sonrası otomatik olarak yeniden başlatıldı, ayrıntılar için uygulama ve sistem loglarını kontrol edin
 status_bar_button_restart = Yeniden Başlat
 status_bar_button_ok = Tamam
 
 about_system_information =
-    Config directory: {$config_directory}
-    Data directory (including logs): {$data_directory}
+    Konfigürasyon dizini: {$config_directory}
+    Veri dizini (loglar dahil): {$data_directory}
 
 tray_icon_open = Aç
 tray_icon_quit = Çıkış
 
-notification_app_minimized_to_tray = Space Acres was minimized to tray
-    .body = You can open it again or exit completely using tray icon menu
-notification_stopped_with_error = Space Acres stopped with error
-    .body = An error happened and requires user intervention to resolve
-notification_farm_error = One of the farms failed in Space Acres
-    .body = An error happened and requires user intervention to resolve
-notification_signed_reward_successfully = Signed new reward successfully 🥳
-    .body = Thank you for securing the network 🙌
-notification_missed_reward = Reward signing failed 😞
-    .body = This is unfortunate, but there will be another chance soon
+notification_app_minimized_to_tray = Space Acres simge duruma küçültüldü
+    .body = Tekrar açmak veya tamamen çıkış yapmak için görev çubuğu menüsünü kullanabilirsiniz
+notification_stopped_with_error = Space Acres bir hata nedeniyle durdu
+    .body = Bir hata meydana geldi ve çözüm için kullanıcı müdahalesi gerekiyor
+notification_farm_error =  Space Acres içerisindeki çiftliklerden biri başarısız oldu
+    .body = Bir hata meydana geldi ve çözüm için kullanıcı müdahalesi gerekiyor
+notification_signed_reward_successfully = Yeni ödül başarıyla imzalandı 🥳
+    .body = Ağı güvence altına aldığınız için teşekkürler 🙌
+notification_missed_reward = Ödül imzalama başarısız oldu 😞
+    .body = Bu üzücü bir durum, ancak yakında başka bir şansınız olacak
