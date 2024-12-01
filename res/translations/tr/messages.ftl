@@ -47,7 +47,7 @@ loading_wiping_farmer_data_title = Çiftçi Verileri Temizleniyor
 loading_wiping_farmer_data_step_wiping_farm = Çiftlikler {$index}/{$farms_total} konumunda temizleniyor {$path}...
 loading_wiping_farmer_data_step_success = Tüm çiftlikler başarıyla temizlendi
 loading_wiping_node_data_title = Node verileri temizleniyor
-loading_wiping_node_data_step_wiping_node = Node verilerii bu konudma temizleniyor {$path}...
+loading_wiping_node_data_step_wiping_node = Node verileri bu konumda temizleniyor {$path}...
 loading_wiping_node_data_step_success = Node verileri başarıyla temizlendi
 
 configuration_title = Konfigürasyon
@@ -62,7 +62,7 @@ configuration_reward_address_placeholder = Örnek: {$address}
 configuration_reward_address_tooltip = Subwallet, polkadot{"{"}.js{"}"} uzantısı veya herhangi bir Substrate cüzdanını kullanarak bu adresi oluşturun (SS58 formatındaki herhangi bir Substrate ağ adresi kullanılabilir)
 configuration_reward_address_button_create_wallet = Cüzdan oluştur
 configuration_reward_address_error_evm_address = Bu bir Substrate (SS58) adresi olmalı (herhangi bir ağ uygun), EVM adresi olmamalı
-configuration_farm = Maden {$index} Yolu ve Boyutu
+configuration_farm = Çiftlik {$index} Yolu ve Boyutu
 configuration_farm_path_placeholder = Örnek: {$path}
 configuration_farm_path_tooltip = Çiftlik dosyalarının saklanacağı mutlak dosya yolu. Herhangi bir SSD uygundur, yüksek dayanıklılık gerekli değildir
 configuration_farm_path_button_select = Seç
