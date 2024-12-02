@@ -14,9 +14,10 @@ include = [
 [package.metadata.deb]
 section = "net"
 assets = [
-    ["res/linux/space-acres-autostart.desktop", "/etc/xdg/autostart/space-acres.desktop", "644"],
+    ["res/linux/space-acres-autostart.desktop", "/etc/xdg/autostart/xyz.autonomys.space_acres.desktop", "644"],
     ["target/release/space-acres", "/usr/bin/space-acres", "755"],
-    ["res/linux/space-acres.desktop", "/usr/share/applications/space-acres.desktop", "644"],
+    # Name must match application ID or else it has a strange behavior
+    ["res/linux/xyz.autonomys.space_acres.desktop", "/usr/share/applications/xyz.autonomys.space_acres.desktop", "644"],
     ["res/linux/space-acres.png", "/usr/share/icons/hicolor/256x256/apps/space-acres.png", "644"],
 ]
 

@@ -20,7 +20,7 @@ jobs:
         build:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            suffix: ubuntu-x86_64-skylake-${{ github.ref_name }}
+            suffix: ubuntu-x86_64-${{ github.ref_name }}
             modern-rustflags: "-C target-cpu=skylake"
             rustflags: "-C target-cpu=x86-64-v2"
           # TODO: Package for more Linux distributions/packaging formats/architectures and macOS
@@ -33,7 +33,7 @@ jobs:
             suffix: macos-aarch64-${{ github.ref_name }}
           - os: windows-2022
             target: x86_64-pc-windows-msvc
-            suffix: windows-x86_64-skylake-${{ github.ref_name }}
+            suffix: windows-x86_64-${{ github.ref_name }}
             modern-rustflags: "-C target-cpu=skylake"
             rustflags: "-C target-cpu=x86-64-v2"
       fail-fast: false
@@ -391,7 +391,8 @@ jobs:
         run: |
           # Build Debian package
           cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip --variant=modern
-          
+          mv target/${{ matrix.build.target }}/debian/*.deb .          
+
           # And build AppImage as well
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
@@ -401,7 +402,7 @@ jobs:
               --plugin gtk \
               --executable target/${{ matrix.build.target }}/production/space-acres \
               --executable target/${{ matrix.build.target }}/production/space-acres-modern \
-              --desktop-file res/linux/space-acres.desktop \
+              --desktop-file res/linux/xyz.autonomys.space_acres.desktop \
               --icon-file res/linux/space-acres.png \
               --output appimage
           
@@ -414,7 +415,8 @@ jobs:
         run: |
           # Build Debian package
           cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip
-          
+          mv target/${{ matrix.build.target }}/debian/*.deb .          
+
           # And build AppImage as well
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
@@ -423,7 +425,7 @@ jobs:
               --appdir AppDir \
               --plugin gtk \
               --executable target/${{ matrix.build.target }}/production/space-acres \
-              --desktop-file res/linux/space-acres.desktop \
+              --desktop-file res/linux/xyz.autonomys.space_acres.desktop \
               --icon-file res/linux/space-acres.png \
               --output appimage
           
@@ -435,10 +437,10 @@ jobs:
       - name: Upload installer to artifacts (Linux)
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
         with:
-          name: installer-${{ matrix.build.suffix }}
+          name: space-acres-${{ matrix.build.suffix }}
           path: |
             space-acres-*.AppImage
-            target/${{ matrix.build.target }}/debian/*.deb
+            space-acres*.deb
           if-no-files-found: error
         if: runner.os == 'Linux'
 
@@ -447,7 +449,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          asset_paths: '["space-acres-*.AppImage", "target/${{ matrix.build.target }}/debian/*.deb"]'
+          asset_paths: '["space-acres-*.AppImage", "space-acres*.deb"]'
         if: runner.os == 'Linux' && github.event_name == 'push' && github.ref_type == 'tag'
 
       - name: Upload dmg to artifacts (macOS)
@@ -470,7 +472,7 @@ jobs:
       - name: Upload installer to artifacts (Windows)
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
         with:
-          name: installer-${{ matrix.build.suffix }}
+          name: space-acres-${{ matrix.build.suffix }}
           path: |
             target/wix/*.exe
           if-no-files-found: error
