@@ -46,7 +46,7 @@ use subspace_service::config::{
 use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
 use tokio::time::MissedTickBehavior;
-use tracing::{error, info_span};
+use tracing::{error, info, info_span};
 
 pub(super) const GENESIS_HASH: &str =
     "66455a580aabff303720aa83adbe6c44502922251c03ba73686d5245da9e21bd";
@@ -493,6 +493,14 @@ pub(super) async fn create_consensus_node(
 
     let consensus_chain_config =
         create_consensus_chain_config(keypair, base_path.clone(), substrate_port, chain_spec);
+
+    info!(
+        "📋 Chain specification: {}",
+        consensus_chain_config.chain_spec.name()
+    );
+    info!("🏷  Node name: {}", consensus_chain_config.network.node_name);
+    info!("💾 Node path: {}", base_path.display());
+
     let sync = consensus_chain_config.network.sync_mode;
     let consensus_chain_config = Configuration::from(consensus_chain_config);
     let pause_sync = Arc::clone(&consensus_chain_config.network.pause_sync);
