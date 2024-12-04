@@ -43,9 +43,10 @@ use subspace_farmer::utils::{
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
 };
 use subspace_farmer_components::plotting::PlottedSector;
+use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_kzg::Kzg;
 use thread_priority::ThreadPriority;
-use tokio::sync::{watch, Barrier};
+use tokio::sync::watch;
 use tracing::{debug, error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
@@ -409,8 +410,6 @@ where
     let (farms, plotting_delay_senders) = {
         let farms_total = disk_farms.len();
         let info_mutex = &AsyncMutex::new(());
-        let faster_read_sector_record_chunks_mode_barrier = Arc::new(Barrier::new(farms_total));
-        let faster_read_sector_record_chunks_mode_concurrency = Arc::new(Semaphore::new(1));
         let (plotting_delay_senders, plotting_delay_receivers) = (0..farms_total)
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
@@ -429,10 +428,6 @@ where
                 let erasure_coding = erasure_coding.clone();
                 let plotter = Arc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
-                let faster_read_sector_record_chunks_mode_barrier =
-                    Arc::clone(&faster_read_sector_record_chunks_mode_barrier);
-                let faster_read_sector_record_chunks_mode_concurrency =
-                    Arc::clone(&faster_read_sector_record_chunks_mode_concurrency);
 
                 async move {
                     let farm_fut = SingleDiskFarm::new::<_, PosTable>(
@@ -452,9 +447,8 @@ where
                             global_mutex,
                             max_plotting_sectors_per_farm: MAX_PLOTTING_SECTORS_PER_FARM,
                             disable_farm_locking: false,
-                            read_sector_record_chunks_mode: None,
-                            faster_read_sector_record_chunks_mode_barrier,
-                            faster_read_sector_record_chunks_mode_concurrency,
+                            read_sector_record_chunks_mode:
+                                ReadSectorRecordChunksMode::ConcurrentChunks,
                             registry: None,
                             create: true,
                         },
