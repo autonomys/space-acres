@@ -106,7 +106,7 @@ where
         if self.is_valid {
             Some(icon_names::CHECKMARK)
         } else {
-            Some(icon_names::CROSS)
+            Some(icon_names::CROSS_SMALL)
         }
     }
 }

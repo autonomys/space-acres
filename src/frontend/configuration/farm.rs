@@ -254,7 +254,7 @@ impl AsyncFactoryComponent for FarmWidget {
                                 warn!("Can't send delete output");
                             }
                         },
-                        set_icon_name: icon_names::CROSS,
+                        set_icon_name: icon_names::CROSS_SMALL,
                         set_tooltip: &T.configuration_farm_delete(),
                     },
                 },

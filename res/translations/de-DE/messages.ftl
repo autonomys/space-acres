@@ -98,6 +98,8 @@ running_title = Wird ausgeführt
 running_node_title = {$chain_name} Konsens-Node
 running_node_title_tooltip = Klicken, um im Dateimanager zu öffnen
 running_node_free_disk_space_tooltip = Freier Speicherplatz: {$size} verbleibend
+# TODO: Translate
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} peers connected, click for details about required P2P ports
 running_node_status_connecting = Verbindung zum Netzwerk wird hergestellt, bester Block #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
 running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} hours remaining)

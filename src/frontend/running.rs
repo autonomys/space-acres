@@ -384,6 +384,9 @@ impl RunningView {
                         }
                         self.set_node_synced(new_synced);
                     }
+                    NodeNotification::ConnectedPeersUpdate(_) => {
+                        // Ignore
+                    }
                     NodeNotification::BlockImported(imported_block) => {
                         if !self.node_synced {
                             // Do not count balance increase during sync as increase related to

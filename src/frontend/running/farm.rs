@@ -177,7 +177,7 @@ impl FactoryComponent for FarmWidget {
                         set_hexpand: true,
 
                         gtk::Image {
-                            set_icon_name: Some(icon_names::WARNING),
+                            set_icon_name: Some(icon_names::WARNING_OUTLINE),
                         }
                     },
                     None => {
@@ -215,9 +215,9 @@ impl FactoryComponent for FarmWidget {
                                     gtk::Image {
                                         #[track = "self.changed_proving_result() || self.changed_auditing_time_score() || self.changed_proving_time_score()"]
                                         set_icon_name: Some(match self.farm_score() {
-                                            ..=0.4 => icon_names::SPEEDOMETER4,
-                                            ..=0.8 => icon_names::SPEEDOMETER3,
-                                            _ => icon_names::SPEEDOMETER2,
+                                            ..=0.4 => icon_names::SPEEDOMETER_HIGH,
+                                            ..=0.8 => icon_names::SPEEDOMETER_MEDIUM,
+                                            _ => icon_names::SPEEDOMETER_LOW,
                                         }),
                                     },
                                 },
@@ -271,7 +271,7 @@ impl FactoryComponent for FarmWidget {
                                 },
 
                                 gtk::Image {
-                                    set_icon_name: Some(icon_names::WARNING),
+                                    set_icon_name: Some(icon_names::WARNING_OUTLINE),
                                     #[track = "self.changed_non_fatal_farming_error()"]
                                     set_tooltip: {
                                         let last_error = self.non_fatal_farming_error

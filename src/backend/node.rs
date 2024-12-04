@@ -51,9 +51,14 @@ use tracing::{error, info, info_span};
 pub(super) const GENESIS_HASH: &str =
     "66455a580aabff303720aa83adbe6c44502922251c03ba73686d5245da9e21bd";
 const SYNC_STATUS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
+const CONNECTED_PEERS_EVENT_INTERVAL: Duration = Duration::from_secs(5);
 /// Roughly 138k empty blocks can fit into one archived segment, hence we need to not allow to prune
 /// more blocks that this
 const MIN_STATE_PRUNING: BlockNumber = 140_000;
+// Substrate's default
+pub const IN_PEERS: u32 = 32;
+// Substrate's default
+pub const OUT_PEERS: u32 = 8;
 
 /// The maximum number of characters for a node name.
 const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -132,6 +137,7 @@ pub struct BlockImportedNotification {
 #[derive(Default, Debug)]
 struct Handlers {
     sync_state_change: Handler<SyncState>,
+    connected_peers_change: Handler<u32>,
     block_imported: Handler<BlockImportedNotification>,
 }
 
@@ -244,6 +250,29 @@ impl ConsensusNode {
                 }
             }
         };
+        let connected_peers_notification_fut = async {
+            let mut sync_status_interval = tokio::time::interval(CONNECTED_PEERS_EVENT_INTERVAL);
+            sync_status_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+            let mut last_connected_peers = 0;
+            self.handlers
+                .connected_peers_change
+                .call_simple(&last_connected_peers);
+
+            loop {
+                sync_status_interval.tick().await;
+
+                let connected_peers = self.full_node.sync_service.num_connected_peers() as u32;
+
+                if connected_peers != last_connected_peers {
+                    self.handlers
+                        .connected_peers_change
+                        .call_simple(&connected_peers);
+
+                    last_connected_peers = connected_peers;
+                }
+            }
+        };
 
         let task_manager = self.full_node.task_manager.future();
 
@@ -252,6 +281,9 @@ impl ConsensusNode {
                 result?;
             }
             _ = sync_status_notifications_fut.fuse() => {
+                // Nothing else to do
+            }
+            _ = connected_peers_notification_fut.fuse() => {
                 // Nothing else to do
             }
         }
@@ -284,6 +316,10 @@ impl ConsensusNode {
 
     pub(super) fn on_sync_state_change(&self, callback: HandlerFn<SyncState>) -> HandlerId {
         self.handlers.sync_state_change.add(callback)
+    }
+
+    pub(super) fn on_connected_peers_change(&self, callback: HandlerFn<u32>) -> HandlerId {
+        self.handlers.connected_peers_change.add(callback)
     }
 
     pub(super) fn on_block_imported(
@@ -428,10 +464,8 @@ fn create_consensus_chain_config(
                 .expect("Correct secret; qed"),
             )),
             default_peers_set: SetConfig {
-                // Substrate's default
-                in_peers: 8,
-                // Substrate's default
-                out_peers: 32,
+                in_peers: IN_PEERS,
+                out_peers: OUT_PEERS,
                 reserved_nodes: Vec::new(),
                 non_reserved_mode: NonReservedPeerMode::Accept,
             },

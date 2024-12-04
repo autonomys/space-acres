@@ -1,4 +1,4 @@
-use crate::backend::node::{ChainInfo, SyncState};
+use crate::backend::node::{ChainInfo, SyncState, IN_PEERS, OUT_PEERS};
 use crate::backend::NodeNotification;
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::icon_names;
@@ -23,6 +23,8 @@ const FREE_DISK_SPACE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 const FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD: u64 = ByteSize::gib(10).as_u64();
 /// Number of samples over which to track block import time, 1 minute in slots
 const BLOCK_IMPORT_TIME_TRACKING_WINDOW: usize = 1000;
+const ALL_PEERS: u32 = OUT_PEERS + IN_PEERS;
+const ALMOST_ALL_PEERS: u32 = OUT_PEERS + IN_PEERS - IN_PEERS / 5;
 
 #[derive(Debug)]
 pub enum NodeInput {
@@ -33,6 +35,7 @@ pub enum NodeInput {
     },
     NodeNotification(NodeNotification),
     OpenNodeFolder,
+    OpenP2pPortsDocs,
 }
 
 #[derive(Debug)]
@@ -45,6 +48,7 @@ pub enum NodeCommandOutput {
 pub struct NodeView {
     best_block_number: BlockNumber,
     sync_state: SyncState,
+    connected_peers: u32,
     free_disk_space: Option<ByteSize>,
     chain_name: String,
     #[no_eq]
@@ -117,6 +121,59 @@ impl Component for NodeView {
                                 free_space as f64 / FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD as f64
                             },
                             set_width_request: 100,
+                        },
+                    },
+                },
+
+                gtk::Button {
+                    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
+                    //  for macOS
+                    connect_clicked => NodeInput::OpenP2pPortsDocs,
+                    remove_css_class: "link",
+                    set_cursor_from_name: Some("pointer"),
+                    #[track = "model.changed_connected_peers()"]
+                    set_css_classes: &[
+                        "flat",
+                        match model.connected_peers {
+                            ALL_PEERS => "success-label",
+                            ..OUT_PEERS => "error-label",
+                            _ => "warning-label",
+                        },
+                    ],
+                    set_has_frame: false,
+                    #[track = "model.changed_connected_peers()"]
+                    set_tooltip: T
+                        .running_node_connections_tooltip(
+                            model.connected_peers,
+                            IN_PEERS + OUT_PEERS,
+                        )
+                        .as_str(),
+                    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
+                    //  for macOS
+                    // #[watch]
+                    // set_uri: "https://docs.autonomys.xyz/farming/guides/port-config",
+                    set_use_underline: false,
+
+                    gtk::Box {
+                        set_spacing: 5,
+
+                        gtk::Label {
+                            #[track = "model.changed_connected_peers()"]
+                            set_label: &format!("{}/{}", model.connected_peers, IN_PEERS + OUT_PEERS),
+                        },
+
+                        gtk::Image {
+                            #[track = "model.changed_connected_peers()"]
+                            set_icon_name:
+                                #[expect(clippy::match_overlapping_arm, reason = "Intentional for improved readability")]
+                                Some(match model.connected_peers {
+                                    ALL_PEERS => icon_names::STRENGTH_BARS_1,
+                                    0 => icon_names::STRENGTH_BARS_6,
+                                    ..OUT_PEERS => icon_names::STRENGTH_BARS_5,
+                                    OUT_PEERS => icon_names::STRENGTH_BARS_4,
+                                    ..=ALMOST_ALL_PEERS => icon_names::STRENGTH_BARS_3,
+                                    _ => icon_names::STRENGTH_NARS_2,
+                                }),
                         },
                     },
                 },
@@ -227,6 +284,7 @@ impl Component for NodeView {
         let model = Self {
             best_block_number: 0,
             sync_state: SyncState::default(),
+            connected_peers: 0,
             free_disk_space: None,
             chain_name: String::new(),
             node_path: node_path.clone(),
@@ -313,6 +371,9 @@ impl NodeView {
                     }
                     self.set_sync_state(new_sync_state);
                 }
+                NodeNotification::ConnectedPeersUpdate(connected_peers) => {
+                    self.set_connected_peers(connected_peers);
+                }
                 NodeNotification::BlockImported(imported_block) => {
                     self.set_best_block_number(imported_block.number);
                     // Ensure target is never below current block
@@ -332,6 +393,13 @@ impl NodeView {
                 let node_path = self.node_path.lock().clone();
                 if let Err(error) = open::that_detached(&node_path) {
                     error!(%error, path = %node_path.display(), "Failed to open node folder");
+                }
+            }
+            NodeInput::OpenP2pPortsDocs => {
+                if let Err(error) =
+                    open::that_detached("https://docs.autonomys.xyz/farming/guides/port-config")
+                {
+                    error!(%error, "Failed to P2P ports docs");
                 }
             }
         }
