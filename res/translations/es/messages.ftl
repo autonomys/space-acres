@@ -96,8 +96,7 @@ configuration_dialog_button_cancel = Cancelar
 running_title = Ejecutando
 running_node_title = {$chain_name} nodo de consenso
 running_node_title_tooltip = Abrir sistema de archivos
-# TODO: Translate
-running_node_connections_tooltip = {$connected_peers}/{$expected_peers} peers connected, click for details about required P2P ports
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} pares conectados, clique para ver más detalles de los puertos P2P necesarios
 running_node_free_disk_space_tooltip = Espacio libre en disco: {$size} restante
 running_node_status_connecting = Conectando a la red, mejor bloque #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} bloques/s
