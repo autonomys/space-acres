@@ -64,9 +64,6 @@ In order to build this app you'll need to install both dependencies necessary fo
 [Subspace](https://github.com/autonomys/subspace) and [GTK4](https://github.com/gtk-rs/gtk4-rs), including the optional
 `librsvg`. Follow their documentation for details.
 
-On Linux D-Bus development headers also need to be installed, can be done with `sudo apt-get install libdbus-1-dev` on
-Ubuntu.
-
 Then simply `cargo run` will get you where to want to be.
 
 ## Contribution
