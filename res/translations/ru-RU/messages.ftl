@@ -96,6 +96,7 @@ configuration_dialog_button_cancel = Отмена
 running_title = Запущено
 running_node_title = Узел блокчейна {$chain_name}
 running_node_title_tooltip = Нажмите, чтобы открыть в файловом менеджере
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} подключенных пиров, нажмите для подробностей про нужные P2P порты
 running_node_free_disk_space_tooltip = Осталось свободного места на диске: {$size}
 running_node_status_connecting = Подключение к сети, лучший блок #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} блоков/сек

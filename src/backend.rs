@@ -237,6 +237,7 @@ enum LoadedConsensusChainNode {
 #[derive(Debug, Clone)]
 pub enum NodeNotification {
     SyncStateUpdate(SyncState),
+    ConnectedPeersUpdate(u32),
     BlockImported(BlockImportedNotification),
 }
 
@@ -546,6 +547,26 @@ async fn run(
 
         Arc::new(move |&sync_state| {
             let notification = NodeNotification::SyncStateUpdate(sync_state);
+
+            let mut notifications_sender = notifications_sender.clone();
+
+            if let Err(error) = notifications_sender
+                .try_send(BackendNotification::Node(notification))
+                .or_else(|error| {
+                    tokio::task::block_in_place(|| {
+                        Handle::current().block_on(notifications_sender.send(error.into_inner()))
+                    })
+                })
+            {
+                warn!(%error, "Failed to send sync state backend notification");
+            }
+        })
+    });
+    let _on_connected_peers_change_handler_id = consensus_node.on_connected_peers_change({
+        let notifications_sender = notifications_sender.clone();
+
+        Arc::new(move |&connected_peers| {
+            let notification = NodeNotification::ConnectedPeersUpdate(connected_peers);
 
             let mut notifications_sender = notifications_sender.clone();
 

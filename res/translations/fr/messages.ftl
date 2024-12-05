@@ -96,6 +96,8 @@ configuration_dialog_button_cancel = Annuler
 running_title = En cours
 running_node_title = {$chain_name} Nœud de la blockchain
 running_node_title_tooltip = Cliquez pour ouvrir dans le gestionnaire de fichiers
+# TODO: Translate
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} peers connected, click for details about required P2P ports
 running_node_free_disk_space_tooltip = Espace disque libre restant : {$size}
 running_node_status_connecting = Connexion au réseau, meilleur bloc #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocs/s
