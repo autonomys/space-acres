@@ -27,7 +27,7 @@ use subspace_farmer::farm::{
     FarmingNotification, ProvingResult, SectorPlottingDetails, SectorUpdate,
 };
 use subspace_runtime_primitives::{Balance, SSC};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -51,9 +51,6 @@ pub enum RunningInput {
     FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
-    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-    //  for macOS
-    OpenRewardAddressInExplorer,
 }
 
 #[derive(Debug)]
@@ -152,20 +149,12 @@ impl Component for RunningView {
                             model.farmer_state.reward_eta_progress_circle.widget().clone(),
                         },
 
-                        // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                        //  for macOS
-                        gtk::Button {
-                            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                            //  for macOS
-                            connect_clicked => RunningInput::OpenRewardAddressInExplorer,
+                        gtk::LinkButton {
                             remove_css_class: "link",
                             set_cursor_from_name: Some("pointer"),
-                            set_has_frame: false,
                             set_tooltip: &T.running_farmer_account_balance_tooltip(),
-                            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                            //  for macOS
-                            // #[watch]
-                            // set_uri: &model.farmer_state.reward_address_url,
+                            #[track = "model.farmer_state.changed_reward_address_url()"]
+                            set_uri: &model.farmer_state.reward_address_url,
                             set_use_underline: false,
 
                             gtk::Label {
@@ -502,11 +491,6 @@ impl RunningView {
                     .is_err()
                 {
                     debug!("Failed to send RunningOutput::TogglePausePlotting");
-                }
-            }
-            RunningInput::OpenRewardAddressInExplorer => {
-                if let Err(error) = open::that_detached(&self.farmer_state.reward_address_url) {
-                    error!(%error, "Failed to open explorer in default browser");
                 }
             }
         }
