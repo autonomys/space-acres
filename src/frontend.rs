@@ -28,6 +28,7 @@ use std::cell::{Cell, LazyCell};
 use std::future::Future;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::{env, fmt};
 use tracing::{debug, error, warn};
 
@@ -116,6 +117,7 @@ pub enum AppInput {
     StartUpgrade,
     Restart,
     CloseStatusBarWarning,
+    WindowResized,
     HideWindow,
     ShowWindow,
     ShowHideToggle,
@@ -281,7 +283,6 @@ impl AsyncComponent for App {
     view! {
         gtk::Window {
             set_decorated: false,
-            set_resizable: false,
             set_size_request: (800, 600),
             #[track = "model.changed_current_view()"]
             set_title: Some(&format!("{} - Space Acres {}", model.current_view.title(), env!("CARGO_PKG_VERSION"))),
@@ -721,6 +722,22 @@ impl AsyncComponent for App {
             });
         }
 
+        // Hacky way to track window size changes
+        if let Some(surface) = root.surface() {
+            surface.connect_notify(Some("width"), {
+                let sender = sender.clone();
+                let last_width = AtomicI32::new(0);
+
+                move |surface, _new_state_param| {
+                    let new_surface_width = surface.width();
+                    let old_surface_width = last_width.swap(new_surface_width, Ordering::AcqRel);
+                    if new_surface_width != old_surface_width {
+                        sender.input(AppInput::WindowResized);
+                    }
+                }
+            });
+        }
+
         AsyncComponentParts { model, widgets }
     }
 
@@ -793,6 +810,9 @@ impl AsyncComponent for App {
             }
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_contents(StatusBarContents::None);
+            }
+            AppInput::WindowResized => {
+                self.running_view.emit(RunningInput::WindowResized);
             }
             AppInput::HideWindow => {
                 root.set_visible(false);
