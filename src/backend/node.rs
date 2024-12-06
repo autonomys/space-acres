@@ -34,6 +34,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_fake_runtime_api::RuntimeApi;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::Multiaddr;
@@ -43,7 +44,6 @@ use subspace_service::config::{
     ChainSyncMode, SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
     SubstrateNetworkConfiguration, SubstrateRpcConfiguration,
 };
-use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use subspace_service::{FullClient, NewFull};
 use tokio::time::MissedTickBehavior;
 use tracing::{error, info, info_span};
@@ -504,7 +504,7 @@ pub(super) async fn create_consensus_node(
     base_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
-    piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
+    piece_getter: Arc<dyn PieceGetter + Send + Sync + 'static>,
     node: Node,
     maybe_node_client: &MaybeNodeClient,
 ) -> Result<ConsensusNode, ConsensusNodeCreationError> {
