@@ -51,6 +51,7 @@ pub enum RunningInput {
     FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
+    WindowResized,
 }
 
 #[derive(Debug)]
@@ -492,6 +493,9 @@ impl RunningView {
                 {
                     debug!("Failed to send RunningOutput::TogglePausePlotting");
                 }
+            }
+            RunningInput::WindowResized => {
+                self.farms.broadcast(FarmWidgetInput::WindowResized);
             }
         }
     }
