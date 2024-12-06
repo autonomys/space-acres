@@ -35,7 +35,6 @@ pub enum NodeInput {
     },
     NodeNotification(NodeNotification),
     OpenNodeFolder,
-    OpenP2pPortsDocs,
 }
 
 #[derive(Debug)]
@@ -125,10 +124,7 @@ impl Component for NodeView {
                     },
                 },
 
-                gtk::Button {
-                    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                    //  for macOS
-                    connect_clicked => NodeInput::OpenP2pPortsDocs,
+                gtk::LinkButton {
                     remove_css_class: "link",
                     set_cursor_from_name: Some("pointer"),
                     #[track = "model.changed_connected_peers()"]
@@ -140,7 +136,6 @@ impl Component for NodeView {
                             _ => "warning-label",
                         },
                     ],
-                    set_has_frame: false,
                     #[track = "model.changed_connected_peers()"]
                     set_tooltip: T
                         .running_node_connections_tooltip(
@@ -148,10 +143,7 @@ impl Component for NodeView {
                             IN_PEERS + OUT_PEERS,
                         )
                         .as_str(),
-                    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                    //  for macOS
-                    // #[watch]
-                    // set_uri: "https://docs.autonomys.xyz/farming/guides/port-config",
+                    set_uri: "https://docs.autonomys.xyz/farming/guides/port-config",
                     set_use_underline: false,
 
                     gtk::Box {
@@ -393,13 +385,6 @@ impl NodeView {
                 let node_path = self.node_path.lock().clone();
                 if let Err(error) = open::that_detached(&node_path) {
                     error!(%error, path = %node_path.display(), "Failed to open node folder");
-                }
-            }
-            NodeInput::OpenP2pPortsDocs => {
-                if let Err(error) =
-                    open::that_detached("https://docs.autonomys.xyz/farming/guides/port-config")
-                {
-                    error!(%error, "Failed to P2P ports docs");
                 }
             }
         }
