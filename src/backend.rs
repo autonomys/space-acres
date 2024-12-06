@@ -20,27 +20,23 @@ use async_lock::{RwLock as AsyncRwLock, Semaphore};
 use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
-use futures::{future, select, SinkExt, Stream, StreamExt};
+use futures::{future, select, SinkExt, StreamExt};
 use sc_subspace_chain_specs::MAINNET_CHAIN_SPEC;
 use sp_consensus_subspace::ChainConstants;
-use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::num::NonZeroU8;
 use std::path::{Path, PathBuf};
 use std::pin::pin;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
-use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
+use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker, FarmerCaches};
 use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
-use subspace_farmer::farmer_piece_getter::{
-    DsnCacheRetryPolicy, FarmerPieceGetter, WeakFarmerPieceGetter,
-};
+use subspace_farmer::farmer_piece_getter::{DsnCacheRetryPolicy, FarmerPieceGetter};
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
-use subspace_farmer_components::PieceGetter;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::libp2p::multiaddr::Protocol;
@@ -48,7 +44,6 @@ use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_networking::{Node, NodeRunner};
 use subspace_runtime_primitives::Balance;
-use subspace_service::sync_from_dsn::DsnSyncPieceGetter;
 use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -65,84 +60,6 @@ const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
 const GET_PIECE_MAX_INTERVAL: Duration = Duration::from_secs(40);
 /// Multiplier on top of outgoing connections number for piece downloading purposes
 const PIECE_PROVIDER_MULTIPLIER: usize = 10;
-
-#[derive(Debug, Clone)]
-struct PieceGetterWrapper(
-    FarmerPieceGetter<FarmIndex, SegmentCommitmentPieceValidator<MaybeNodeClient>, MaybeNodeClient>,
-);
-
-#[async_trait::async_trait]
-impl DsnSyncPieceGetter for PieceGetterWrapper {
-    async fn get_piece(
-        &self,
-        piece_index: PieceIndex,
-    ) -> Result<Option<Piece>, Box<dyn Error + Send + Sync + 'static>> {
-        Ok(self.0.get_piece_fast(piece_index).await)
-    }
-}
-
-#[async_trait::async_trait]
-impl PieceGetter for PieceGetterWrapper {
-    async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
-        self.0.get_piece(piece_index).await
-    }
-
-    async fn get_pieces<'a, PieceIndices>(
-        &'a self,
-        piece_indices: PieceIndices,
-    ) -> anyhow::Result<
-        Box<dyn Stream<Item = (PieceIndex, anyhow::Result<Option<Piece>>)> + Send + Unpin + 'a>,
-    >
-    where
-        PieceIndices: IntoIterator<Item = PieceIndex, IntoIter: Send> + Send + 'a,
-    {
-        self.0.get_pieces(piece_indices).await
-    }
-}
-
-impl PieceGetterWrapper {
-    fn new(
-        farmer_piece_getter: FarmerPieceGetter<
-            FarmIndex,
-            SegmentCommitmentPieceValidator<MaybeNodeClient>,
-            MaybeNodeClient,
-        >,
-    ) -> Self {
-        Self(farmer_piece_getter)
-    }
-
-    fn downgrade(&self) -> WeakPieceGetterWrapper {
-        WeakPieceGetterWrapper(self.0.downgrade())
-    }
-}
-
-#[derive(Debug, Clone)]
-struct WeakPieceGetterWrapper(
-    WeakFarmerPieceGetter<
-        FarmIndex,
-        SegmentCommitmentPieceValidator<MaybeNodeClient>,
-        MaybeNodeClient,
-    >,
-);
-
-#[async_trait::async_trait]
-impl PieceGetter for WeakPieceGetterWrapper {
-    async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
-        self.0.get_piece(piece_index).await
-    }
-
-    async fn get_pieces<'a, PieceIndices>(
-        &'a self,
-        piece_indices: PieceIndices,
-    ) -> anyhow::Result<
-        Box<dyn Stream<Item = (PieceIndex, anyhow::Result<Option<Piece>>)> + Send + Unpin + 'a>,
-    >
-    where
-        PieceIndices: IntoIterator<Item = PieceIndex, IntoIter: Send> + Send + 'a,
-    {
-        self.0.get_pieces(piece_indices).await
-    }
-}
 
 /// Major steps in application loading progress
 #[derive(Debug, Clone)]
@@ -441,12 +358,14 @@ async fn load(
     let piece_provider = PieceProvider::new(
         node.clone(),
         SegmentCommitmentPieceValidator::new(node.clone(), maybe_node_client.clone(), kzg.clone()),
-        Semaphore::new(out_connections as usize * PIECE_PROVIDER_MULTIPLIER),
+        Arc::new(Semaphore::new(
+            out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
+        )),
     );
 
-    let piece_getter = PieceGetterWrapper::new(FarmerPieceGetter::new(
+    let piece_getter = FarmerPieceGetter::new(
         piece_provider,
-        farmer_cache.clone(),
+        FarmerCaches::from(farmer_cache.clone()),
         maybe_node_client.clone(),
         Arc::clone(&plotted_pieces),
         DsnCacheRetryPolicy {
@@ -460,7 +379,7 @@ async fn load(
                 ..ExponentialBackoff::default()
             },
         },
-    ));
+    );
 
     let create_consensus_node_fut = create_consensus_node(
         &network_keypair,
@@ -955,7 +874,7 @@ async fn create_consensus_node(
     node_path: PathBuf,
     substrate_port: u16,
     chain_spec: ChainSpec,
-    piece_getter: Arc<dyn DsnSyncPieceGetter + Send + Sync + 'static>,
+    piece_getter: Arc<dyn PieceGetter + Send + Sync + 'static>,
     node: Node,
     maybe_node_client: &MaybeNodeClient,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
@@ -1004,7 +923,11 @@ async fn create_farmer(
     node_client: MaybeNodeClient,
     kzg: Kzg,
     reduce_plotting_cpu_load: bool,
-    piece_getter: PieceGetterWrapper,
+    piece_getter: FarmerPieceGetter<
+        FarmIndex,
+        SegmentCommitmentPieceValidator<MaybeNodeClient>,
+        MaybeNodeClient,
+    >,
     notifications_sender: &mut mpsc::Sender<BackendNotification>,
 ) -> anyhow::Result<Farmer<FarmIndex>> {
     let farms_total = disk_farms.len() as u16;

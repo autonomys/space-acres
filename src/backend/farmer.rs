@@ -3,7 +3,6 @@ pub(super) mod maybe_node_client;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
-use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
@@ -30,6 +29,8 @@ use subspace_farmer::farm::{
     FarmingNotification, PlottedSectors, SectorPlottingDetails, SectorUpdate,
 };
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
+use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
+use subspace_farmer::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::plotter::cpu::CpuPlotter;
 #[cfg(feature = "_gpu")]
@@ -190,7 +191,12 @@ pub(super) struct FarmerOptions<FarmIndex, OnFarmInitialized> {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
     pub(super) node_client: MaybeNodeClient,
-    pub(super) piece_getter: PieceGetterWrapper,
+    pub(super) piece_getter: FarmerPieceGetter<
+        FarmIndex,
+        SegmentCommitmentPieceValidator<MaybeNodeClient>,
+        MaybeNodeClient,
+    >,
+
     pub(super) plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     pub(super) farmer_cache: FarmerCache,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
