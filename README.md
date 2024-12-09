@@ -13,15 +13,15 @@ Current status of the project is Beta.
 This means that it should generally work, most happy paths and edge cases are handled, many error cases have reasonable
 recovery options, etc.
 
-Current version supports Gemini 3h chain only and doesn't allow to select anything else. It supports upgrading existing
-installations from 3g.
+Current version supports Autonomys Mainnet chain only and doesn't allow to select anything else. It supports upgrading
+existing installations from Gemini 3h.
 
 ## Features
 
 Current features:
 
 * Configuration (reward address, node location, multiple farms, P2P ports and some advanced options)
-* Node sync with displayed progress, speed and ETA
+* Node sync with displayed progress, speed and ETA, network connections
 * Farmer plotting/farming piece cache/plotting/replotting progress display and speed calculation
 * Farmer auditing/proving performance indicators
 * Farmer sector state visualization
