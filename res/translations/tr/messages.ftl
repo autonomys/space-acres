@@ -4,7 +4,7 @@ welcome_message =
 
     Devam etmeden önce 3 şeye ihtiyacınız var:
     ✔ Ödülleri alacağınız bir cüzdan adresi (use Subwallet, polkadot{"{"}.js{"}"} uzantısı veya Substrate ağı ile uyumlu herhangi bir cüzdan kullanabilirsiniz)
-    ✔  Node verilerini depolamak için kaliteli bir SSD'de 100GiB alan
+    ✔  Node verilerini depolamak için kaliteli bir SSD'de 100G alan
     ✔ Farm amacıyla kullanabileceğiniz herhangi bir SSD (veya birden fazla), ne kadar alan ayırabilirseniz o kadar ödül kazanırsınız
 welcome_button_continue = Devam Et
 
@@ -54,7 +54,7 @@ configuration_title = Konfigürasyon
 reconfiguration_title = Yeniden konfigürrasyon
 configuration_node_path = Node dosya yolu
 configuration_node_path_placeholder = Örnek: {$path}
-configuration_node_path_tooltip = Node dosyalarının saklanacağı mutlak dosya yolu. En az 100 GiB alan ayırmaya hazırlıklı olun, kaliteli bir SSD önerilir
+configuration_node_path_tooltip = Node dosyalarının saklanacağı mutlak dosya yolu. En az 100 G alan ayırmaya hazırlıklı olun, kaliteli bir SSD önerilir
 configuration_node_path_button_select = Seç
 configuration_node_path_error_doesnt_exist_or_write_permissions = Klasör mevcut değil ya da kullanıcı yazma iznine sahip değil
 configuration_reward_address = Ödül adresi
@@ -69,7 +69,7 @@ configuration_farm_path_button_select = Seç
 configuration_farm_path_error_doesnt_exist_or_write_permissions = Klasör mevcut değil ya da kullanıcı yazma iznine sahip değil
 configuration_farm_size_kind_fixed = Sabit boyut
 configuration_farm_size_kind_free_percentage = Boş alanın %'si
-configuration_farm_fixed_size_placeholder = Örnek: 4T, 2.5TB, 500GiB, vb.
+configuration_farm_fixed_size_placeholder = Örnek: 4T, 2.5TB, 500G, vb.
 configuration_farm_fixed_size_tooltip = Çiftlik boyutunu istediğiniz birimle girin. 2 GB üzerinde herhangi bir alan uygundur
 configuration_farm_free_percentage_size_placeholder = Örnek: 100%, 1.1%, vb.
 configuration_farm_free_percentage_size_tooltip = Bu çiftliğin kaplayacağı boş disk alanının yüzdesi 0%'dan büyük bir değer olmalıdır, ancak hataları önlemek için disk üzerinde en az 2 GB boş alan kalmalıdır
