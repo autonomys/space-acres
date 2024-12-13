@@ -113,6 +113,7 @@ running_node_status_synced = 同步完成, 最新区块 #{$best_block_number}
 running_farmer_title = 农民
 running_farmer_button_expand_details = 各农场的详细信息
 running_farmer_button_pause_plotting = 暂停绘图/重新绘图，当前的编码扇区不会被中断
+running_farmer_button_resume_plotting = 继续绘图
 running_farmer_account_balance_tooltip = 自启动以来耕种到的总奖励币，点击在 Astral 中查看更多详细信息
 running_farmer_piece_cache_sync = Piece缓存同步 {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =

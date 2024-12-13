@@ -113,6 +113,7 @@ running_node_status_synced = Sincronización completada, mejor bloque #{$best_bl
 running_farmer_title = Granjero
 running_farmer_button_expand_details = Amplía detalles del granjero
 running_farmer_button_pause_plotting = Pausar creación y sustitución de parcelas, ten en cuenta que el procesamiento de los sectores no será interrumpido
+running_farmer_button_resume_plotting = Reanudar la creación de la parcela
 running_farmer_account_balance_tooltip = Balance total de la cuenta y monedas granjeadas desde que la aplicación se inició, clica para ver más detalles en Astral
 running_farmer_piece_cache_sync = Caché sincronizada {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =

@@ -113,6 +113,7 @@ running_node_status_synced = Synced, best block #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Expand details about each farm
 running_farmer_button_pause_plotting = Pause plotting/replotting, note that currently encoding sectors will not be interrupted
+running_farmer_button_resume_plotting = Resume plotting
 running_farmer_account_balance_tooltip = Total account balance and coins farmed since application started, click to see details in Astral
 running_farmer_piece_cache_sync = Piece cache sync {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =

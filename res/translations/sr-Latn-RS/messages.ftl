@@ -117,6 +117,7 @@ running_node_status_synced = Sinhronizovano, najbolji blok #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Proširi detalje o svakoj farmi
 running_farmer_button_pause_plotting = Pauziraj plotovanje/preplotovanje, imajte na umu da trenutno kodiranje sektora neće biti prekinuto
+running_farmer_button_resume_plotting = Nastavi plotovanje
 running_farmer_account_balance_tooltip = Ukupni saldo i kovanice zarđene od početka rada aplikacije, kliknite da vidite detalje u Astral
 running_farmer_piece_cache_sync = Sinhronizacija delova keša {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
