@@ -111,6 +111,7 @@ running_node_status_synced = Синхронізовано, кращий блок
 running_farmer_title = Фармер
 running_farmer_button_expand_details = Показати деталі про кожну ферму
 running_farmer_button_pause_plotting = Призупення плотингу/реплотингу, зверніть увагу, що розпочате кодування секторів не буде перервано
+running_farmer_button_resume_plotting = Продовжити плоттинг
 running_farmer_account_balance_tooltip = Загальний баланс рахунку та монет, зароблених з моменту запуску програми, натисніть, щоб побачити деталі в Astral
 running_farmer_piece_cache_sync = Синхронізація фрагментів кешу {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =

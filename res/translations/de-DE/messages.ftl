@@ -111,8 +111,9 @@ running_node_status_syncing =
 running_node_status_synced = Synced, best block #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Details zu jeder Farm erweitern
-running_farmer_button_pause_plotting = Plotten/Replotten pausieren, bitte beachten, dass aktuell laufende Encoding-Prozesse nicht unterbrochen werden.
-running_farmer_account_balance_tooltip = Gesamtsaldo des Kontos und gefarmte Coins seit Start der Anwendung, klicken, um Details in Astral anzuzeigen.
+running_farmer_button_pause_plotting = Plotten/Replotten pausieren, bitte beachten, dass aktuell laufende Encoding-Prozesse nicht unterbrochen werden
+running_farmer_button_resume_plotting = Plotten fortsetzen
+running_farmer_account_balance_tooltip = Gesamtsaldo des Kontos und gefarmte Coins seit Start der Anwendung, klicken, um Details in Astral anzuzeigen
 running_farmer_piece_cache_sync = Piece-Cache-Synchronisation {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
     Nächste Reward-Schätzung: {$eta_string ->

@@ -135,8 +135,20 @@ impl Component for RunningView {
                             set_active: model.plotting_paused,
                             set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
-                            set_icon_name: icon_names::PAUSE,
-                            set_tooltip: &T.running_farmer_button_pause_plotting(),
+                            #[track = "model.changed_plotting_paused()"]
+                            set_icon_name:
+                                if model.plotting_paused {
+                                    icon_names::PLAY
+                                } else {
+                                    icon_names::PAUSE
+                                },
+                            #[track = "model.changed_plotting_paused()"]
+                            set_tooltip:
+                                &if model.plotting_paused {
+                                    T.running_farmer_button_resume_plotting()
+                                } else {
+                                    T.running_farmer_button_pause_plotting()
+                                },
                         },
                     },
                     gtk::Box {
@@ -484,7 +496,7 @@ impl RunningView {
                 self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
             }
             RunningInput::TogglePausePlotting => {
-                self.plotting_paused = !self.plotting_paused;
+                self.set_plotting_paused(!self.plotting_paused);
                 self.farms
                     .broadcast(FarmWidgetInput::PausePlotting(self.plotting_paused));
                 if sender

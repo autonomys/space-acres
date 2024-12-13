@@ -113,6 +113,7 @@ running_node_status_synced = Synchronisé, meilleur bloc #{$best_block_number}
 running_farmer_title = Ferme
 running_farmer_button_expand_details = Afficher les détails de chaque ferme
 running_farmer_button_pause_plotting = Suspendre le plotting/replotting. Notez que le codage en cours des secteurs ne sera pas interrompu
+running_farmer_button_resume_plotting = Reprendre le plotting
 running_farmer_account_balance_tooltip = Solde total et pièces gagnées depuis le lancement de l'application. Cliquez pour voir les détails dans Astral
 running_farmer_piece_cache_sync = Synchronisation du cache de morceaux à {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
