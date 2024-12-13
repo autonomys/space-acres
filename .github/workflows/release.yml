@@ -391,7 +391,7 @@ jobs:
         run: |
           # Build Debian package
           cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip --variant=modern
-          mv target/${{ matrix.build.target }}/debian/*.deb .          
+          mv target/${{ matrix.build.target }}/debian/*.deb .
 
           # And build AppImage as well
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
@@ -415,7 +415,7 @@ jobs:
         run: |
           # Build Debian package
           cargo deb --target ${{ matrix.build.target }} --profile production --no-build --no-strip
-          mv target/${{ matrix.build.target }}/debian/*.deb .          
+          mv target/${{ matrix.build.target }}/debian/*.deb .
 
           # And build AppImage as well
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
