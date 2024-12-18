@@ -512,6 +512,12 @@ impl Cli {
                     }
                     AppStatusCode::Unknown(status_code) => {
                         error!(%status_code, "Application exited with unexpected status code");
+
+                        if last_start.elapsed() >= MIN_RUNTIME_DURATION_FOR_AUTORESTART {
+                            self.after_crash = true;
+                            continue;
+                        }
+
                         process::exit(status_code);
                     }
                 },
