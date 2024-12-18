@@ -105,7 +105,6 @@ subspace-proof-of-space-gpu = { git = "https://github.com/subspace/subspace", re
 subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "ac3d5e5fad8007a15e7aff3790d4e7ceb3ad7a0f" }
 subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "ac3d5e5fad8007a15e7aff3790d4e7ceb3ad7a0f" }
 subspace-service = { git = "https://github.com/subspace/subspace", rev = "ac3d5e5fad8007a15e7aff3790d4e7ceb3ad7a0f" }
-supports-color = "3.0.1"
 sys-locale = "0.3.1"
 tempfile = "3.13.0"
 thiserror = "2.0.1"

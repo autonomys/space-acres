@@ -31,6 +31,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use std::thread::available_parallelism;
 use std::time::{Duration, Instant};
 use std::{env, fs, io, process};
@@ -38,8 +39,9 @@ use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_proof_of_space::chia::ChiaTable;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::fmt::Layer;
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, Registry};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -70,10 +72,45 @@ fn raise_fd_limit() {
         }
         Err(error) => {
             warn!(
-                "Failed to increase file descriptor limit for the process due to an error: {}.",
+                "Failed to increase file descriptor limit for the process due to an error: {}",
                 error
             );
         }
+    }
+}
+
+struct MultiWriter<W1, W2> {
+    first: Arc<Mutex<W1>>,
+    second: W2,
+}
+
+impl<W1, W2> Write for MultiWriter<W1, W2>
+where
+    W1: Write,
+    W2: Write,
+{
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        // Write both first
+        let result1 = self
+            .first
+            .lock()
+            .expect("Must not panic during write, crash otherwise; qed")
+            .write_all(buf);
+        let result2 = self.second.write_all(buf);
+        // Check errors afterwards
+        result1.and(result2).map(|()| buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        // flush both first
+        let result1 = self
+            .first
+            .lock()
+            .expect("Must not panic during write, crash otherwise; qed")
+            .flush();
+        let result2 = self.second.flush();
+        // Check errors afterwards
+        result1.and(result2)
     }
 }
 
@@ -176,38 +213,25 @@ impl Cli {
     fn app(self) -> AppStatusCode {
         let maybe_app_data_dir = Self::app_data_dir();
 
-        {
-            let layer = tracing_subscriber::fmt::layer()
-                // TODO: Workaround for https://github.com/tokio-rs/tracing/issues/2214, also on
-                //  Windows terminal doesn't support the same colors as bash does
-                .with_ansi(if cfg!(windows) {
-                    false
-                } else {
-                    supports_color::on(supports_color::Stream::Stderr).is_some()
-                });
-            let filter = EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy();
-            if WINDOWS_SUBSYSTEM_WINDOWS {
-                if let Some(app_data_dir) = &maybe_app_data_dir {
-                    let logger = std::sync::Mutex::new(Self::new_logger(app_data_dir));
-                    let layer = layer.with_writer(logger);
+        if WINDOWS_SUBSYSTEM_WINDOWS {
+            let (layer, filter) = Self::tracing_logger_init_common();
 
-                    tracing_subscriber::registry()
-                        .with(layer.with_filter(filter))
-                        .init();
-                } else {
-                    tracing_subscriber::registry()
-                        .with(layer.with_filter(filter))
-                        .init();
-                }
-                #[cfg(windows)]
-                std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+            if let Some(app_data_dir) = &maybe_app_data_dir {
+                let logger = Mutex::new(Self::new_logger(app_data_dir));
+                let layer = layer.with_writer(logger);
+
+                tracing_subscriber::registry()
+                    .with(layer.with_filter(filter))
+                    .init();
             } else {
                 tracing_subscriber::registry()
                     .with(layer.with_filter(filter))
                     .init();
             }
+            #[cfg(windows)]
+            std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+        } else {
+            Self::tracing_logger_init_simple();
         }
 
         info!(
@@ -336,6 +360,8 @@ impl Cli {
 
         let mut last_start;
         let program = Self::child_program()?;
+        let mut logger_initialized = false;
+        let mut maybe_logger = None;
 
         loop {
             let mut args = vec!["--child-process".to_string()];
@@ -363,11 +389,38 @@ impl Cli {
                     .unchecked()
                     .reader()?;
 
-                let mut logger = Self::new_logger(app_data_dir);
+                let logger = match maybe_logger.clone() {
+                    Some(logger) => logger,
+                    None => {
+                        let logger = Arc::new(Mutex::new(Self::new_logger(app_data_dir)));
+                        maybe_logger.replace(Arc::clone(&logger));
+
+                        if !logger_initialized {
+                            logger_initialized = true;
+
+                            let (layer, filter) = Self::tracing_logger_init_common();
+
+                            let layer = layer.with_writer({
+                                let logger = Arc::clone(&logger);
+
+                                move || MultiWriter {
+                                    first: Arc::clone(&logger),
+                                    second: io::stderr(),
+                                }
+                            });
+
+                            tracing_subscriber::registry()
+                                .with(layer.with_filter(filter))
+                                .init();
+                        }
+
+                        logger
+                    }
+                };
 
                 let mut log_read_buffer = vec![0u8; LOG_READ_BUFFER];
 
-                let mut stdout = io::stdout();
+                let mut stderr = io::stderr();
                 loop {
                     match expression.read(&mut log_read_buffer) {
                         Ok(bytes_count) => {
@@ -376,12 +429,15 @@ impl Cli {
                             }
 
                             let write_result: io::Result<()> = try {
-                                stdout.write_all(&log_read_buffer[..bytes_count])?;
-                                logger.write_all(&log_read_buffer[..bytes_count])?;
+                                stderr.write_all(&log_read_buffer[..bytes_count])?;
+                                logger
+                                    .lock()
+                                    .expect("Must not panic, crash if it does; qed")
+                                    .write_all(&log_read_buffer[..bytes_count])?;
                             };
 
                             if let Err(error) = write_result {
-                                eprintln!("Error while writing output of child process: {error}");
+                                error!(%error, "Error while writing output of child process");
                                 break;
                             }
                         }
@@ -390,15 +446,19 @@ impl Cli {
                                 // Try again
                                 continue;
                             }
-                            eprintln!("Error while reading output of child process: {error}");
+                            error!(%error, "Error while reading output of child process");
                             break;
                         }
                     }
                 }
 
-                stdout.flush()?;
-                if let Err(error) = logger.flush() {
-                    eprintln!("Error while flushing logs: {error}");
+                stderr.flush()?;
+                let flush_result = logger
+                    .lock()
+                    .expect("Must not panic, crash if it does; qed")
+                    .flush();
+                if let Err(error) = flush_result {
+                    error!(%error, "Error while flushing logs");
                 }
 
                 match expression.try_wait()? {
@@ -411,6 +471,12 @@ impl Cli {
                     }
                 }
             } else if WINDOWS_SUBSYSTEM_WINDOWS {
+                if !logger_initialized {
+                    logger_initialized = true;
+
+                    Self::tracing_logger_init_simple();
+                }
+
                 Self::maybe_force_renderer(cmd(&program, args))
                     .stdin_null()
                     .stdout_null()
@@ -420,9 +486,15 @@ impl Cli {
                     .run()?
                     .status
             } else {
-                eprintln!("App data directory doesn't exist, not creating log file");
+                if !logger_initialized {
+                    logger_initialized = true;
+
+                    Self::tracing_logger_init_simple();
+                }
+
+                error!("App data directory doesn't exist, not creating log file");
                 Self::maybe_force_renderer(cmd(&program, args))
-                    // We use non-zero status codes and they don't mean error necessarily
+                    // We use non-zero status codes, and they don't mean error necessarily
                     .unchecked()
                     .run()?
                     .status
@@ -431,15 +503,15 @@ impl Cli {
             match exit_status.code() {
                 Some(status_code) => match AppStatusCode::from_status_code(status_code) {
                     AppStatusCode::Exit => {
-                        eprintln!("Application exited gracefully");
+                        error!("Application exited gracefully");
                         break;
                     }
                     AppStatusCode::Restart => {
-                        eprintln!("Restarting application");
+                        error!("Restarting application");
                         continue;
                     }
                     AppStatusCode::Unknown(status_code) => {
-                        eprintln!("Application exited with unexpected status code {status_code}");
+                        error!(%status_code, "Application exited with unexpected status code");
                         process::exit(status_code);
                     }
                 },
@@ -448,14 +520,14 @@ impl Cli {
                     {
                         use std::os::unix::process::ExitStatusExt;
 
-                        eprintln!(
+                        error!(
                             "Application terminated by signal {:?}",
                             exit_status.signal()
                         );
                     }
                     #[cfg(not(unix))]
                     {
-                        eprintln!("Application terminated by signal");
+                        error!("Application terminated by signal");
                     }
                     if last_start.elapsed() >= MIN_RUNTIME_DURATION_FOR_AUTORESTART {
                         self.after_crash = true;
@@ -475,7 +547,7 @@ impl Cli {
             .and_then(|app_data_dir| {
                 if !app_data_dir.exists() {
                     if let Err(error) = fs::create_dir_all(&app_data_dir) {
-                        eprintln!(
+                        error!(
                             "App data directory \"{}\" doesn't exist and can't be created: {}",
                             app_data_dir.display(),
                             error
@@ -486,6 +558,25 @@ impl Cli {
 
                 Some(app_data_dir)
             })
+    }
+
+    fn tracing_logger_init_simple() {
+        let (layer, filter) = Self::tracing_logger_init_common();
+
+        tracing_subscriber::registry()
+            .with(layer.with_filter(filter))
+            .init();
+    }
+
+    fn tracing_logger_init_common() -> (Layer<Registry>, EnvFilter) {
+        let layer = tracing_subscriber::fmt::layer()
+            // No escape sequences in logs since we write them to files
+            .with_ansi(false);
+        let filter = EnvFilter::builder()
+            .with_default_directive(LevelFilter::INFO.into())
+            .from_env_lossy();
+
+        (layer, filter)
     }
 
     fn new_logger(app_data_dir: &Path) -> FileRotate<AppendCount> {
