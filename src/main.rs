@@ -7,6 +7,11 @@
     try_blocks,
     variant_count
 )]
+// `generic_const_exprs` is an incomplete feature
+#![allow(incomplete_features)]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/133199
+#![feature(generic_const_exprs)]
 
 mod backend;
 mod frontend;
