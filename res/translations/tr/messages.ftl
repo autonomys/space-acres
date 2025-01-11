@@ -4,7 +4,7 @@ welcome_message =
 
     Devam etmeden önce 3 şeye ihtiyacınız var:
     ✔ Ödülleri alacağınız bir cüzdan adresi (use Subwallet, polkadot{"{"}.js{"}"} uzantısı veya Substrate ağı ile uyumlu herhangi bir cüzdan kullanabilirsiniz)
-    ✔  Node verilerini depolamak için kaliteli bir SSD'de 100GB alan
+    ✔  Node verilerini depolamak için kaliteli bir SSD'de 100G alan
     ✔ Farm amacıyla kullanabileceğiniz herhangi bir SSD (veya birden fazla), ne kadar alan ayırabilirseniz o kadar ödül kazanırsınız
 welcome_button_continue = Devam Et
 
@@ -47,14 +47,14 @@ loading_wiping_farmer_data_title = Çiftçi Verileri Temizleniyor
 loading_wiping_farmer_data_step_wiping_farm = Çiftlikler {$index}/{$farms_total} konumunda temizleniyor {$path}...
 loading_wiping_farmer_data_step_success = Tüm çiftlikler başarıyla temizlendi
 loading_wiping_node_data_title = Node verileri temizleniyor
-loading_wiping_node_data_step_wiping_node = Node verilerii bu konudma temizleniyor {$path}...
+loading_wiping_node_data_step_wiping_node = Node verileri bu konumda temizleniyor {$path}...
 loading_wiping_node_data_step_success = Node verileri başarıyla temizlendi
 
 configuration_title = Konfigürasyon
 reconfiguration_title = Yeniden konfigürrasyon
 configuration_node_path = Node dosya yolu
 configuration_node_path_placeholder = Örnek: {$path}
-configuration_node_path_tooltip = Node dosyalarının saklanacağı mutlak dosya yolu. En az 100 GiB alan ayırmaya hazırlıklı olun, kaliteli bir SSD önerilir
+configuration_node_path_tooltip = Node dosyalarının saklanacağı mutlak dosya yolu. En az 100 G alan ayırmaya hazırlıklı olun, kaliteli bir SSD önerilir
 configuration_node_path_button_select = Seç
 configuration_node_path_error_doesnt_exist_or_write_permissions = Klasör mevcut değil ya da kullanıcı yazma iznine sahip değil
 configuration_reward_address = Ödül adresi
@@ -62,14 +62,14 @@ configuration_reward_address_placeholder = Örnek: {$address}
 configuration_reward_address_tooltip = Subwallet, polkadot{"{"}.js{"}"} uzantısı veya herhangi bir Substrate cüzdanını kullanarak bu adresi oluşturun (SS58 formatındaki herhangi bir Substrate ağ adresi kullanılabilir)
 configuration_reward_address_button_create_wallet = Cüzdan oluştur
 configuration_reward_address_error_evm_address = Bu bir Substrate (SS58) adresi olmalı (herhangi bir ağ uygun), EVM adresi olmamalı
-configuration_farm = Maden {$index} Yolu ve Boyutu
+configuration_farm = Çiftlik {$index} Yolu ve Boyutu
 configuration_farm_path_placeholder = Örnek: {$path}
 configuration_farm_path_tooltip = Çiftlik dosyalarının saklanacağı mutlak dosya yolu. Herhangi bir SSD uygundur, yüksek dayanıklılık gerekli değildir
 configuration_farm_path_button_select = Seç
 configuration_farm_path_error_doesnt_exist_or_write_permissions = Klasör mevcut değil ya da kullanıcı yazma iznine sahip değil
 configuration_farm_size_kind_fixed = Sabit boyut
 configuration_farm_size_kind_free_percentage = Boş alanın %'si
-configuration_farm_fixed_size_placeholder = Örnek: 4T, 2.5TB, 500GiB, vb.
+configuration_farm_fixed_size_placeholder = Örnek: 4T, 2.5TB, 500G, vb.
 configuration_farm_fixed_size_tooltip = Çiftlik boyutunu istediğiniz birimle girin. 2 GB üzerinde herhangi bir alan uygundur
 configuration_farm_free_percentage_size_placeholder = Örnek: 100%, 1.1%, vb.
 configuration_farm_free_percentage_size_tooltip = Bu çiftliğin kaplayacağı boş disk alanının yüzdesi 0%'dan büyük bir değer olmalıdır, ancak hataları önlemek için disk üzerinde en az 2 GB boş alan kalmalıdır
