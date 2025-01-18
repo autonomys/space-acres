@@ -23,11 +23,10 @@ jobs:
             suffix: ubuntu-x86_64-${{ github.ref_name }}
             modern-rustflags: "-C target-cpu=skylake"
             rustflags: "-C target-cpu=x86-64-v2"
-          # TODO: Package for more Linux distributions/packaging formats/architectures and macOS
-          #- os: ubuntu-24.04
-          #  target: aarch64-unknown-linux-gnu
-          #  suffix: ubuntu-aarch64-${{ github.ref_name }}
-          #  rustflags: "-C linker=aarch64-linux-gnu-gcc"
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            suffix: ubuntu-aarch64-${{ github.ref_name }}
+            rustflags: ""
           - os: macos-14
             target: aarch64-apple-darwin
             suffix: macos-aarch64-${{ github.ref_name }}
@@ -137,10 +136,6 @@ jobs:
         run: brew install automake
         if: runner.os == 'macOS'
 
-      - name: AArch64 cross-compile packages
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends g++-aarch64-linux-gnu gcc-aarch64-linux-gnu libc6-dev-arm64-cross
-        if: matrix.build.target == 'aarch64-unknown-linux-gnu'
-
       - name: Configure cache
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
@@ -180,7 +175,20 @@ jobs:
         env:
           CXX: g++-12
           RUSTFLAGS: ${{ matrix.build.rustflags }}
-        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --features cuda
+        # TODO: CUDA not compiling on aarch64 for now: https://bugs.launchpad.net/ubuntu/+source/mumax3/+bug/2032624
+        run: |
+          case "$(uname -p)" in
+            "x86_64")
+              cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --features cuda
+              ;;
+            "aarch64")
+              cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+              ;;
+            *)
+              echo "Unexpected architecture $(uname -p)"
+              exit 1
+              ;;
+          esac
         if: runner.os == 'Linux'
 
       - name: Build app (Windows, normal, CUDA)
@@ -394,10 +402,10 @@ jobs:
           mv target/${{ matrix.build.target }}/debian/*.deb .
 
           # And build AppImage as well
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$(uname -p).AppImage
           wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
           chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
-          NO_STRIP=1 ./linuxdeploy-x86_64.AppImage \
+          NO_STRIP=1 ./linuxdeploy-$(uname -p).AppImage \
               --appdir AppDir \
               --plugin gtk \
               --executable target/${{ matrix.build.target }}/production/space-acres \
@@ -408,7 +416,7 @@ jobs:
           
           # Rename AppImage to be consistent with other files
           version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
-          mv Space_Acres-x86_64.AppImage space-acres-$version-x86_64.AppImage
+          mv Space_Acres-$(uname -p).AppImage space-acres-$version-$(uname -p).AppImage
         if: runner.os == 'Linux' && matrix.build.modern-rustflags
 
       - name: Package (Linux, without modern)
@@ -418,10 +426,10 @@ jobs:
           mv target/${{ matrix.build.target }}/debian/*.deb .
 
           # And build AppImage as well
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$(uname -p).AppImage
           wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
           chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
-          NO_STRIP=1 ./linuxdeploy-x86_64.AppImage \
+          NO_STRIP=1 ./linuxdeploy-$(uname -p).AppImage \
               --appdir AppDir \
               --plugin gtk \
               --executable target/${{ matrix.build.target }}/production/space-acres \
@@ -431,7 +439,7 @@ jobs:
           
           # Rename AppImage to be consistent with other files
           version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
-          mv Space_Acres-x86_64.AppImage space-acres-$version-x86_64.AppImage
+          mv Space_Acres-$(uname -p).AppImage space-acres-$version-$(uname -p).AppImage
         if: runner.os == 'Linux' && !matrix.build.modern-rustflags
 
       - name: Upload installer to artifacts (Linux)
