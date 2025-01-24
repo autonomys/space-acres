@@ -98,6 +98,7 @@ running_node_title = {$chain_name} konsensüs düğümü
 running_node_title_tooltip = Dosya yöneticisinde açmak için tıklayın
 running_node_free_disk_space_tooltip = Boş disk alanı: {$size} kaldı
 running_node_status_connecting = Ağa bağlanılıyor, en iyi blok #{$block_number}
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} peersler bağlı, gerekli P2P portları hakkında detaylar için tıklayın
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn
 running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} saat kaldı)
 running_node_status_syncing_speed_minutes_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blok/sn (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} dakika kaldı)
