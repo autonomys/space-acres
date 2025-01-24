@@ -59,7 +59,7 @@
             UpgradeCode="36F68A90-239C-34DF-B58C-64B30153CE35" />
 
         <!-- Microsoft Visual C++ 2015-2022 Redistributable version -->
-        <Variable Name="VCRedistVersionDesired" Type="version" Value="14.40.33816.0" />
+        <Variable Name="VCRedistVersionDesired" Type="version" Value="14.42.34433.0" />
 
         <Chain>
             <MsiPackage
@@ -72,20 +72,20 @@
 
             <ExePackage
                 Id="vc_redist.x64.exe"
-                Name="vc_redist.x64.14.40.33816.0.exe"
+                Name="vc_redist.x64.14.42.34433.0.exe"
                 Cache="no"
                 Compressed="no"
                 PerMachine="yes"
                 Permanent="yes"
                 DetectCondition="VCRedistVersionFound >= VCRedistVersionDesired"
-                DownloadUrl="https://download.visualstudio.microsoft.com/download/pr/368cc6bf-087b-49f9-93e6-ab05b70a58e0/814E9DA5EC5E5D6A8FA701999D1FC3BADDF7F3ADC528E202590E9B1CB73E4A11/VC_redist.x64.exe"
+                DownloadUrl="https://download.visualstudio.microsoft.com/download/pr/c7dac50a-e3e8-40f6-bbb2-9cc4e3dfcabe/1821577409C35B2B9505AC833E246376CC68A8262972100444010B57226F0940/VC_redist.x64.exe"
                 InstallCommand="/install /passive /norestart" >
                 <RemotePayload
-                    ProductName="Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.40.33816"
-                    Description="Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.40.33816"
-                    Version="14.40.33816.0"
-                    Hash="ba92a00f0f55dcae85c1bbd098efe606bd080b3c"
-                    Size="25502344" />
+                    ProductName="Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.42.34433"
+                    Description="Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.42.34433"
+                    Version="14.42.34433.0"
+                    Hash="38b647d37b42378222856972a1e22fbd8cf4b404"
+                    Size="25640112" />
             </ExePackage>
         </Chain>
     </Bundle>

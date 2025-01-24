@@ -6,7 +6,7 @@ use reqwest::Client;
 use semver::Version;
 use serde::Deserialize;
 use std::time::Duration;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 /// Check new release every hour
 const NEW_VERSION_CHECK_INTERVAL: Duration = Duration::from_secs(3600);
@@ -38,32 +38,10 @@ impl Component for NewVersion {
 
     view! {
         #[root]
-        // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-        //  for macOS
-        gtk::Button {
+        gtk::LinkButton {
             add_css_class: "suggested-action",
-            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-            //  for macOS
-            connect_clicked => move |_| {
-                let repository = env!("CARGO_PKG_REPOSITORY");
-
-                let link = if repository.starts_with("https://github.com") {
-                    // Turn:
-                    // https://github.com/autonomys/space-acres
-                    // Into:
-                    // https://github.com/autonomys/space-acres/releases
-                    format!("{}/releases", env!("CARGO_PKG_REPOSITORY"))
-                } else {
-                    repository.to_string()
-                };
-
-                if let Err(error) = open::that_detached(link) {
-                    error!(%error, "Failed to open releases page in default browser");
-                }
-            },
-            remove_css_class: "flat",
             remove_css_class: "link",
-            remove_css_class: "text-button",
+            set_has_frame: true,
             #[track = "model.changed_new_version()"]
             set_label: T
                 .new_version_available(
@@ -71,21 +49,19 @@ impl Component for NewVersion {
                 )
                 .as_str(),
             set_tooltip: &T.new_version_available_button_open(),
-            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-            //  for macOS
-            // set_uri: &{
-            //     let repository = env!("CARGO_PKG_REPOSITORY");
-            //
-            //     if repository.starts_with("https://github.com") {
-            //         // Turn:
-            //         // https://github.com/autonomys/space-acres
-            //         // Into:
-            //         // https://github.com/autonomys/space-acres/releases
-            //         format!("{}/releases", env!("CARGO_PKG_REPOSITORY"))
-            //     } else {
-            //         repository.to_string()
-            //     }
-            // },
+            set_uri: &{
+                let repository = env!("CARGO_PKG_REPOSITORY");
+
+                if repository.starts_with("https://github.com") {
+                    // Turn:
+                    // https://github.com/autonomys/space-acres
+                    // Into:
+                    // https://github.com/autonomys/space-acres/releases
+                    format!("{}/releases", env!("CARGO_PKG_REPOSITORY"))
+                } else {
+                    repository.to_string()
+                }
+            },
             set_use_underline: false,
             #[track = "model.changed_new_version()"]
             set_visible: model.new_version.is_some(),

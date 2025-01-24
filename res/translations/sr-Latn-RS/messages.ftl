@@ -99,6 +99,8 @@ configuration_dialog_button_cancel = Otkaži
 running_title = U radu
 running_node_title = {$chain_name} konsenzus čvor
 running_node_title_tooltip = Kliknite da otvorite u upravitelju datotekama
+# TODO: Translate
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} peers connected, click for details about required P2P ports
 running_node_free_disk_space_tooltip = Slobodan prostor na disku: preostalo {$size}
 running_node_status_connecting = Povezivanje sa mrežom, najbolji blok #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blokova/s
@@ -115,6 +117,7 @@ running_node_status_synced = Sinhronizovano, najbolji blok #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Proširi detalje o svakoj farmi
 running_farmer_button_pause_plotting = Pauziraj plotovanje/preplotovanje, imajte na umu da trenutno kodiranje sektora neće biti prekinuto
+running_farmer_button_resume_plotting = Nastavi plotovanje
 running_farmer_account_balance_tooltip = Ukupni saldo i kovanice zarđene od početka rada aplikacije, kliknite da vidite detalje u Astral
 running_farmer_piece_cache_sync = Sinhronizacija delova keša {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =

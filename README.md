@@ -13,15 +13,15 @@ Current status of the project is Beta.
 This means that it should generally work, most happy paths and edge cases are handled, many error cases have reasonable
 recovery options, etc.
 
-Current version supports Gemini 3h chain only and doesn't allow to select anything else. It supports upgrading existing
-installations from 3g.
+Current version supports Autonomys Mainnet chain only and doesn't allow to select anything else. It supports upgrading
+existing installations from Gemini 3h.
 
 ## Features
 
 Current features:
 
 * Configuration (reward address, node location, multiple farms, P2P ports and some advanced options)
-* Node sync with displayed progress, speed and ETA
+* Node sync with displayed progress, speed and ETA, network connections
 * Farmer plotting/farming piece cache/plotting/replotting progress display and speed calculation
 * Farmer auditing/proving performance indicators
 * Farmer sector state visualization
@@ -63,9 +63,6 @@ Application supports bare minimum configuration and doesn't support operator fun
 In order to build this app you'll need to install both dependencies necessary for building
 [Subspace](https://github.com/autonomys/subspace) and [GTK4](https://github.com/gtk-rs/gtk4-rs), including the optional
 `librsvg`. Follow their documentation for details.
-
-On Linux D-Bus development headers also need to be installed, can be done with `sudo apt-get install libdbus-1-dev` on
-Ubuntu.
 
 Then simply `cargo run` will get you where to want to be.
 

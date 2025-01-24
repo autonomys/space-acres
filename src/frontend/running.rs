@@ -27,7 +27,7 @@ use subspace_farmer::farm::{
     FarmingNotification, ProvingResult, SectorPlottingDetails, SectorUpdate,
 };
 use subspace_runtime_primitives::{Balance, SSC};
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 #[derive(Debug)]
 pub struct RunningInit {
@@ -51,9 +51,7 @@ pub enum RunningInput {
     FarmerNotification(FarmerNotification<FarmIndex>),
     ToggleFarmDetails,
     TogglePausePlotting,
-    // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-    //  for macOS
-    OpenRewardAddressInExplorer,
+    WindowResized,
 }
 
 #[derive(Debug)]
@@ -137,8 +135,20 @@ impl Component for RunningView {
                             set_active: model.plotting_paused,
                             set_cursor_from_name: Some("pointer"),
                             set_has_frame: false,
-                            set_icon_name: icon_names::PAUSE,
-                            set_tooltip: &T.running_farmer_button_pause_plotting(),
+                            #[track = "model.changed_plotting_paused()"]
+                            set_icon_name:
+                                if model.plotting_paused {
+                                    icon_names::PLAY
+                                } else {
+                                    icon_names::PAUSE
+                                },
+                            #[track = "model.changed_plotting_paused()"]
+                            set_tooltip:
+                                &if model.plotting_paused {
+                                    T.running_farmer_button_resume_plotting()
+                                } else {
+                                    T.running_farmer_button_pause_plotting()
+                                },
                         },
                     },
                     gtk::Box {
@@ -152,20 +162,12 @@ impl Component for RunningView {
                             model.farmer_state.reward_eta_progress_circle.widget().clone(),
                         },
 
-                        // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                        //  for macOS
-                        gtk::Button {
-                            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                            //  for macOS
-                            connect_clicked => RunningInput::OpenRewardAddressInExplorer,
+                        gtk::LinkButton {
                             remove_css_class: "link",
                             set_cursor_from_name: Some("pointer"),
-                            set_has_frame: false,
                             set_tooltip: &T.running_farmer_account_balance_tooltip(),
-                            // TODO: Use LinkButton once https://gitlab.gnome.org/GNOME/glib/-/issues/3403 is fixed
-                            //  for macOS
-                            // #[watch]
-                            // set_uri: &model.farmer_state.reward_address_url,
+                            #[track = "model.farmer_state.changed_reward_address_url()"]
+                            set_uri: &model.farmer_state.reward_address_url,
                             set_use_underline: false,
 
                             gtk::Label {
@@ -384,6 +386,9 @@ impl RunningView {
                         }
                         self.set_node_synced(new_synced);
                     }
+                    NodeNotification::ConnectedPeersUpdate(_) => {
+                        // Ignore
+                    }
                     NodeNotification::BlockImported(imported_block) => {
                         if !self.node_synced {
                             // Do not count balance increase during sync as increase related to
@@ -491,7 +496,7 @@ impl RunningView {
                 self.farms.broadcast(FarmWidgetInput::ToggleFarmDetails);
             }
             RunningInput::TogglePausePlotting => {
-                self.plotting_paused = !self.plotting_paused;
+                self.set_plotting_paused(!self.plotting_paused);
                 self.farms
                     .broadcast(FarmWidgetInput::PausePlotting(self.plotting_paused));
                 if sender
@@ -501,10 +506,8 @@ impl RunningView {
                     debug!("Failed to send RunningOutput::TogglePausePlotting");
                 }
             }
-            RunningInput::OpenRewardAddressInExplorer => {
-                if let Err(error) = open::that_detached(&self.farmer_state.reward_address_url) {
-                    error!(%error, "Failed to open explorer in default browser");
-                }
+            RunningInput::WindowResized => {
+                self.farms.broadcast(FarmWidgetInput::WindowResized);
             }
         }
     }

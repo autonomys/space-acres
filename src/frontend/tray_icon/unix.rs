@@ -1,38 +1,42 @@
 use crate::frontend::tray_icon::load_icon;
 use crate::frontend::{App, AppCommandOutput, T};
-use futures::channel::oneshot;
 use ksni::menu::{MenuItem, StandardItem};
-use ksni::{Icon, ToolTip, Tray, TrayService};
+use ksni::{Handle, Icon, ToolTip, Tray, TrayMethods};
 use relm4::{AsyncComponentSender, Sender};
 use std::any::Any;
-use std::cell::RefCell;
+use tokio::task;
 use tracing::{error, warn};
 
+struct ShutdownWrapper {
+    handle: Handle<TrayIcon>,
+}
+
+impl Drop for ShutdownWrapper {
+    fn drop(&mut self) {
+        let shutdown_awaiter = self.handle.shutdown();
+
+        task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(shutdown_awaiter);
+        })
+    }
+}
+
 pub(in super::super) async fn spawn(sender: &AsyncComponentSender<App>) -> Option<Box<dyn Any>> {
-    let (initialized_sender, initialized_receiver) = oneshot::channel();
+    let icon = TrayIcon {
+        sender: sender.command_sender().clone(),
+    };
 
-    sender.spawn_command(move |sender| {
-        let icon = TrayIcon {
-            sender,
-            initialized: RefCell::new(Some(initialized_sender)),
-        };
-
-        let tray_service = TrayService::new(icon);
-
-        if let Err(error) = tray_service.run() {
-            warn!(%error, "Tray icon error");
+    match icon.spawn().await {
+        Ok(handle) => Some(Box::new(ShutdownWrapper { handle })),
+        Err(error) => {
+            warn!(%error, "Tray icon not supported on this platform");
+            None
         }
-    });
-
-    initialized_receiver
-        .await
-        .unwrap_or_default()
-        .then_some(Box::new(()))
+    }
 }
 
 pub(in super::super) struct TrayIcon {
     sender: Sender<AppCommandOutput>,
-    initialized: RefCell<Option<oneshot::Sender<bool>>>,
 }
 
 impl Tray for TrayIcon {
@@ -86,24 +90,5 @@ impl Tray for TrayIcon {
             }
             .into(),
         ]
-    }
-
-    fn watcher_online(&self) {
-        if let Some(initialized) = self.initialized.borrow_mut().take() {
-            if let Err(_error) = initialized.send(true) {
-                warn!("Failed to send initialized notification");
-            }
-        }
-    }
-
-    fn watcher_offine(&self) -> bool {
-        warn!("Tray icon not supported on this platform");
-
-        if let Some(initialized) = self.initialized.borrow_mut().take() {
-            if let Err(_error) = initialized.send(false) {
-                warn!("Failed to send initialized notification");
-            }
-        }
-        false
     }
 }

@@ -21,9 +21,7 @@ loading_title = 加载中
 loading_configuration_title = 加载配置
 loading_configuration_step_loading = 加载配置...
 loading_configuration_step_reading = 读取配置...
-# TODO: Translate
 loading_configuration_step_configuration_exists = 检查配置...
-# TODO: Translate
 loading_configuration_step_configuration_not_found = 检查配置...
 loading_configuration_step_configuration_checking = 检查配置...
 loading_configuration_step_configuration_valid = 配置文件校验通过
@@ -98,6 +96,7 @@ configuration_dialog_button_cancel = 取消
 running_title = 运行中
 running_node_title = {$chain_name} 共识节点
 running_node_title_tooltip = 在文件管理器中打开
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} 节点已连接, 点击查看所需 P2P 端口
 running_node_free_disk_space_tooltip = 空闲磁盘大小: {$size}
 running_node_status_connecting = 连接网络中，最新区块 #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
@@ -114,6 +113,7 @@ running_node_status_synced = 同步完成, 最新区块 #{$best_block_number}
 running_farmer_title = 农民
 running_farmer_button_expand_details = 各农场的详细信息
 running_farmer_button_pause_plotting = 暂停绘图/重新绘图，当前的编码扇区不会被中断
+running_farmer_button_resume_plotting = 继续绘图
 running_farmer_account_balance_tooltip = 自启动以来耕种到的总奖励币，点击在 Astral 中查看更多详细信息
 running_farmer_piece_cache_sync = Piece缓存同步 {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =

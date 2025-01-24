@@ -6,6 +6,7 @@ use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
 use relm4::prelude::*;
+use relm4::{RelmIterChildrenExt, RelmRemoveAllExt};
 use simple_moving_average::{SingleSumSMA, SMA};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -19,8 +20,6 @@ use subspace_farmer::farm::{
 use tracing::{error, warn};
 
 const INVALID_SCORE_VALUE: f64 = -1.0;
-/// Experimentally found number that is good for default window size to not have horizontal scroll
-const SECTORS_PER_ROW: usize = 108;
 /// Number of samples over which to track auditing time, 1 minute in slots
 const AUDITING_TIME_TRACKING_WINDOW: usize = 60;
 /// 500ms auditing time is excellent, anything larger will result in auditing performance indicator decrease
@@ -99,6 +98,8 @@ pub(super) enum FarmWidgetInput {
     Error {
         error: Arc<anyhow::Error>,
     },
+    WindowResized,
+    RecalculateSectorRows,
 }
 
 #[tracker::track]
@@ -177,7 +178,7 @@ impl FactoryComponent for FarmWidget {
                         set_hexpand: true,
 
                         gtk::Image {
-                            set_icon_name: Some(icon_names::WARNING),
+                            set_icon_name: Some(icon_names::WARNING_OUTLINE),
                         }
                     },
                     None => {
@@ -215,9 +216,9 @@ impl FactoryComponent for FarmWidget {
                                     gtk::Image {
                                         #[track = "self.changed_proving_result() || self.changed_auditing_time_score() || self.changed_proving_time_score()"]
                                         set_icon_name: Some(match self.farm_score() {
-                                            ..=0.4 => icon_names::SPEEDOMETER4,
-                                            ..=0.8 => icon_names::SPEEDOMETER3,
-                                            _ => icon_names::SPEEDOMETER2,
+                                            ..=0.4 => icon_names::SPEEDOMETER_HIGH,
+                                            ..=0.8 => icon_names::SPEEDOMETER_MEDIUM,
+                                            _ => icon_names::SPEEDOMETER_LOW,
                                         }),
                                     },
                                 },
@@ -271,7 +272,7 @@ impl FactoryComponent for FarmWidget {
                                 },
 
                                 gtk::Image {
-                                    set_icon_name: Some(icon_names::WARNING),
+                                    set_icon_name: Some(icon_names::WARNING_OUTLINE),
                                     #[track = "self.changed_non_fatal_farming_error()"]
                                     set_tooltip: {
                                         let last_error = self.non_fatal_farming_error
@@ -380,11 +381,14 @@ impl FactoryComponent for FarmWidget {
                 },
             },
 
-            gtk::Box {
-                #[track = "self.changed_farm_details() || self.changed_error()"]
-                set_visible: self.farm_details && self.error.is_none(),
+            // A hack to allow measuring width for sectors
+            gtk::ScrolledWindow {
+                set_vscrollbar_policy: gtk::PolicyType::Never,
 
-                self.sector_rows.clone(),
+                self.sector_rows.clone() -> gtk::Box {
+                    #[track = "self.changed_farm_details() || self.changed_error()"]
+                    set_visible: self.farm_details && self.error.is_none(),
+                },
             },
         },
     }
@@ -394,6 +398,7 @@ impl FactoryComponent for FarmWidget {
         for sector_index in 0..init.total_sectors {
             let sector = gtk::Box::builder()
                 .css_name("farm-sector")
+                .halign(gtk::Align::Start)
                 .tooltip_text(T.running_farmer_farm_sector(sector_index).as_str())
                 .build();
             if sector_index < init.plotted_total_sectors {
@@ -404,13 +409,6 @@ impl FactoryComponent for FarmWidget {
         }
 
         let sector_rows = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        sectors.chunks(SECTORS_PER_ROW).for_each(|sectors| {
-            let sector_row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-            sector_rows.append(&sector_row);
-            for sector in sectors {
-                sector_row.append(sector);
-            }
-        });
 
         Self {
             path: init.farm.directory,
@@ -585,6 +583,7 @@ impl FarmWidget {
             }
             FarmWidgetInput::ToggleFarmDetails => {
                 self.set_farm_details(!self.farm_details);
+                sender.input(FarmWidgetInput::RecalculateSectorRows);
             }
             FarmWidgetInput::Error { error } => {
                 sender.spawn_command(|_sender| {
@@ -601,6 +600,44 @@ impl FarmWidget {
                 });
 
                 self.get_mut_error().replace(error);
+            }
+            FarmWidgetInput::WindowResized => {
+                sender.input(FarmWidgetInput::RecalculateSectorRows);
+            }
+            FarmWidgetInput::RecalculateSectorRows => {
+                if !self.farm_details {
+                    return;
+                }
+
+                let sector_rows_width = self
+                    .sector_rows
+                    .parent()
+                    .expect("Always attached to parent; qed")
+                    .width();
+                // TODO: This is a hardcoded number, but it is tricky to determine its size in
+                //  runtime, so will do for now
+                let sector_width = 7;
+                let sectors_per_row = sector_rows_width / sector_width;
+
+                if sectors_per_row as usize == self.sector_rows.iter_children().count() {
+                    // Nothing has changed
+                    return;
+                }
+
+                let mut sectors_iter = self.sectors.values();
+
+                self.sector_rows.remove_all();
+                for _ in 0..self.sectors.len().div_ceil(sectors_per_row as usize) {
+                    let sector_row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+
+                    for _ in 0..sectors_per_row {
+                        if let Some(sector) = sectors_iter.next() {
+                            sector_row.append(sector);
+                        }
+                    }
+
+                    self.sector_rows.append(&sector_row);
+                }
             }
         }
     }

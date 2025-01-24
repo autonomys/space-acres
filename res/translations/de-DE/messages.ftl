@@ -20,9 +20,7 @@ loading_title = lade
 loading_configuration_title = lade Konfiguration
 loading_configuration_step_loading = lade Konfiguration...
 loading_configuration_step_reading = lese Konfiguration...
-# TODO: Translate
 loading_configuration_step_configuration_exists = überprüfe Konfiguration...
-# TODO: Translate
 loading_configuration_step_configuration_not_found = überprüfe Konfiguration...
 loading_configuration_step_configuration_checking = überprüfe Konfiguration...
 loading_configuration_step_configuration_valid = konfiguration ist gültig
@@ -98,6 +96,7 @@ running_title = Wird ausgeführt
 running_node_title = {$chain_name} Konsens-Node
 running_node_title_tooltip = Klicken, um im Dateimanager zu öffnen
 running_node_free_disk_space_tooltip = Freier Speicherplatz: {$size} verbleibend
+running_node_connections_tooltip = {$connected_peers}/{$expected_peers} Peers verbunden, klicke hier für Details zu den benötigten P2P-Ports
 running_node_status_connecting = Verbindung zum Netzwerk wird hergestellt, bester Block #{$block_number}
 running_node_status_syncing_speed_no_eta = , {NUMBER($blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s
 running_node_status_syncing_speed_hours_eta = , {NUMBER($a_blocks_per_second, minimumFractionDigits: 2, maximumFractionDigits: 2)} blocks/s (~{NUMBER($b_hours_remaining, minimumFractionDigits: 2, maximumFractionDigits: 2)} hours remaining)
@@ -112,8 +111,9 @@ running_node_status_syncing =
 running_node_status_synced = Synced, best block #{$best_block_number}
 running_farmer_title = Farmer
 running_farmer_button_expand_details = Details zu jeder Farm erweitern
-running_farmer_button_pause_plotting = Plotten/Replotten pausieren, bitte beachten, dass aktuell laufende Encoding-Prozesse nicht unterbrochen werden.
-running_farmer_account_balance_tooltip = Gesamtsaldo des Kontos und gefarmte Coins seit Start der Anwendung, klicken, um Details in Astral anzuzeigen.
+running_farmer_button_pause_plotting = Plotten/Replotten pausieren, bitte beachten, dass aktuell laufende Encoding-Prozesse nicht unterbrochen werden
+running_farmer_button_resume_plotting = Plotten fortsetzen
+running_farmer_account_balance_tooltip = Gesamtsaldo des Kontos und gefarmte Coins seit Start der Anwendung, klicken, um Details in Astral anzuzeigen
 running_farmer_piece_cache_sync = Piece-Cache-Synchronisation {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
     Nächste Reward-Schätzung: {$eta_string ->
@@ -197,8 +197,7 @@ about_system_information =
     Datenverzeichnis (einschließlich Protokolle): {$data_directory}
 
 tray_icon_open = öffnen
-# TODO: Check translation
-tray_icon_quit = Aufhören
+tray_icon_quit = Beenden
 
 notification_app_minimized_to_tray = Space Acres wurde in die Taskleiste minimiert
     .body = Du kannst es wieder öffnen oder komplett beenden, indem du das Menü des Tray-Symbols verwendest

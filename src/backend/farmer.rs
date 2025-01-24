@@ -3,7 +3,6 @@ pub(super) mod maybe_node_client;
 
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
-use crate::backend::PieceGetterWrapper;
 use crate::PosTable;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
@@ -30,6 +29,8 @@ use subspace_farmer::farm::{
     FarmingNotification, PlottedSectors, SectorPlottingDetails, SectorUpdate,
 };
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
+use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
+use subspace_farmer::farmer_piece_getter::FarmerPieceGetter;
 use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::plotter::cpu::CpuPlotter;
 #[cfg(feature = "_gpu")]
@@ -43,9 +44,10 @@ use subspace_farmer::utils::{
     run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
 };
 use subspace_farmer_components::plotting::PlottedSector;
+use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_kzg::Kzg;
 use thread_priority::ThreadPriority;
-use tokio::sync::{watch, Barrier};
+use tokio::sync::watch;
 use tracing::{debug, error, info, info_span, Instrument};
 
 /// Minimal cache percentage, there is no need in setting it higher
@@ -189,7 +191,12 @@ pub(super) struct FarmerOptions<FarmIndex, OnFarmInitialized> {
     pub(super) reward_address: PublicKey,
     pub(super) disk_farms: Vec<DiskFarm>,
     pub(super) node_client: MaybeNodeClient,
-    pub(super) piece_getter: PieceGetterWrapper,
+    pub(super) piece_getter: FarmerPieceGetter<
+        FarmIndex,
+        SegmentCommitmentPieceValidator<MaybeNodeClient>,
+        MaybeNodeClient,
+    >,
+
     pub(super) plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     pub(super) farmer_cache: FarmerCache,
     pub(super) farmer_cache_worker: FarmerCacheWorker<MaybeNodeClient>,
@@ -409,8 +416,6 @@ where
     let (farms, plotting_delay_senders) = {
         let farms_total = disk_farms.len();
         let info_mutex = &AsyncMutex::new(());
-        let faster_read_sector_record_chunks_mode_barrier = Arc::new(Barrier::new(farms_total));
-        let faster_read_sector_record_chunks_mode_concurrency = Arc::new(Semaphore::new(1));
         let (plotting_delay_senders, plotting_delay_receivers) = (0..farms_total)
             .map(|_| oneshot::channel())
             .unzip::<_, _, Vec<_>, Vec<_>>();
@@ -429,10 +434,6 @@ where
                 let erasure_coding = erasure_coding.clone();
                 let plotter = Arc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
-                let faster_read_sector_record_chunks_mode_barrier =
-                    Arc::clone(&faster_read_sector_record_chunks_mode_barrier);
-                let faster_read_sector_record_chunks_mode_concurrency =
-                    Arc::clone(&faster_read_sector_record_chunks_mode_concurrency);
 
                 async move {
                     let farm_fut = SingleDiskFarm::new::<_, PosTable>(
@@ -452,9 +453,8 @@ where
                             global_mutex,
                             max_plotting_sectors_per_farm: MAX_PLOTTING_SECTORS_PER_FARM,
                             disable_farm_locking: false,
-                            read_sector_record_chunks_mode: None,
-                            faster_read_sector_record_chunks_mode_barrier,
-                            faster_read_sector_record_chunks_mode_concurrency,
+                            read_sector_record_chunks_mode:
+                                ReadSectorRecordChunksMode::ConcurrentChunks,
                             registry: None,
                             create: true,
                         },
