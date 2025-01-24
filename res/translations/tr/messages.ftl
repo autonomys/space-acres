@@ -113,6 +113,7 @@ running_node_status_synced = Senkronize edildi, en iyi blok #{$best_block_number
 running_farmer_title = Çiftçi
 running_farmer_button_expand_details = Her bir çiftlik hakkında detayları genişlet
 running_farmer_button_pause_plotting = Alan oluşturmayı/yeni veri alanı hazırlamayı duraklat, unutmayın, şu anda oluşturulmakta olan alanlar tamamlanacak
+running_farmer_button_resume_plotting = Alan oluşturmaya devam et
 running_farmer_account_balance_tooltip = Uygulama başlatıldığından beri toplam hesap bakiyesi ve üretilen coinler, detayları Astral'de görmek için tıklayın
 running_farmer_piece_cache_sync = Parça önbelleği senkronizasyonu {NUMBER($percentage, minimumFractionDigits: 2, maximumFractionDigits: 2)}%
 running_farmer_next_reward_estimate =
