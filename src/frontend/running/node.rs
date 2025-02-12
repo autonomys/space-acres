@@ -131,7 +131,7 @@ impl Component for NodeView {
                     set_css_classes: &[
                         "flat",
                         match model.connected_peers {
-                            ALL_PEERS => "success-label",
+                            ALMOST_ALL_PEERS.. => "success-label",
                             ..OUT_PEERS => "error-label",
                             _ => "warning-label",
                         },
@@ -163,7 +163,7 @@ impl Component for NodeView {
                                     0 => icon_names::STRENGTH_BARS_6,
                                     ..OUT_PEERS => icon_names::STRENGTH_BARS_5,
                                     OUT_PEERS => icon_names::STRENGTH_BARS_4,
-                                    ..=ALMOST_ALL_PEERS => icon_names::STRENGTH_BARS_3,
+                                    ..ALMOST_ALL_PEERS => icon_names::STRENGTH_BARS_3,
                                     _ => icon_names::STRENGTH_NARS_2,
                                 }),
                         },
