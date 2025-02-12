@@ -529,7 +529,7 @@ impl RunningView {
         } else {
             self.farmer_state.local_space_pledged * u64::from(self.farmer_state.sectors_plotted)
                 / u64::from(self.farmer_state.sectors_total)
-                * u64::from(self.farmer_state.cache_percentage.get())
+                * (100 - u64::from(self.farmer_state.cache_percentage.get()))
                 / 100
         };
 
