@@ -209,4 +209,4 @@ notification_farm_error = 一个Space Acres农场出错
 notification_signed_reward_successfully = 成功签署一份奖励 🥳
     .body = 感谢参与 🙌
 notification_missed_reward = 签署奖励失败 😞
-    .body = 很不幸，但很快就会有下一次出块机会
+    .body = 很不幸，但很快就会有下一次机会
