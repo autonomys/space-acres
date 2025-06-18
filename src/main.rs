@@ -19,17 +19,17 @@ mod icon_names {
     include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
 }
 
-use crate::frontend::{App, AppInit, RunBackendResult, GLOBAL_CSS};
+use crate::frontend::{App, AppInit, GLOBAL_CSS, RunBackendResult};
 use bytesize::ByteSize;
 use clap::Parser;
-use duct::{cmd, Expression};
+use duct::{Expression, cmd};
 use file_rotate::compression::Compression;
 use file_rotate::suffix::AppendCount;
 use file_rotate::{ContentLimit, FileRotate};
 use futures::channel::mpsc;
 use gtk::glib;
-use relm4::prelude::*;
 use relm4::RELM_THREADS;
+use relm4::prelude::*;
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::io::{Read, Write};
@@ -308,10 +308,10 @@ impl Cli {
         relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
 
         // Prefer dark theme in cross-platform way if environment is configured that way
-        if let Some(settings) = gtk::Settings::default() {
-            if matches!(dark_light::detect(), dark_light::Mode::Dark) {
-                settings.set_gtk_application_prefer_dark_theme(true);
-            }
+        if let Some(settings) = gtk::Settings::default()
+            && matches!(dark_light::detect(), dark_light::Mode::Dark)
+        {
+            settings.set_gtk_application_prefer_dark_theme(true);
         }
 
         let exit_status_code = Rc::new(Cell::new(AppStatusCode::Exit));
@@ -469,8 +469,7 @@ impl Cli {
                 match expression.try_wait()? {
                     Some(output) => output.status,
                     None => {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Other,
+                        return Err(io::Error::other(
                             "Logs writing ended before child process did, exiting",
                         ));
                     }
@@ -556,15 +555,15 @@ impl Cli {
         dirs::data_local_dir()
             .map(|data_local_dir| data_local_dir.join(env!("CARGO_PKG_NAME")))
             .and_then(|app_data_dir| {
-                if !app_data_dir.exists() {
-                    if let Err(error) = fs::create_dir_all(&app_data_dir) {
-                        error!(
-                            "App data directory \"{}\" doesn't exist and can't be created: {}",
-                            app_data_dir.display(),
-                            error
-                        );
-                        return None;
-                    }
+                if !app_data_dir.exists()
+                    && let Err(error) = fs::create_dir_all(&app_data_dir)
+                {
+                    error!(
+                        "App data directory \"{}\" doesn't exist and can't be created: {}",
+                        app_data_dir.display(),
+                        error
+                    );
+                    return None;
                 }
 
                 Some(app_data_dir)

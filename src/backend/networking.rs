@@ -5,13 +5,13 @@ use std::fmt;
 use std::hash::Hash;
 use std::path::Path;
 use std::sync::{Arc, Weak};
+use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farmer_cache::FarmerCache;
 use subspace_farmer::node_client::NodeClientExt;
-use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
+use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_networking::libp2p::multiaddr::Protocol;
-use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::protocols::request_response::handlers::cached_piece_by_index::{
     CachedPieceByIndexRequest, CachedPieceByIndexRequestHandler, CachedPieceByIndexResponse,
     PieceResult,
@@ -25,11 +25,11 @@ use subspace_networking::protocols::request_response::handlers::segment_header::
 use subspace_networking::utils::multihash::ToMultihash;
 use subspace_networking::utils::strip_peer_id;
 use subspace_networking::{
-    construct, Config, KademliaMode, KnownPeersManager, KnownPeersManagerConfig, Node, NodeRunner,
-    WeakNode,
+    Config, KademliaMode, KnownPeersManager, KnownPeersManagerConfig, Node, NodeRunner, WeakNode,
+    construct,
 };
 use subspace_rpc_primitives::MAX_SEGMENT_HEADERS_PER_REQUEST;
-use tracing::{debug, error, info, info_span, warn, Instrument};
+use tracing::{Instrument, debug, error, info, info_span, warn};
 
 /// How many segment headers can be requested at a time.
 ///
@@ -99,7 +99,7 @@ pub fn create_network<FarmIndex, NC>(
     weak_plotted_pieces: Weak<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     node_client: NC,
     farmer_cache: FarmerCache,
-) -> Result<(Node, NodeRunner<FarmerCache>), anyhow::Error>
+) -> Result<(Node, NodeRunner), anyhow::Error>
 where
     FarmIndex: Hash + Eq + Copy + fmt::Debug + Send + Sync + 'static,
     usize: From<FarmIndex>,
@@ -120,7 +120,7 @@ where
     .map(Box::new)?;
 
     let maybe_weak_node = Arc::new(Mutex::new(None::<WeakNode>));
-    let default_config = Config::new(protocol_prefix, keypair.into(), farmer_cache.clone(), None);
+    let default_config = Config::new(protocol_prefix, keypair.into(), None);
     let config = Config {
         reserved_peers,
         listen_on,

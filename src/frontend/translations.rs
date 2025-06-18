@@ -24,8 +24,8 @@ mod messages {
 }
 
 use fluent_langneg::{
-    convert_vec_str_to_langids, convert_vec_str_to_langids_lossy, negotiate_languages,
-    NegotiationStrategy,
+    NegotiationStrategy, convert_vec_str_to_langids, convert_vec_str_to_langids_lossy,
+    negotiate_languages,
 };
 use fluent_static::fluent_bundle::FluentError;
 use fluent_static::{LanguageSpec, Message};

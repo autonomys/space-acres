@@ -1,9 +1,9 @@
 pub(super) mod direct_node_client;
 pub(super) mod maybe_node_client;
 
+use crate::PosTable;
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
-use crate::PosTable;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
 use bytesize::ByteSize;
@@ -11,7 +11,7 @@ use event_listener_primitives::HandlerId;
 use futures::channel::{mpsc, oneshot};
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
-use futures::{select, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, select};
 use parking_lot::Mutex;
 use std::future::pending;
 use std::hash::Hash;
@@ -20,35 +20,35 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, fs};
+use subspace_core_primitives::PublicKey;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::sectors::SectorIndex;
-use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{
     FarmingNotification, PlottedSectors, SectorPlottingDetails, SectorUpdate,
 };
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker};
-use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::farmer_piece_getter::FarmerPieceGetter;
+use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::node_client::NodeClient;
+use subspace_farmer::plotter::Plotter;
 use subspace_farmer::plotter::cpu::CpuPlotter;
 #[cfg(feature = "_gpu")]
 use subspace_farmer::plotter::gpu::GpuPlotter;
-use subspace_farmer::plotter::Plotter;
 use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
 use subspace_farmer::utils::{
-    create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
-    run_future_in_dedicated_thread, thread_pool_core_indices, AsyncJoinOnDrop,
+    AsyncJoinOnDrop, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
+    run_future_in_dedicated_thread, thread_pool_core_indices,
 };
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_kzg::Kzg;
 use thread_priority::ThreadPriority;
 use tokio::sync::watch;
-use tracing::{debug, error, info, info_span, Instrument};
+use tracing::{Instrument, debug, error, info, info_span};
 
 /// Minimal cache percentage, there is no need in setting it higher
 pub(super) const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
@@ -235,14 +235,14 @@ where
     }
 
     for farm in &disk_farms {
-        if !farm.directory.exists() {
-            if let Err(error) = fs::create_dir(&farm.directory) {
-                return Err(anyhow!(
-                    "Directory {} doesn't exist and can't be created: {}",
-                    farm.directory.display(),
-                    error
-                ));
-            }
+        if !farm.directory.exists()
+            && let Err(error) = fs::create_dir(&farm.directory)
+        {
+            return Err(anyhow!(
+                "Directory {} doesn't exist and can't be created: {}",
+                farm.directory.display(),
+                error
+            ));
         }
     }
 

@@ -1,5 +1,5 @@
-use crate::backend::node::{ChainInfo, SyncState, IN_PEERS, OUT_PEERS};
 use crate::backend::NodeNotification;
+use crate::backend::node::{ChainInfo, IN_PEERS, OUT_PEERS, SyncState};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::icon_names;
 use bytesize::ByteSize;
@@ -7,7 +7,7 @@ use gtk::prelude::*;
 use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
-use simple_moving_average::{SingleSumSMA, SMA};
+use simple_moving_average::{SMA, SingleSumSMA};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -195,7 +195,7 @@ impl Component for NodeView {
 
                             // TODO: Optimize rendering here, it will update on every block here
                             #[track = "model.changed_sync_state() || model.changed_best_block_number()"]
-                            set_label: &{
+                            set_label: {
                                 let sync_speed = if model.block_import_time.get_num_samples() > 0 {
                                      let sync_speed = 1.0 / model.block_import_time.get_average().as_secs_f32();
 
@@ -243,8 +243,7 @@ impl Component for NodeView {
                                         target,
                                         sync_speed,
                                     )
-                                    .as_str()
-                            },
+                            }.as_str(),
                         },
 
                         gtk::Spinner {

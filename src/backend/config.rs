@@ -1,4 +1,4 @@
-use crate::backend::farmer::{DiskFarm, CACHE_PERCENTAGE};
+use crate::backend::farmer::{CACHE_PERCENTAGE, DiskFarm};
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use subspace_core_primitives::PublicKey;
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
-use subspace_farmer::utils::ss58::{parse_ss58_reward_address, Ss58ParsingError};
+use subspace_farmer::utils::ss58::{Ss58ParsingError, parse_ss58_reward_address};
 use tokio::io::AsyncWriteExt;
 use tokio::task;
 use tracing::warn;
@@ -231,10 +231,9 @@ impl Config {
                     let effective_disk_usage =
                         SingleDiskFarm::effective_disk_usage(&farm.path, CACHE_PERCENTAGE.get())
                             .map_err(|error| {
-                                io::Error::new(
-                                    io::ErrorKind::Other,
-                                    format!("Failed to check effective disk usage: {error}"),
-                                )
+                                io::Error::other(format!(
+                                    "Failed to check effective disk usage: {error}"
+                                ))
                             })?;
 
                     Ok((fs_stats, effective_disk_usage))
@@ -242,12 +241,7 @@ impl Config {
             });
             let farm_details_result = farm_details_fut
                 .await
-                .map_err(|error| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("Failed to spawn tokio task: {error}"),
-                    )
-                })
+                .map_err(|error| io::Error::other(format!("Failed to spawn tokio task: {error}")))
                 .flatten();
 
             let (fs_stats, effective_disk_usage) = match farm_details_result {
@@ -380,9 +374,6 @@ async fn check_path(path: PathBuf) -> Result<(), ConfigError> {
     .await
     .map_err(|error| ConfigError::PathError {
         path: path_string,
-        error: io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to spawn tokio task: {error}"),
-        ),
+        error: io::Error::other(format!("Failed to spawn tokio task: {error}")),
     })?
 }
