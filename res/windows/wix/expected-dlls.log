@@ -28,7 +28,6 @@ intl.dll
 jpeg62.dll
 libexpat.dll
 libpng16.dll
-libxml2.dll
 pango-1.0-0.dll
 pangocairo-1.0-0.dll
 pangowin32-1.0-0.dll
@@ -37,9 +36,10 @@ pcre2-32-0.dll
 pcre2-8-0.dll
 pcre2-posix-3.dll
 pixman-1-0.dll
-pkgconf-5.dll
+pkgconf-6.dll
 rsvg-2-2.dll
 textstyle.dll
 tiff.dll
 turbojpeg.dll
+xml2-16.dll
 zlib1.dll

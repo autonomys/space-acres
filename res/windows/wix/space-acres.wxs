@@ -210,9 +210,6 @@
                         <Component Id='gtk4_libpng16.dll' Guid='f1eb894a-fd88-469d-81ea-640791560a1e'>
                             <File Id='libpng16.dll' Name='libpng16.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\libpng16.dll' />
                         </Component>
-                        <Component Id='gtk4_libxml2.dll' Guid='dfb79114-fe77-480d-8118-050bd86c3aa5'>
-                            <File Id='libxml2.dll' Name='libxml2.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\libxml2.dll' />
-                        </Component>
                         <Component Id='gtk4_pango_1.0_0.dll' Guid='9f680fdc-42a1-4efa-a526-c04a4a9eb68f'>
                             <File Id='pango_1.0_0.dll' Name='pango-1.0-0.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pango-1.0-0.dll' />
                         </Component>
@@ -237,8 +234,8 @@
                         <Component Id='gtk4_pixman_1_0.dll' Guid='9f6dff89-ea6e-4355-9863-f076e915697d'>
                             <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pixman-1-0.dll' />
                         </Component>
-                        <Component Id='gtk4_pkgconf_5.dll' Guid='9c5ef299-8a73-4c79-8cc5-a48b9833c5a9'>
-                            <File Id='pkgconf_5.dll' Name='pkgconf-5.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pkgconf-5.dll' />
+                        <Component Id='gtk4_pkgconf_6.dll' Guid='2b0ab36a-d1d0-427f-a63c-6dfd513b8b82'>
+                            <File Id='pkgconf_6.dll' Name='pkgconf-6.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pkgconf-6.dll' />
                         </Component>
                         <Component Id='gtk4_rsvg_2_2.dll' Guid='c45c78c2-1b52-4bb8-b165-64229cacb357'>
                             <File Id='rsvg_2_2.dll' Name='rsvg-2-2.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\rsvg-2-2.dll' />
@@ -251,6 +248,9 @@
                         </Component>
                         <Component Id='gtk4_turbojpeg.dll' Guid='914f9fc2-a3e4-47a7-85b6-e63f2d901bcb'>
                             <File Id='turbojpeg.dll' Name='turbojpeg.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\turbojpeg.dll' />
+                        </Component>
+                         <Component Id='gtk4_xml2_16.dll' Guid='6c9abb1f-ca51-4054-b148-f368c3661eed'>
+                            <File Id='xml2_16.dll' Name='xml2-16.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\xml2-16.dll' />
                         </Component>
                         <Component Id='gtk4_zlib1.dll' Guid='b83feda4-4cc4-4ef1-9c95-ce74b785f6d9'>
                             <File Id='zlib1.dll' Name='zlib1.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\zlib1.dll' />
@@ -382,7 +382,6 @@
             <ComponentRef Id='gtk4_jpeg62.dll'/>
             <ComponentRef Id='gtk4_libexpat.dll'/>
             <ComponentRef Id='gtk4_libpng16.dll'/>
-            <ComponentRef Id='gtk4_libxml2.dll'/>
             <ComponentRef Id='gtk4_pango_1.0_0.dll'/>
             <ComponentRef Id='gtk4_pangocairo_1.0_0.dll'/>
             <ComponentRef Id='gtk4_pangowin32_1.0_0.dll'/>
@@ -391,11 +390,12 @@
             <ComponentRef Id='gtk4_pcre2_8_0.dll'/>
             <ComponentRef Id='gtk4_pcre2_posix_3.dll'/>
             <ComponentRef Id='gtk4_pixman_1_0.dll'/>
-            <ComponentRef Id='gtk4_pkgconf_5.dll'/>
+            <ComponentRef Id='gtk4_pkgconf_6.dll'/>
             <ComponentRef Id='gtk4_rsvg_2_2.dll'/>
             <ComponentRef Id='gtk4_textstyle.dll'/>
             <ComponentRef Id='gtk4_tiff.dll'/>
             <ComponentRef Id='gtk4_turbojpeg.dll'/>
+            <ComponentRef Id='gtk4_xml2_16.dll'/>
             <ComponentRef Id='gtk4_zlib1.dll'/>
             <ComponentRef Id='gdk_pixbuf_loaders'/>
             <ComponentRef Id='glib_2.gdk_pixbuf_loaders.cache'/>

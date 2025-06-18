@@ -1,13 +1,13 @@
 mod utils;
 
+use crate::PosTable;
 use crate::backend::farmer::direct_node_client::{DirectNodeClient, NodeClientConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::node::utils::account_storage_key;
 use crate::backend::utils::{Handler, HandlerFn};
-use crate::PosTable;
 use event_listener_primitives::HandlerId;
 use frame_system::AccountInfo;
-use futures::{select, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, select};
 use names::{Generator, Name};
 use pallet_balances::AccountData;
 use parity_scale_codec::Decode;
@@ -22,23 +22,23 @@ use sc_storage_monitor::{StorageMonitorParams, StorageMonitorService};
 use serde_json::Value;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus_subspace::{ChainConstants, SubspaceApi};
+use sp_core::H256;
 use sp_core::crypto::Ss58AddressFormat;
 use sp_core::storage::StorageKey;
-use sp_core::H256;
 use sp_runtime::traits::Header;
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_fake_runtime_api::RuntimeApi;
-use subspace_networking::libp2p::identity::ed25519::Keypair;
-use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::Node;
+use subspace_networking::libp2p::Multiaddr;
+use subspace_networking::libp2p::identity::ed25519::Keypair;
 use subspace_runtime_primitives::{Balance, Nonce};
 use subspace_service::config::{
     ChainSyncMode, SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
@@ -382,6 +382,7 @@ fn set_default_ss58_version(chain_spec: &ChainSpec) {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn pot_external_entropy(chain_spec: &ChainSpec) -> Result<Vec<u8>, sc_service::Error> {
     let maybe_chain_spec_pot_external_entropy = chain_spec
         .0
@@ -401,6 +402,7 @@ fn pot_external_entropy(chain_spec: &ChainSpec) -> Result<Vec<u8>, sc_service::E
         .into_bytes())
 }
 
+#[allow(clippy::result_large_err)]
 pub(super) fn dsn_bootstrap_nodes(
     chain_spec: &ChainSpec,
 ) -> Result<Vec<Multiaddr>, sc_service::Error> {
@@ -496,6 +498,8 @@ fn create_consensus_chain_config(
         telemetry_endpoints,
         force_authoring: false,
         chain_spec: chain_spec.into(),
+        executor: Default::default(),
+        trie_cache_size: None,
     }
 }
 

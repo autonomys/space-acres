@@ -1,4 +1,4 @@
-use fluent_static_codegen::{generate, MessageBundleCodeGenerator};
+use fluent_static_codegen::{MessageBundleCodeGenerator, generate};
 use std::path::Path;
 use std::{env, fs};
 

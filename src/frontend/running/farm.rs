@@ -1,13 +1,13 @@
 use crate::backend::farmer::DiskFarm;
-use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::NotificationExt;
+use crate::frontend::translations::{AsDefaultStr, T};
 use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
 use relm4::prelude::*;
 use relm4::{RelmIterChildrenExt, RelmRemoveAllExt};
-use simple_moving_average::{SingleSumSMA, SMA};
+use simple_moving_average::{SMA, SingleSumSMA};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -282,8 +282,7 @@ impl FactoryComponent for FarmWidget {
 
                                         T
                                             .running_farmer_farm_non_fatal_error_tooltip(last_error)
-                                            .as_str()
-                                    },
+                                    }.as_str(),
                                     #[track = "self.changed_non_fatal_farming_error()"]
                                     set_visible: self.non_fatal_farming_error.is_some(),
                                 },
@@ -355,8 +354,7 @@ impl FactoryComponent for FarmWidget {
                                         farming,
                                     ),
                                 }
-                                    .as_str()
-                            },
+                            }.as_str(),
                         },
 
                         gtk::Spinner {

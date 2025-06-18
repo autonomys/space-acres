@@ -1,10 +1,10 @@
 use async_lock::Mutex as AsyncMutex;
 use futures::channel::mpsc;
-use futures::{future, FutureExt, Stream, StreamExt};
+use futures::{FutureExt, Stream, StreamExt, future};
 use parking_lot::Mutex;
 use sc_client_api::{AuxStore, BlockBackend, HeaderBackend};
 use sc_consensus_subspace::archiver::{
-    recreate_genesis_segment, ArchivedSegmentNotification, SegmentHeadersStore,
+    ArchivedSegmentNotification, SegmentHeadersStore, recreate_genesis_segment,
 };
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
 use sc_consensus_subspace::slot_worker::{NewSlotNotification, RewardSigningNotification};
@@ -16,8 +16,8 @@ use sp_consensus::SyncOracle;
 use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use sp_core::H256;
 use sp_objects::ObjectsApi;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -360,10 +360,10 @@ where
                 // Wait for solutions and transform proposed proof of space solutions into
                 // data structure `sc-consensus-subspace` expects
                 let forward_signature_fut = async move {
-                    if let Ok(reward_signature) = response_receiver.await {
-                        if let Some(signature) = reward_signature.signature {
-                            let _ = signature_sender.unbounded_send(signature);
-                        }
+                    if let Ok(reward_signature) = response_receiver.await
+                        && let Some(signature) = reward_signature.signature
+                    {
+                        let _ = signature_sender.unbounded_send(signature);
                     }
                 };
 
@@ -398,10 +398,10 @@ where
 
         let mut reward_signature_senders = reward_signature_senders.lock();
 
-        if reward_signature_senders.current_hash == reward_signature.hash.into() {
-            if let Some(mut sender) = reward_signature_senders.senders.pop() {
-                let _ = sender.send(reward_signature);
-            }
+        if reward_signature_senders.current_hash == reward_signature.hash.into()
+            && let Some(mut sender) = reward_signature_senders.senders.pop()
+        {
+            let _ = sender.send(reward_signature);
         }
 
         Ok(())
@@ -439,24 +439,21 @@ where
                         archived_segment_acknowledgement_senders.senders.clear();
                     }
 
-                    let maybe_archived_segment_header =
-                        match archived_segment_acknowledgement_senders
-                            .senders
-                            .entry(subscription_id)
-                        {
-                            Entry::Occupied(_) => {
-                                // No need to do anything, farmer is processing request
-                                None
-                            }
-                            Entry::Vacant(entry) => {
-                                entry.insert(acknowledgement_sender);
+                    match archived_segment_acknowledgement_senders
+                        .senders
+                        .entry(subscription_id)
+                    {
+                        Entry::Occupied(_) => {
+                            // No need to do anything, farmer is processing request
+                            None
+                        }
+                        Entry::Vacant(entry) => {
+                            entry.insert(acknowledgement_sender);
 
-                                // This will be sent to the farmer
-                                Some(archived_segment.segment_header)
-                            }
-                        };
-
-                    maybe_archived_segment_header
+                            // This will be sent to the farmer
+                            Some(archived_segment.segment_header)
+                        }
+                    }
                 };
 
                 Box::pin(async move {
@@ -516,12 +513,11 @@ where
                 .flatten()
         };
 
-        if let Some(sender) = maybe_sender {
-            if let Err(error) = sender.unbounded_send(()) {
-                if !error.is_closed() {
-                    warn!("Failed to acknowledge archived segment: {error}");
-                }
-            }
+        if let Some(sender) = maybe_sender
+            && let Err(error) = sender.unbounded_send(())
+            && !error.is_closed()
+        {
+            warn!("Failed to acknowledge archived segment: {error}");
         }
 
         debug!(%segment_index, "Acknowledged archived segment.");
@@ -551,7 +547,7 @@ where
                     // Try to re-create genesis segment on demand
                     match tokio::task::spawn_blocking(move || {
                         recreate_genesis_segment(&*client, kzg, erasure_coding).map_err(|error| {
-                            format!("Failed to re-create genesis segment: {}", error)
+                            format!("Failed to re-create genesis segment: {error}")
                         })
                     })
                     .await

@@ -8,13 +8,13 @@ mod widgets;
 
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::FarmerAction;
-use crate::backend::{wipe, BackendAction, BackendNotification};
+use crate::backend::{BackendAction, BackendNotification, wipe};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::{icon_names, AppStatusCode};
+use crate::{AppStatusCode, icon_names};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::glib;
@@ -125,6 +125,7 @@ pub enum AppInput {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
     ShowWindow,
@@ -572,27 +573,29 @@ impl AsyncComponent for App {
             .website_label("GitHub")
             .comments(env!("CARGO_PKG_DESCRIPTION"))
             .logo(&*PIXBUF_ABOUT_IMG)
-            .system_information({
-                let config_directory = dirs::config_local_dir()
-                    .map(|config_local_dir| {
-                        config_local_dir
-                            .join(env!("CARGO_PKG_NAME"))
-                            .display()
-                            .to_string()
-                    })
-                    .unwrap_or_else(|| "Unknown".to_string());
-                let data_directory = dirs::data_local_dir()
-                    .map(|data_local_dir| {
-                        data_local_dir
-                            .join(env!("CARGO_PKG_NAME"))
-                            .display()
-                            .to_string()
-                    })
-                    .unwrap_or_else(|| "Unknown".to_string());
+            .system_information(
+                {
+                    let config_directory = dirs::config_local_dir()
+                        .map(|config_local_dir| {
+                            config_local_dir
+                                .join(env!("CARGO_PKG_NAME"))
+                                .display()
+                                .to_string()
+                        })
+                        .unwrap_or_else(|| "Unknown".to_string());
+                    let data_directory = dirs::data_local_dir()
+                        .map(|data_local_dir| {
+                            data_local_dir
+                                .join(env!("CARGO_PKG_NAME"))
+                                .display()
+                                .to_string()
+                        })
+                        .unwrap_or_else(|| "Unknown".to_string());
 
-                T.about_system_information(config_directory, data_directory)
-                    .as_str()
-            })
+                    T.about_system_information(config_directory, data_directory)
+                }
+                .as_str(),
+            )
             .transient_for(&root)
             .build();
 
@@ -783,7 +786,9 @@ impl AsyncComponent for App {
                 }
             }
             AppInput::OpenCommunityHelpLink => {
-                if let Err(error) = open::that_detached("https://docs.autonomys.xyz/docs/farming-&-staking/farming/space-acres/space-acres-install#troubleshooting") {
+                if let Err(error) = open::that_detached(
+                    "https://docs.autonomys.xyz/docs/farming-&-staking/farming/space-acres/space-acres-install#troubleshooting",
+                ) {
                     error!(%error, "Failed to open share community help in default browser");
                 }
             }
@@ -825,7 +830,6 @@ impl AsyncComponent for App {
                     root.set_visible(false);
                 } else {
                     root.present();
-
                 }
             }
             AppInput::ShutDown => {

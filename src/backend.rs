@@ -8,19 +8,19 @@ mod utils;
 use crate::backend::config::{Config, ConfigError, RawConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::farmer::{
-    DiskFarm, Farmer, FarmerAction, FarmerNotification, FarmerOptions, InitialFarmState,
-    CACHE_PERCENTAGE,
+    CACHE_PERCENTAGE, DiskFarm, Farmer, FarmerAction, FarmerNotification, FarmerOptions,
+    InitialFarmState,
 };
-use crate::backend::networking::{create_network, NetworkOptions};
+use crate::backend::networking::{NetworkOptions, create_network};
 use crate::backend::node::{
-    dsn_bootstrap_nodes, BlockImportedNotification, ChainInfo, ChainSpec, ConsensusNode,
-    ConsensusNodeCreationError, SyncState, GENESIS_HASH,
+    BlockImportedNotification, ChainInfo, ChainSpec, ConsensusNode, ConsensusNodeCreationError,
+    GENESIS_HASH, SyncState, dsn_bootstrap_nodes,
 };
 use async_lock::{RwLock as AsyncRwLock, Semaphore};
 use backoff::ExponentialBackoff;
 use future::FutureExt;
 use futures::channel::mpsc;
-use futures::{future, select, SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt, future, select};
 use sc_subspace_chain_specs::MAINNET_CHAIN_SPEC;
 use sp_consensus_subspace::ChainConstants;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -38,9 +38,9 @@ use subspace_farmer::farmer_piece_getter::{DsnCacheRetryPolicy, FarmerPieceGette
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
 use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_kzg::Kzg;
+use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::libp2p::multiaddr::Protocol;
-use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_networking::{Node, NodeRunner};
 use subspace_runtime_primitives::Balance;
@@ -48,7 +48,7 @@ use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::runtime::Handle;
-use tracing::{error, info_span, warn, Instrument};
+use tracing::{Instrument, error, info_span, warn};
 
 pub type FarmIndex = u8;
 
@@ -146,6 +146,7 @@ impl LoadingStep {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum LoadedConsensusChainNode {
     Compatible(ConsensusNode),
     Incompatible { compatible_chain: String },
@@ -212,9 +213,10 @@ struct LoadedBackend {
     config_file_path: PathBuf,
     consensus_node: ConsensusNode,
     farmer: Farmer<FarmIndex>,
-    node_runner: NodeRunner<FarmerCache>,
+    node_runner: NodeRunner,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum BackendLoadingResult {
     Success(LoadedBackend),
     IncompatibleChain { compatible_chain: String },
@@ -309,13 +311,12 @@ pub async fn create(
         &mut backend_action_receiver,
         &mut notifications_sender,
     );
-    if let Err(error) = run_fut.await {
-        if let Err(error) = notifications_sender
+    if let Err(error) = run_fut.await
+        && let Err(error) = notifications_sender
             .send(BackendNotification::IrrecoverableError { error })
             .await
-        {
-            error!(%error, "Failed to send run error notification");
-        }
+    {
+        error!(%error, "Failed to send run error notification");
     }
 }
 
@@ -722,7 +723,7 @@ async fn create_networking_stack(
 ) -> anyhow::Result<(
     MaybeNodeClient,
     Node,
-    NodeRunner<FarmerCache>,
+    NodeRunner,
     Keypair,
     FarmerCache,
     FarmerCacheWorker<MaybeNodeClient>,
@@ -1081,17 +1082,17 @@ pub async fn wipe(
         for subdirectory in &["db", "network"] {
             let path = path.join(subdirectory);
 
-            if fs::try_exists(&path).await.unwrap_or(true) {
-                if let Err(error) = fs::remove_dir_all(&path).await {
-                    notifications_sender
-                        .send(BackendNotification::IrrecoverableError {
-                            error: anyhow::anyhow!(
-                                "Failed to node subdirectory at {}: {error}",
-                                path.display()
-                            ),
-                        })
-                        .await?;
-                }
+            if fs::try_exists(&path).await.unwrap_or(true)
+                && let Err(error) = fs::remove_dir_all(&path).await
+            {
+                notifications_sender
+                    .send(BackendNotification::IrrecoverableError {
+                        error: anyhow::anyhow!(
+                            "Failed to node subdirectory at {}: {error}",
+                            path.display()
+                        ),
+                    })
+                    .await?;
             }
         }
 

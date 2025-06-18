@@ -5,13 +5,13 @@ use crate::backend::config::{Config, RawConfig};
 use crate::backend::farmer::{FarmerNotification, InitialFarmState};
 use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
+use crate::frontend::NotificationExt;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
-use crate::frontend::NotificationExt;
 use crate::icon_names;
 use gtk::prelude::*;
 use notify_rust::Notification;
@@ -20,13 +20,13 @@ use relm4::prelude::*;
 use sp_consensus_subspace::ChainConstants;
 use std::num::NonZeroU8;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::pieces::Piece;
-use subspace_core_primitives::solutions::{solution_range_to_pieces, SolutionRange};
 use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::pieces::Piece;
+use subspace_core_primitives::solutions::{SolutionRange, solution_range_to_pieces};
 use subspace_farmer::farm::{
     FarmingNotification, ProvingResult, SectorPlottingDetails, SectorUpdate,
 };
-use subspace_runtime_primitives::{Balance, SSC};
+use subspace_runtime_primitives::{AI3, Balance};
 use tracing::{debug, warn};
 
 #[derive(Debug)]
@@ -175,8 +175,8 @@ impl Component for RunningView {
                                 set_label: &{
                                     let current_balance = model.farmer_state.reward_address_balance;
                                     let balance_increase = model.farmer_state.reward_address_balance - model.farmer_state.initial_reward_address_balance;
-                                    let current_balance = (current_balance / (SSC / 100)) as f32 / 100.0;
-                                    let balance_increase = (balance_increase / (SSC / 100)) as f32 / 100.0;
+                                    let current_balance = (current_balance / (AI3 / 100)) as f32 / 100.0;
+                                    let balance_increase = (balance_increase / (AI3 / 100)) as f32 / 100.0;
                                     let token_symbol = &model.farmer_state.token_symbol;
 
                                     format!(
