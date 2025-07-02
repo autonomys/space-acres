@@ -36,30 +36,30 @@ use tracing::{Instrument, debug, error, info, info_span, warn};
 /// Must be the same as RPC limit since all requests go to the node anyway.
 const SEGMENT_HEADERS_LIMIT: u32 = MAX_SEGMENT_HEADERS_PER_REQUEST as u32;
 
-/// Network options
+/// Network options, mainly used for the DSN.
+/// Most substrate network options come from the chainspec, or node defaults constants.
 #[derive(Debug)]
 pub struct NetworkOptions {
-    /// Keypair to use for network identity
+    /// Keypair to use for substrate and DSN network identity
     pub keypair: Keypair,
-    /// Multiaddrs of bootstrap nodes to connect to on startup, multiple are supported
+    /// Multiaddrs of DSN bootstrap nodes to connect to on startup, multiple are supported
     pub bootstrap_nodes: Vec<Multiaddr>,
-    /// Multiaddr to listen on for Autonomysing, for instance `/ip4/0.0.0.0/tcp/0`,
-    /// multiple are supported
+    /// Multiaddr to listen on for DSN, for instance `/ip4/0.0.0.0/tcp/0`, multiple are supported
     pub listen_on: Vec<Multiaddr>,
     /// Determines whether we allow keeping non-global (private, shared, loopback..) addresses in
-    /// Kademlia DHT
+    /// DSN Kademlia DHT
     pub enable_private_ips: bool,
-    /// Multiaddrs of reserved nodes to maintain a connection to, multiple are supported
+    /// Multiaddrs of reserved DSN nodes to maintain a connection to, multiple are supported
     pub reserved_peers: Vec<Multiaddr>,
-    /// Defines max established incoming connection limit
+    /// Defines max established incoming DSN connection limit
     pub in_connections: u32,
-    /// Defines max established outgoing swarm connection limit
+    /// Defines max established outgoing DSN swarm connection limit
     pub out_connections: u32,
-    /// Defines max pending incoming connection limit
+    /// Defines max pending incoming DSN connection limit
     pub pending_in_connections: u32,
-    /// Defines max pending outgoing swarm connection limit
+    /// Defines max pending outgoing DSN swarm connection limit
     pub pending_out_connections: u32,
-    /// Known external addresses
+    /// Known external DSN addresses
     pub external_addresses: Vec<Multiaddr>,
 }
 
