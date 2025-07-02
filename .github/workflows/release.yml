@@ -311,7 +311,7 @@ jobs:
         if: runner.os == 'macOS'
 
       - name: Install cargo-wix (Windows)
-        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+        uses: taiki-e/install-action@21517c4e721ab8b872d9b8e90828e584dcabe8e2 # 2.56.3
         with:
           tool: cargo-wix
         if: runner.os == 'Windows'
@@ -387,7 +387,7 @@ jobs:
         if: runner.os == 'Windows'
 
       - name: Install cargo-deb (Linux)
-        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+        uses: taiki-e/install-action@21517c4e721ab8b872d9b8e90828e584dcabe8e2 # 2.56.3
         with:
           tool: cargo-deb
         if: runner.os == 'Linux'
