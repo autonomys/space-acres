@@ -216,6 +216,9 @@
                         <Component Id='gtk4_pangocairo_1.0_0.dll' Guid='9f0d20f0-5267-4e40-a081-2d061774b9f9'>
                             <File Id='pangocairo_1.0_0.dll' Name='pangocairo-1.0-0.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pangocairo-1.0-0.dll' />
                         </Component>
+                        <Component Id='gtk4_pangoft2_1.0_0.dll' Guid='965875b0-4b2b-4117-b570-efb009add1e2'>
+                            <File Id='pangoft2_1.0_0.dll' Name='pangoft2-1.0-0.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pangoft2-1.0-0.dll' />
+                        </Component>
                         <Component Id='gtk4_pangowin32_1.0_0.dll' Guid='53e28e26-ab17-44da-a6d1-4b698716e4df'>
                             <File Id='pangowin32_1.0_0.dll' Name='pangowin32-1.0-0.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pangowin32-1.0-0.dll' />
                         </Component>
@@ -384,6 +387,7 @@
             <ComponentRef Id='gtk4_libpng16.dll'/>
             <ComponentRef Id='gtk4_pango_1.0_0.dll'/>
             <ComponentRef Id='gtk4_pangocairo_1.0_0.dll'/>
+            <ComponentRef Id='gtk4_pangoft2_1.0_0.dll'/>
             <ComponentRef Id='gtk4_pangowin32_1.0_0.dll'/>
             <ComponentRef Id='gtk4_pcre2_16_0.dll'/>
             <ComponentRef Id='gtk4_pcre2_32_0.dll'/>

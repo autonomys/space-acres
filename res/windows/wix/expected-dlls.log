@@ -30,6 +30,7 @@ libexpat.dll
 libpng16.dll
 pango-1.0-0.dll
 pangocairo-1.0-0.dll
+pangoft2-1.0-0.dll
 pangowin32-1.0-0.dll
 pcre2-16-0.dll
 pcre2-32-0.dll
