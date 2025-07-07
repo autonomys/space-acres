@@ -126,7 +126,7 @@ running_farmer_next_reward_estimate =
         *[unknown] 未知
     }
 running_farmer_farm_tooltip = 在文件管理器中打开
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} 奖励签名成功，打开农场查看更多信息
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} 奖励签名成功
 running_farmer_farm_auditing_performance_tooltip = 审计性能: 平均时长 {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒, 时间限制 {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒
 running_farmer_farm_proving_performance_tooltip = 证明性能: 平均时长 {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒, 时间限制 {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}秒
 running_farmer_farm_non_fatal_error_tooltip = 非致命错误发生并已经恢复，在日志中查看更多信息: {$error}

@@ -126,7 +126,7 @@ running_farmer_next_reward_estimate =
         *[unknown] Desconocido
     }
 running_farmer_farm_tooltip = Abrir sistema de archivos
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} firmas de recompensas existosas, obtén más información en los detalles de la granja
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} firmas de recompensas existosas
 running_farmer_farm_auditing_performance_tooltip = Auditando eficiencia: tiempo medio {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, tiempo límite {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Demostrando eficiencia: tiempo medio {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, tiempo límite {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = Ha ocurrido un error pero se ha conseguido recuperar, mira la traza para más información: {$error}

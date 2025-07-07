@@ -126,7 +126,7 @@ running_farmer_next_reward_estimate =
         *[unknown] неизвестно
     }
 running_farmer_farm_tooltip = Нажмите, чтобы открыть в файловом менеджере
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} успешных подписей вознаграждения. Смотрите детали фарма, чтобы получить подробную информацию
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} успешных подписей вознаграждения
 running_farmer_farm_auditing_performance_tooltip = Эффективность аудита: среднее время {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, лимит времени {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Эффективность подтверждения: среднее время {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, лимит времени {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = При фарминге произошла ошибка, которая была устранена. Более подробную информацию смотрите в журнале: {$error}
