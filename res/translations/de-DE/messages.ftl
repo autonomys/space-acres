@@ -125,7 +125,7 @@ running_farmer_next_reward_estimate =
         *[unknown] unbekannt
     }
 running_farmer_farm_tooltip = Klicken, um im Dateimanager zu öffnen
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} Erfolgreiche Reward-Signaturen
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} Erfolgreiche Reward-Signaturen, erweitere die Farm-Details, um mehr Informationen zu sehen.
 running_farmer_farm_auditing_performance_tooltip = Leistungsüberprüfung: Durchschnittliche Zeit {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Nachweis der Leistung: Durchschnittliche Zeit {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, time limit {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = Ein nicht-kritischer Fehler beim Farming ist aufgetreten und wurde behoben, siehe Protokolle für weitere Details: {$error}

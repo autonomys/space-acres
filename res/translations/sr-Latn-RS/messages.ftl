@@ -130,7 +130,7 @@ running_farmer_next_reward_estimate =
         *[unknown] nepoznato
     }
 running_farmer_farm_tooltip = Kliknite da otvorite u upravitelju datotekama
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} uspešnih potpisa nagrada
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} uspešnih potpisa nagrada, proširi detalje farme da vidiš više informacija
 running_farmer_farm_auditing_performance_tooltip = Provera performansi: prosečno vreme {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, vremensko ograničenje {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_proving_performance_tooltip = Dokazivanje performansi: prosečno vreme {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}s, vremensko ograničenje {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}s
 running_farmer_farm_non_fatal_error_tooltip = Dogodila se ne-fatalna greška u farmovanju i uspešno je ispravljena, pogledajte dnevnik za više detalja: {$error}
