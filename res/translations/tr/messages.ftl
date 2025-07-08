@@ -126,7 +126,7 @@ running_farmer_next_reward_estimate =
         *[unknown] bilinmiyor
     }
 running_farmer_farm_tooltip = Dosya yöneticisinde açmak için tıklayın
-running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} başarılı ödül imzaları
+running_farmer_farm_reward_signatures_tooltip = {$successful_signatures}/{$total_signatures} başarılı ödül imzaları, daha fazla bilgi için çiftlik detaylarını genişletin
 running_farmer_farm_auditing_performance_tooltip = Denetim performansı: ortalama süre {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn, zaman limiti {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn
 running_farmer_farm_proving_performance_tooltip = Kanıt performansı: ortalama süre {NUMBER($a_average_time, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn, zaman limiti {NUMBER($b_time_timit, minimumFractionDigits: 2, maximumFractionDigits: 2)}sn
 running_farmer_farm_non_fatal_error_tooltip = Riskli olmayan bir çiftçilik hatası oluştu ve düzeltildi, daha fazla detay için loglara bakın: {$error}
