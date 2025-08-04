@@ -610,6 +610,13 @@ where
         + 'static,
     Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block> + 'static,
 {
+    async fn cached_segment_headers(
+        &self,
+        segment_indexes: Vec<SegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
+        self.segment_headers(segment_indexes).await
+    }
+
     async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         let last_segment_index = self
             .segment_headers_store
