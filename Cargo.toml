@@ -100,6 +100,7 @@ subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "7ce6f74
 subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
 subspace-kzg = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
 subspace-networking = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
+subspace-process = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
 subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
 subspace-proof-of-space-gpu = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc", optional = true }
 subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }

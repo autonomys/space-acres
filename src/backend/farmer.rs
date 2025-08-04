@@ -40,12 +40,13 @@ use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
 use subspace_farmer::utils::{
-    AsyncJoinOnDrop, create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
-    run_future_in_dedicated_thread, thread_pool_core_indices,
+    create_plotting_thread_pool_manager, recommended_number_of_farming_threads,
+    thread_pool_core_indices,
 };
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_kzg::Kzg;
+use subspace_process::{AsyncJoinOnDrop, run_future_in_dedicated_thread};
 use thread_priority::ThreadPriority;
 use tokio::sync::watch;
 use tracing::{Instrument, debug, error, info, info_span};

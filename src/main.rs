@@ -40,7 +40,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::available_parallelism;
 use std::time::{Duration, Instant};
 use std::{env, fs, io, process};
-use subspace_farmer::utils::run_future_in_dedicated_thread;
+use subspace_process::run_future_in_dedicated_thread;
 use subspace_proof_of_space::chia::ChiaTable;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::filter::LevelFilter;

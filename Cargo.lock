@@ -11724,6 +11724,7 @@ dependencies = [
  "subspace-farmer-components",
  "subspace-kzg",
  "subspace-networking",
+ "subspace-process",
  "subspace-proof-of-space",
  "subspace-proof-of-space-gpu",
  "subspace-rpc-primitives",

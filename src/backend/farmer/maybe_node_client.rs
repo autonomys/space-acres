@@ -105,6 +105,16 @@ impl NodeClient for MaybeNodeClient {
 
 #[async_trait::async_trait]
 impl NodeClientExt for MaybeNodeClient {
+    async fn cached_segment_headers(
+        &self,
+        segment_indexes: Vec<SegmentIndex>,
+    ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
+        match &*self.inner.load() {
+            Some(inner) => inner.cached_segment_headers(segment_indexes).await,
+            None => Err(anyhow::anyhow!("Inner node client not injected yet")),
+        }
+    }
+
     async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         match &*self.inner.load() {
             Some(inner) => inner.last_segment_headers(limit).await,
