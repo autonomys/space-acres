@@ -237,8 +237,8 @@
                         <Component Id='gtk4_pixman_1_0.dll' Guid='9f6dff89-ea6e-4355-9863-f076e915697d'>
                             <File Id='pixman_1_0.dll' Name='pixman-1-0.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pixman-1-0.dll' />
                         </Component>
-                        <Component Id='gtk4_pkgconf_6.dll' Guid='2b0ab36a-d1d0-427f-a63c-6dfd513b8b82'>
-                            <File Id='pkgconf_6.dll' Name='pkgconf-6.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pkgconf-6.dll' />
+                        <Component Id='gtk4_pkgconf_7.dll' Guid='edc282a6-ee0e-4ae0-a080-c78cd79ab047'>
+                            <File Id='pkgconf_7.dll' Name='pkgconf-7.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\pkgconf-7.dll' />
                         </Component>
                         <Component Id='gtk4_rsvg_2_2.dll' Guid='c45c78c2-1b52-4bb8-b165-64229cacb357'>
                             <File Id='rsvg_2_2.dll' Name='rsvg-2-2.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\rsvg-2-2.dll' />
@@ -394,7 +394,7 @@
             <ComponentRef Id='gtk4_pcre2_8_0.dll'/>
             <ComponentRef Id='gtk4_pcre2_posix_3.dll'/>
             <ComponentRef Id='gtk4_pixman_1_0.dll'/>
-            <ComponentRef Id='gtk4_pkgconf_6.dll'/>
+            <ComponentRef Id='gtk4_pkgconf_7.dll'/>
             <ComponentRef Id='gtk4_rsvg_2_2.dll'/>
             <ComponentRef Id='gtk4_textstyle.dll'/>
             <ComponentRef Id='gtk4_tiff.dll'/>
