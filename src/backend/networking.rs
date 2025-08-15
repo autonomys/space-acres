@@ -253,7 +253,10 @@ where
                                 "Segment headers request received."
                             );
 
-                            node_client.segment_headers(segment_indexes).await
+                            // Space Acres uses a DirectNodeClient, which does not attempt to
+                            // update segment headers while accessing them. But we use the cached
+                            // method for consistency with subspace-farmer.
+                            node_client.cached_segment_headers(segment_indexes).await
                         }
                         SegmentHeaderRequest::LastSegmentHeaders { mut limit } => {
                             if limit > SEGMENT_HEADERS_LIMIT {

@@ -36,13 +36,13 @@ use subspace_farmer::farmer_cache::{FarmerCache, FarmerCacheWorker, FarmerCaches
 use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
 use subspace_farmer::farmer_piece_getter::{DsnCacheRetryPolicy, FarmerPieceGetter};
 use subspace_farmer::single_disk_farm::SingleDiskFarm;
-use subspace_farmer::utils::run_future_in_dedicated_thread;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::libp2p::identity::ed25519::{Keypair, SecretKey};
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_networking::{Node, NodeRunner};
+use subspace_process::run_future_in_dedicated_thread;
 use subspace_runtime_primitives::Balance;
 use tokio::fs;
 use tokio::fs::OpenOptions;

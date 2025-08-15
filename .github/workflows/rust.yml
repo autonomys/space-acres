@@ -96,6 +96,7 @@ jobs:
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
             Write-Output "Expected DLLs:"
             Get-Content res\windows\wix\expected-dlls.log
+            Write-Output "`r`n"
             Write-Output "Actual DLLs:"
             Get-Content actual-dlls.log
             Throw "Actual DLLs do not match expected"
@@ -214,6 +215,7 @@ jobs:
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-pixbuf-loaders.log) -DifferenceObject (Get-Content -Path actual-pixbuf-loaders.log)) {
             Write-Output "Expected pixbuf -loaders:"
             Get-Content res\windows\wix\expected-pixbuf-loaders.log
+            Write-Output "`r`n"
             Write-Output "`r`nActual pixbuf loaders:"
             Get-Content actual-pixbuf-loaders.log
             Throw "Actual pixbuf loaders do not match expected"
@@ -224,6 +226,7 @@ jobs:
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
             Write-Output "Expected DLLs:"
             Get-Content res\windows\wix\expected-dlls.log
+            Write-Output "`r`n"
             Write-Output "`r`nActual DLLs:"
             Get-Content actual-dlls.log
             Throw "Actual DLLs do not match expected"
