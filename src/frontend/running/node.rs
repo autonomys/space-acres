@@ -1,26 +1,25 @@
 use crate::backend::NodeNotification;
 use crate::backend::node::{ChainInfo, IN_PEERS, OUT_PEERS, SyncState};
 use crate::frontend::translations::{AsDefaultStr, T};
+use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
 use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
-use parking_lot::Mutex;
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use simple_moving_average::{SMA, SingleSumSMA};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use subspace_core_primitives::BlockNumber;
-use tracing::error;
+use tracing::{error, warn};
 
 /// Maximum blocks to store in the import queue.
 // HACK: This constant comes from Substrate's sync, but it is not public in there
 const MAX_IMPORTING_BLOCKS: BlockNumber = 2048;
 /// How frequently to check for free disk space
 const FREE_DISK_SPACE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
-/// Free disk space below which warning must be shown
-const FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD: u64 = ByteSize::gib(10).as_u64();
 /// Number of samples over which to track block import time, 1 minute in slots
 const BLOCK_IMPORT_TIME_TRACKING_WINDOW: usize = 1000;
 const ALL_PEERS: u32 = OUT_PEERS + IN_PEERS;
@@ -42,6 +41,11 @@ pub enum NodeCommandOutput {
     FreeDiskSpace(ByteSize),
 }
 
+#[derive(Debug, Clone)]
+pub enum NodeOutput {
+    LowDiskSpace { free_space: ByteSize },
+}
+
 #[tracker::track]
 #[derive(Debug)]
 pub struct NodeView {
@@ -50,8 +54,10 @@ pub struct NodeView {
     connected_peers: u32,
     free_disk_space: Option<ByteSize>,
     chain_name: String,
-    #[no_eq]
-    node_path: Arc<Mutex<PathBuf>>,
+    #[do_not_track]
+    node_path: PathBuf,
+    #[do_not_track]
+    disk_space_check_cancel: Arc<AtomicBool>,
     #[no_eq]
     block_import_time: SingleSumSMA<Duration, u32, BLOCK_IMPORT_TIME_TRACKING_WINDOW>,
     last_block_import_time: Option<Instant>,
@@ -61,7 +67,7 @@ pub struct NodeView {
 impl Component for NodeView {
     type Init = ();
     type Input = NodeInput;
-    type Output = ();
+    type Output = NodeOutput;
     type CommandOutput = NodeCommandOutput;
 
     view! {
@@ -90,8 +96,10 @@ impl Component for NodeView {
                     set_hexpand: true,
                     set_spacing: 10,
 
+                    // Center vertically so space meter doesn't stretch to fill row height
                     gtk::Box {
                         set_spacing: 10,
+                        set_valign: gtk::Align::Center,
                         #[track = "model.changed_free_disk_space()"]
                         set_tooltip: T
                             .running_node_free_disk_space_tooltip(
@@ -102,7 +110,7 @@ impl Component for NodeView {
                             .as_str(),
                         #[track = "model.changed_free_disk_space()"]
                         set_visible: model.free_disk_space
-                            .map(|bytes| bytes.as_u64() <= FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD)
+                            .map(|bytes| bytes.as_u64() <= NODE_FREE_SPACE_WARNING_THRESHOLD)
                             .unwrap_or_default(),
 
                         gtk::Image {
@@ -117,7 +125,7 @@ impl Component for NodeView {
                                 let free_space = model.free_disk_space
                                     .map(|bytes| bytes.as_u64())
                                     .unwrap_or_default();
-                                free_space as f64 / FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD as f64
+                                free_space as f64 / NODE_FREE_SPACE_WARNING_THRESHOLD as f64
                             },
                             set_width_request: 100,
                         },
@@ -269,16 +277,16 @@ impl Component for NodeView {
     fn init(
         _init: Self::Init,
         _root: Self::Root,
-        sender: ComponentSender<Self>,
+        _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let node_path = Arc::<Mutex<PathBuf>>::default();
         let model = Self {
             best_block_number: 0,
             sync_state: SyncState::default(),
             connected_peers: 0,
             free_disk_space: None,
             chain_name: String::new(),
-            node_path: node_path.clone(),
+            node_path: PathBuf::new(),
+            disk_space_check_cancel: Arc::new(AtomicBool::new(false)),
             block_import_time: SingleSumSMA::from_zero(Duration::ZERO),
             last_block_import_time: None,
             tracker: u8::MAX,
@@ -286,41 +294,39 @@ impl Component for NodeView {
 
         let widgets = view_output!();
 
-        sender.command(move |sender, shutdown_receiver| async move {
-            Self::check_free_disk_space(sender, shutdown_receiver, node_path).await;
-        });
-
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
-        // Reset changes
+    fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         self.reset();
 
-        self.process_input(input);
+        self.process_input(input, &sender);
     }
 
     fn update_cmd(
         &mut self,
         input: Self::CommandOutput,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
         _root: &Self::Root,
     ) {
         // Reset changes
         self.reset();
 
-        self.process_command(input);
+        self.process_command(input, &sender);
     }
 }
 
 impl NodeView {
-    fn process_input(&mut self, input: NodeInput) {
+    fn process_input(&mut self, input: NodeInput, sender: &ComponentSender<Self>) {
         match input {
             NodeInput::Initialize {
                 best_block_number,
                 chain_info,
                 node_path,
             } => {
+                // Cancel any existing disk space check task
+                self.disk_space_check_cancel.store(true, Ordering::Relaxed);
+
                 self.set_best_block_number(best_block_number);
                 self.set_chain_name(
                     chain_info
@@ -330,7 +336,16 @@ impl NodeView {
                             chain_name.to_string()
                         }),
                 );
-                *self.get_mut_node_path().lock() = node_path;
+                self.node_path = node_path.clone();
+
+                // Create new cancellation token and start disk space check task
+                self.disk_space_check_cancel = Arc::new(AtomicBool::new(false));
+                let cancel_token = self.disk_space_check_cancel.clone();
+
+                sender.command(move |sender, shutdown_receiver| async move {
+                    Self::check_free_disk_space(sender, shutdown_receiver, node_path, cancel_token)
+                        .await;
+                });
             }
             NodeInput::NodeNotification(node_notification) => match node_notification {
                 NodeNotification::SyncStateUpdate(mut new_sync_state) => {
@@ -381,18 +396,30 @@ impl NodeView {
                 }
             },
             NodeInput::OpenNodeFolder => {
-                let node_path = self.node_path.lock().clone();
-                if let Err(error) = open::that_detached(&node_path) {
-                    error!(%error, path = %node_path.display(), "Failed to open node folder");
+                if !self.node_path.as_os_str().is_empty()
+                    && let Err(error) = open::that_detached(&self.node_path)
+                {
+                    error!(%error, path = %self.node_path.display(), "Failed to open node folder");
                 }
             }
         }
     }
 
-    fn process_command(&mut self, command_output: NodeCommandOutput) {
+    fn process_command(&mut self, command_output: NodeCommandOutput, sender: &ComponentSender<Self>) {
         match command_output {
             NodeCommandOutput::FreeDiskSpace(bytes) => {
+                let was_low = self.free_disk_space
+                    .map(|prev| prev.as_u64() <= NODE_FREE_SPACE_WARNING_THRESHOLD)
+                    .unwrap_or(false);
+                let is_low = bytes.as_u64() <= NODE_FREE_SPACE_WARNING_THRESHOLD;
+
                 self.get_mut_free_disk_space().replace(bytes);
+
+                // Only emit warning when transitioning from normal to low space
+                // to avoid spamming notifications
+                if is_low && !was_low {
+                    let _ = sender.output(NodeOutput::LowDiskSpace { free_space: bytes });
+                }
             }
         }
     }
@@ -400,20 +427,23 @@ impl NodeView {
     async fn check_free_disk_space(
         sender: Sender<NodeCommandOutput>,
         shutdown_receiver: ShutdownReceiver,
-        node_path: Arc<Mutex<PathBuf>>,
+        node_path: PathBuf,
+        cancel_token: Arc<AtomicBool>,
     ) {
         shutdown_receiver
             .register(async move {
                 loop {
-                    let node_path = node_path.lock().clone();
+                    if cancel_token.load(Ordering::Relaxed) {
+                        break;
+                    }
 
-                    if node_path == PathBuf::default() {
+                    if !node_path.exists() {
                         tokio::time::sleep(FREE_DISK_SPACE_CHECK_INTERVAL).await;
                         continue;
                     }
 
-                    match tokio::task::spawn_blocking(move || fs4::available_space(node_path)).await
-                    {
+                    let path = node_path.clone();
+                    match tokio::task::spawn_blocking(move || fs4::available_space(path)).await {
                         Ok(Ok(free_disk_space)) => {
                             if sender
                                 .send(NodeCommandOutput::FreeDiskSpace(ByteSize::b(
@@ -425,8 +455,7 @@ impl NodeView {
                             }
                         }
                         Ok(Err(error)) => {
-                            error!(%error, "Failed to check free disk space");
-                            break;
+                            warn!(%error, "Failed to check free disk space");
                         }
                         Err(error) => {
                             error!(%error, "Free disk space task panicked");

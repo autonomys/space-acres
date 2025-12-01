@@ -110,3 +110,8 @@ entry.invalid-input text + image {
 entry.valid-input text + image {
     color: #499249;
 }
+
+/* Caption style for secondary info labels */
+.caption {
+    font-size: 0.85em;
+}
