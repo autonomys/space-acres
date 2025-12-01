@@ -131,6 +131,7 @@ pub enum AppInput {
     Restart,
     CloseStatusBarWarning,
     OpenNodeMigrationDialog,
+    OpenNodeResetDialog,
     WindowResized,
     HideWindow,
     ShowWindow,
@@ -524,7 +525,7 @@ impl AsyncComponent for App {
                                     add_css_class: "destructive-action",
                                     set_label: &T.error_button_reset_node(),
                                     set_tooltip: &T.error_button_reset_node_tooltip(),
-                                    connect_clicked => AppInput::OpenNodeMigrationDialog,
+                                    connect_clicked => AppInput::OpenNodeResetDialog,
                                 },
                             },
                         },
@@ -906,7 +907,18 @@ impl AsyncComponent for App {
                 self.set_status_bar_contents(StatusBarContents::None);
                 if let Some(raw_config) = &self.current_raw_config {
                     let current_node_path = raw_config.node_path().to_path_buf();
-                    // Pre-select reset mode since this is typically used for error recovery
+                    self.open_migration_dialog(
+                        current_node_path,
+                        MigrationMode::default(),
+                        root,
+                        &sender,
+                    );
+                }
+            }
+            AppInput::OpenNodeResetDialog => {
+                if let Some(raw_config) = &self.current_raw_config {
+                    let current_node_path = raw_config.node_path().to_path_buf();
+                    // Pre-select reset mode since this is used for error recovery
                     self.open_migration_dialog(
                         current_node_path,
                         MigrationMode::ResetInPlace,
