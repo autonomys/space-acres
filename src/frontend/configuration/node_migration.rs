@@ -12,35 +12,49 @@ use relm4_components::open_dialog::{
 use std::path::PathBuf;
 use tracing::warn;
 
+/// Sync mode for fresh database synchronization
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SyncMode {
+    /// Snap sync - downloads state snapshots for faster sync
+    #[default]
+    Snap,
+    // Full, // Future: full sync validates all blocks from genesis
+}
+
 /// Migration mode selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MigrationMode {
     /// Copy the existing database to new location
     #[default]
     Migrate,
-    /// Fresh sync from network at new location
-    FreshSync,
-    /// Wipe and resync in the same location
-    ResetInPlace,
+    /// Fresh sync from network at new location using specified sync mode
+    FreshSync(SyncMode),
+    /// Wipe and resync in the same location using specified sync mode
+    ResetInPlace(SyncMode),
 }
 
 impl MigrationMode {
     /// Returns true if this mode uses snap sync
     fn uses_snap_sync(&self) -> bool {
-        matches!(self, MigrationMode::FreshSync | MigrationMode::ResetInPlace)
+        match self {
+            MigrationMode::Migrate => false,
+            MigrationMode::FreshSync(mode) | MigrationMode::ResetInPlace(mode) => {
+                matches!(mode, SyncMode::Snap)
+            }
+        }
     }
 
     /// Returns true if this mode requires a destination path
     fn requires_destination(&self) -> bool {
-        !matches!(self, MigrationMode::ResetInPlace)
+        !matches!(self, MigrationMode::ResetInPlace(_))
     }
 
     /// Returns the label for this mode
     fn label(&self) -> String {
         match self {
             MigrationMode::Migrate => T.node_migration_mode_migrate().to_string(),
-            MigrationMode::FreshSync => T.node_migration_mode_fresh_sync().to_string(),
-            MigrationMode::ResetInPlace => T.node_migration_mode_reset().to_string(),
+            MigrationMode::FreshSync(_) => T.node_migration_mode_fresh_sync().to_string(),
+            MigrationMode::ResetInPlace(_) => T.node_migration_mode_reset().to_string(),
         }
     }
 
@@ -48,18 +62,18 @@ impl MigrationMode {
     fn explanation(&self) -> String {
         match self {
             MigrationMode::Migrate => T.node_migration_mode_migrate_explanation().to_string(),
-            MigrationMode::FreshSync => T.node_migration_mode_fresh_sync_explanation().to_string(),
-            MigrationMode::ResetInPlace => T.node_migration_mode_reset_explanation().to_string(),
+            MigrationMode::FreshSync(_) => T.node_migration_mode_fresh_sync_explanation().to_string(),
+            MigrationMode::ResetInPlace(_) => T.node_migration_mode_reset_explanation().to_string(),
         }
     }
 
     /// Returns the button label for starting this mode
     fn start_button_label(&self) -> String {
         match self {
-            MigrationMode::Migrate | MigrationMode::FreshSync => {
+            MigrationMode::Migrate | MigrationMode::FreshSync(_) => {
                 T.node_migration_button_start().to_string()
             }
-            MigrationMode::ResetInPlace => T.node_migration_button_reset().to_string(),
+            MigrationMode::ResetInPlace(_) => T.node_migration_button_reset().to_string(),
         }
     }
 }
@@ -270,12 +284,12 @@ impl AsyncComponent for NodeMigrationDialog {
                     #[name = "radio_fresh_sync"]
                     gtk::CheckButton {
                         set_group: Some(&radio_migrate),
-                        set_label: Some(&MigrationMode::FreshSync.label()),
+                        set_label: Some(&MigrationMode::FreshSync(SyncMode::default()).label()),
                         #[track = "model.changed_migration_mode()"]
-                        set_active: model.migration_mode == MigrationMode::FreshSync,
+                        set_active: matches!(model.migration_mode, MigrationMode::FreshSync(_)),
                         connect_toggled[sender] => move |btn| {
                             if btn.is_active() {
-                                sender.input(NodeMigrationInput::MigrationModeChanged(MigrationMode::FreshSync));
+                                sender.input(NodeMigrationInput::MigrationModeChanged(MigrationMode::FreshSync(SyncMode::default())));
                             }
                         },
                     },
@@ -283,12 +297,12 @@ impl AsyncComponent for NodeMigrationDialog {
                     #[name = "radio_reset"]
                     gtk::CheckButton {
                         set_group: Some(&radio_migrate),
-                        set_label: Some(&MigrationMode::ResetInPlace.label()),
+                        set_label: Some(&MigrationMode::ResetInPlace(SyncMode::default()).label()),
                         #[track = "model.changed_migration_mode()"]
-                        set_active: model.migration_mode == MigrationMode::ResetInPlace,
+                        set_active: matches!(model.migration_mode, MigrationMode::ResetInPlace(_)),
                         connect_toggled[sender] => move |btn| {
                             if btn.is_active() {
-                                sender.input(NodeMigrationInput::MigrationModeChanged(MigrationMode::ResetInPlace));
+                                sender.input(NodeMigrationInput::MigrationModeChanged(MigrationMode::ResetInPlace(SyncMode::default())));
                             }
                         },
                     },

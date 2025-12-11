@@ -15,7 +15,7 @@ use crate::backend::farmer::FarmerAction;
 use crate::backend::{BackendAction, BackendNotification, wipe};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::configuration::node_migration::{
-    MigrationMode, NodeMigrationDialog, NodeMigrationInit, NodeMigrationOutput,
+    MigrationMode, NodeMigrationDialog, NodeMigrationInit, NodeMigrationOutput, SyncMode,
 };
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::migration::{MigrationInput, MigrationOutput, MigrationView};
@@ -921,7 +921,7 @@ impl AsyncComponent for App {
                     // Pre-select reset mode since this is used for error recovery
                     self.open_migration_dialog(
                         current_node_path,
-                        MigrationMode::ResetInPlace,
+                        MigrationMode::ResetInPlace(SyncMode::default()),
                         root,
                         &sender,
                     );
