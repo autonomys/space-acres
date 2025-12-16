@@ -8,12 +8,12 @@ use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::NotificationExt;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
 use crate::frontend::running::node::{NodeInput, NodeOutput, NodeView};
-use bytesize::ByteSize;
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
 use crate::icon_names;
+use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
 use relm4::factory::FactoryHashMap;
@@ -514,18 +514,16 @@ impl RunningView {
             RunningInput::WindowResized => {
                 self.farms.broadcast(FarmWidgetInput::WindowResized);
             }
-            RunningInput::NodeOutput(node_output) => {
-                match node_output {
-                    NodeOutput::LowDiskSpace { free_space } => {
-                        if sender
-                            .output(RunningOutput::LowDiskSpace { free_space })
-                            .is_err()
-                        {
-                            debug!("Failed to send RunningOutput::LowDiskSpace");
-                        }
+            RunningInput::NodeOutput(node_output) => match node_output {
+                NodeOutput::LowDiskSpace { free_space } => {
+                    if sender
+                        .output(RunningOutput::LowDiskSpace { free_space })
+                        .is_err()
+                    {
+                        debug!("Failed to send RunningOutput::LowDiskSpace");
                     }
                 }
-            }
+            },
         }
     }
 

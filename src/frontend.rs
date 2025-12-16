@@ -13,10 +13,10 @@ pub(crate) const NODE_DATA_DIRS: &[&str] = &["db", "network"];
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::FarmerAction;
 use crate::backend::{BackendAction, BackendNotification, wipe};
-use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::configuration::node_migration::{
     MigrationMode, NodeMigrationDialog, NodeMigrationInit, NodeMigrationOutput, SyncMode,
 };
+use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
 use crate::frontend::migration::{MigrationInput, MigrationOutput, MigrationView};
 use crate::frontend::new_version::NewVersion;
@@ -160,7 +160,9 @@ impl std::fmt::Debug for AppCommandOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BackendNotification(n) => f.debug_tuple("BackendNotification").field(n).finish(),
-            Self::BackendRestarted { .. } => f.debug_struct("BackendRestarted").finish_non_exhaustive(),
+            Self::BackendRestarted { .. } => {
+                f.debug_struct("BackendRestarted").finish_non_exhaustive()
+            }
             Self::ShowWindow => write!(f, "ShowWindow"),
             Self::ShowHideToggle => write!(f, "ShowHideToggle"),
             Self::Restart => write!(f, "Restart"),
@@ -1105,9 +1107,7 @@ impl App {
         self.migration_dialog.take();
 
         // Create a custom header bar with only a close button (no minimize/maximize)
-        let header_bar = gtk::HeaderBar::builder()
-            .show_title_buttons(false)
-            .build();
+        let header_bar = gtk::HeaderBar::builder().show_title_buttons(false).build();
         let close_button = gtk::Button::builder()
             .icon_name("window-close-symbolic")
             .build();

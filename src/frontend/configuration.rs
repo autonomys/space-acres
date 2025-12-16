@@ -723,13 +723,15 @@ impl ConfigurationView {
                             let path_clone = path.clone();
                             glib::spawn_future_local(async move {
                                 if let Ok(size) = calculate_node_data_size(path_clone).await {
-                                    sender_clone.input(ConfigurationInput::NodeSpaceCalculated(size));
+                                    sender_clone
+                                        .input(ConfigurationInput::NodeSpaceCalculated(size));
                                 }
                             });
                             let sender_clone = sender.clone();
                             glib::spawn_future_local(async move {
                                 if let Ok(space) = get_available_space(path).await {
-                                    sender_clone.input(ConfigurationInput::NodeFreeSpaceCalculated(space));
+                                    sender_clone
+                                        .input(ConfigurationInput::NodeFreeSpaceCalculated(space));
                                 }
                             });
                         }
@@ -876,9 +878,9 @@ impl ConfigurationView {
             ConfigurationInput::OpenMigrationDialog => {
                 if self.node_path.is_valid
                     && sender
-                        .output(ConfigurationOutput::OpenMigrationDialog(
-                            PathBuf::clone(&self.node_path),
-                        ))
+                        .output(ConfigurationOutput::OpenMigrationDialog(PathBuf::clone(
+                            &self.node_path,
+                        )))
                         .is_err()
                 {
                     debug!("Failed to send ConfigurationOutput::OpenMigrationDialog");

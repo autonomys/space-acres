@@ -1,7 +1,7 @@
 use crate::backend::NodeNotification;
 use crate::backend::node::{ChainInfo, IN_PEERS, OUT_PEERS, SyncState};
-use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
+use crate::frontend::translations::{AsDefaultStr, T};
 use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
@@ -9,8 +9,8 @@ use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
 use simple_moving_average::{SMA, SingleSumSMA};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use subspace_core_primitives::BlockNumber;
 use tracing::{error, warn};
@@ -405,10 +405,15 @@ impl NodeView {
         }
     }
 
-    fn process_command(&mut self, command_output: NodeCommandOutput, sender: &ComponentSender<Self>) {
+    fn process_command(
+        &mut self,
+        command_output: NodeCommandOutput,
+        sender: &ComponentSender<Self>,
+    ) {
         match command_output {
             NodeCommandOutput::FreeDiskSpace(bytes) => {
-                let was_low = self.free_disk_space
+                let was_low = self
+                    .free_disk_space
                     .map(|prev| prev.as_u64() <= NODE_FREE_SPACE_WARNING_THRESHOLD)
                     .unwrap_or(false);
                 let is_low = bytes.as_u64() <= NODE_FREE_SPACE_WARNING_THRESHOLD;

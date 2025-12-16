@@ -1,6 +1,6 @@
+use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
 use crate::frontend::configuration::utils::{calculate_node_data_size, get_available_space};
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
 use crate::icon_names;
 use bytesize::ByteSize;
 use gtk::glib;
@@ -62,7 +62,9 @@ impl MigrationMode {
     fn explanation(&self) -> String {
         match self {
             MigrationMode::Migrate => T.node_migration_mode_migrate_explanation().to_string(),
-            MigrationMode::FreshSync(_) => T.node_migration_mode_fresh_sync_explanation().to_string(),
+            MigrationMode::FreshSync(_) => {
+                T.node_migration_mode_fresh_sync_explanation().to_string()
+            }
             MigrationMode::ResetInPlace(_) => T.node_migration_mode_reset_explanation().to_string(),
         }
     }
@@ -142,9 +144,10 @@ impl NodeMigrationDialog {
             return false;
         }
 
-        if let (Some(required), Some(dest_space)) =
-            (self.required_destination_space(), self.destination_free_space)
-        {
+        if let (Some(required), Some(dest_space)) = (
+            self.required_destination_space(),
+            self.destination_free_space,
+        ) {
             dest_space >= required
         } else {
             false
@@ -195,9 +198,10 @@ impl NodeMigrationDialog {
             return false;
         }
 
-        if let (Some(required), Some(dest_space)) =
-            (self.required_destination_space(), self.destination_free_space)
-        {
+        if let (Some(required), Some(dest_space)) = (
+            self.required_destination_space(),
+            self.destination_free_space,
+        ) {
             dest_space < required
         } else {
             false
@@ -504,7 +508,8 @@ impl AsyncComponent for NodeMigrationDialog {
                     let sender_clone = sender.clone();
                     glib::spawn_future_local(async move {
                         if let Ok(space) = get_available_space(path).await {
-                            sender_clone.input(NodeMigrationInput::DestinationSpaceCalculated(space));
+                            sender_clone
+                                .input(NodeMigrationInput::DestinationSpaceCalculated(space));
                         }
                     });
                 }

@@ -10,12 +10,16 @@ use tracing::{debug, error, info, warn};
 pub enum MigrationStatus {
     /// Waiting for migration to be started
     Idle,
-    Copying { percentage: f64 },
+    Copying {
+        percentage: f64,
+    },
     DeletingSource,
     UpdatingConfig,
     Verifying,
     Completed,
-    Failed { error: String },
+    Failed {
+        error: String,
+    },
     Restarting,
 }
 
@@ -23,10 +27,9 @@ impl MigrationStatus {
     fn message(&self) -> String {
         match self {
             MigrationStatus::Idle => String::new(),
-            MigrationStatus::Copying { percentage } => {
-                T.node_migration_status_copying(percentage.round() as i64)
-                    .to_string()
-            }
+            MigrationStatus::Copying { percentage } => T
+                .node_migration_status_copying(percentage.round() as i64)
+                .to_string(),
             MigrationStatus::DeletingSource => {
                 T.node_migration_status_deleting_source().to_string()
             }
@@ -212,8 +215,14 @@ impl Component for MigrationView {
 
                 // Start the migration process
                 sender.command(move |out_sender, shutdown_receiver| async move {
-                    Self::perform_migration(source, destination, snap_sync, out_sender, shutdown_receiver)
-                        .await;
+                    Self::perform_migration(
+                        source,
+                        destination,
+                        snap_sync,
+                        out_sender,
+                        shutdown_receiver,
+                    )
+                    .await;
                 });
             }
         }
