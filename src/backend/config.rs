@@ -171,6 +171,11 @@ impl RawConfig {
         let Self::V0 { network, .. } = self;
         *network
     }
+
+    pub fn set_node_path(&mut self, new_path: PathBuf) {
+        let Self::V0 { node_path, .. } = self;
+        *node_path = new_path;
+    }
 }
 
 /// Valid configuration error
