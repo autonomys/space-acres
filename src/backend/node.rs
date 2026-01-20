@@ -172,8 +172,6 @@ impl ConsensusNode {
     }
 
     pub(super) async fn run(mut self, reward_address: &PublicKey) -> Result<(), sc_service::Error> {
-        self.full_node.network_starter.start_network();
-
         let spawn_essential_handle = self.full_node.task_manager.spawn_essential_handle();
         spawn_essential_handle.spawn_blocking(
             "block-import-notifications",
