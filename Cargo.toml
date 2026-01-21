@@ -2,7 +2,7 @@
 name = "space-acres"
 description = "Space Acres is an opinionated GUI application for farming on Autonomys Network"
 license = "0BSD"
-version = "0.2.16"
+version = "0.2.17"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 repository = "https://github.com/autonomys/space-acres"
 edition = "2024"
