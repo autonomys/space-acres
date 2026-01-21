@@ -359,7 +359,8 @@ jobs:
           }
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-        if: runner.os == 'Windows'
+        # TODO: enable once windows signing is working
+        if: runner.os == 'Windows' && false
 
       - name: Create bundle (Windows)
         run: |
@@ -387,7 +388,8 @@ jobs:
           }
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-        if: runner.os == 'Windows'
+        # TODO: enable once windows signing is working
+        if: runner.os == 'Windows' && false
 
       - name: Install cargo-deb (Linux)
         uses: taiki-e/install-action@21517c4e721ab8b872d9b8e90828e584dcabe8e2 # 2.56.3
