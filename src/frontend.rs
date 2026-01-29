@@ -23,6 +23,9 @@ use notify_rust::Notification;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::*;
 use relm4::{Sender, ShutdownReceiver};
+use relm4_components::open_dialog::{
+    OpenDialog, OpenDialogMsg, OpenDialogResponse, OpenDialogSettings,
+};
 use std::any::Any;
 use std::cell::{Cell, LazyCell};
 use std::future::Future;
@@ -122,6 +125,9 @@ pub enum AppInput {
     ShowWindow,
     ShowHideToggle,
     ShutDown,
+    MoveNodeData { current_path: PathBuf },
+    MoveNodeDataDirectorySelected(PathBuf),
+    MoveNodeDataIgnore,
 }
 
 #[derive(Debug)]
@@ -144,7 +150,10 @@ enum View {
     Reconfiguration,
     Running,
     ShuttingDown,
-    Stopped(Option<anyhow::Error>),
+    Stopped {
+        error: Option<anyhow::Error>,
+        is_disk_space_error: bool,
+    },
     Error(String),
 }
 
@@ -158,7 +167,7 @@ impl View {
             Self::Reconfiguration => T.reconfiguration_title(),
             Self::Running => T.running_title(),
             Self::ShuttingDown => T.shutting_down_title(),
-            Self::Stopped(_) => T.stopped_title(),
+            Self::Stopped { .. } => T.stopped_title(),
             Self::Error(_) => T.error_title(),
         }
     }
@@ -272,6 +281,10 @@ pub struct App {
     // Keep it around so it doesn't disappear
     #[do_not_track]
     _tray_icon: Option<Box<dyn Any>>,
+    #[do_not_track]
+    move_node_data_dialog: Controller<OpenDialog>,
+    #[do_not_track]
+    pending_move_node_path: Option<PathBuf>,
 }
 
 #[relm4::component(pub async)]
@@ -403,14 +416,18 @@ impl AsyncComponent for App {
                                 set_label: &T.shutting_down_description(),
                             },
                         },
-                        View::Stopped(Some(error)) => gtk::Box {
+                        View::Stopped { error: Some(error), is_disk_space_error } => gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_spacing: 20,
                             set_valign: gtk::Align::Center,
 
                             gtk::Label {
                                 #[track = "model.changed_current_view()"]
-                                set_label: T.stopped_message_with_error(error.to_string()).as_str(),
+                                set_label: if *is_disk_space_error {
+                                    T.stopped_message_disk_space_error().as_str()
+                                } else {
+                                    T.stopped_message_with_error(error.to_string()).as_str()
+                                },
                                 set_selectable: true,
                                 set_wrap: true,
                             },
@@ -428,9 +445,21 @@ impl AsyncComponent for App {
                                     set_label: &T.stopped_button_help_from_community(),
                                     connect_clicked => AppInput::OpenCommunityHelpLink,
                                 },
+
+                                gtk::Button {
+                                    add_css_class: "warning-button",
+                                    set_label: &T.stopped_button_move_data(),
+                                    connect_clicked => AppInput::MoveNodeData {
+                                        current_path: model.current_raw_config.as_ref()
+                                            .map(|c| c.node_path().clone())
+                                            .unwrap_or_default()
+                                    },
+                                    #[track = "model.changed_current_view()"]
+                                    set_visible: *is_disk_space_error,
+                                },
                             },
                         },
-                        View::Stopped(None) => {
+                        View::Stopped { error: None, .. } => {
                             gtk::Label {
                                 set_label: &T.stopped_message(),
                             }
@@ -607,6 +636,19 @@ impl AsyncComponent for App {
         let tray_icon = tray_icon::spawn(&sender).await;
         let has_tray_icon = tray_icon.is_some();
 
+        let move_node_data_dialog = OpenDialog::builder()
+            .transient_for_native(&root)
+            .launch(OpenDialogSettings {
+                folder_mode: true,
+                accept_label: T.running_node_move_data_button().to_string(),
+                cancel_label: T.configuration_dialog_button_cancel().to_string(),
+                ..OpenDialogSettings::default()
+            })
+            .forward(sender.input_sender(), |response| match response {
+                OpenDialogResponse::Accept(path) => AppInput::MoveNodeDataDirectorySelected(path),
+                OpenDialogResponse::Cancel => AppInput::MoveNodeDataIgnore,
+            });
+
         let model = Self {
             current_view: View::Loading,
             current_raw_config: None,
@@ -629,6 +671,8 @@ impl AsyncComponent for App {
             loaded: false,
             backend_fut: Some(backend_fut),
             _tray_icon: tray_icon,
+            move_node_data_dialog,
+            pending_move_node_path: None,
             tracker: u8::MAX,
         };
 
@@ -762,7 +806,7 @@ impl AsyncComponent for App {
                     .await;
             }
             AppInput::Running(running_output) => {
-                self.process_running_output(running_output).await;
+                self.process_running_output(running_output, sender.clone()).await;
             }
             AppInput::ChangeConfiguration => {
                 let configuration_already_opened = matches!(
@@ -844,6 +888,19 @@ impl AsyncComponent for App {
                     AppCommandOutput::Quit
                 });
             }
+            AppInput::MoveNodeData { current_path } => {
+                self.pending_move_node_path = Some(current_path);
+                self.move_node_data_dialog.emit(OpenDialogMsg::Open);
+            }
+            AppInput::MoveNodeDataDirectorySelected(new_path) => {
+                if let Some(current_path) = self.pending_move_node_path.take() {
+                    self.move_node_data(current_path, new_path, sender.clone())
+                        .await;
+                }
+            }
+            AppInput::MoveNodeDataIgnore => {
+                self.pending_move_node_path = None;
+            }
         }
     }
 
@@ -916,7 +973,11 @@ impl App {
         }
     }
 
-    async fn process_running_output(&mut self, running_output: RunningOutput) {
+    async fn process_running_output(
+        &mut self,
+        running_output: RunningOutput,
+        sender: AsyncComponentSender<Self>,
+    ) {
         match running_output {
             RunningOutput::PausePlotting(pause_plotting) => {
                 if let Err(error) = self
@@ -931,6 +992,9 @@ impl App {
                             .to_string(),
                     ));
                 }
+            }
+            RunningOutput::MoveNodeData { current_path } => {
+                sender.input(AppInput::MoveNodeData { current_path });
             }
         }
     }
@@ -1062,12 +1126,137 @@ impl App {
                     }
                 });
 
-                self.set_current_view(View::Stopped(error));
+                // Check if the error is related to disk space
+                let is_disk_space_error = error
+                    .as_ref()
+                    .map(|e| {
+                        let error_str = e.to_string().to_lowercase();
+                        error_str.contains("disk space")
+                            || error_str.contains("no space left")
+                            || error_str.contains("insufficient space")
+                            || error_str.contains("storage monitor")
+                    })
+                    .unwrap_or(false);
+
+                self.set_current_view(View::Stopped {
+                    error,
+                    is_disk_space_error,
+                });
             }
             BackendNotification::IrrecoverableError { error } => {
                 self.set_current_view(View::Error(error.to_string()));
             }
         }
+    }
+
+    async fn move_node_data(
+        &mut self,
+        current_path: PathBuf,
+        new_path: PathBuf,
+        sender: AsyncComponentSender<Self>,
+    ) {
+        // Validate the new path
+        if current_path == new_path {
+            self.set_status_bar_contents(StatusBarContents::Warning {
+                message: T
+                    .running_node_move_data_error("Source and destination paths are the same".to_string())
+                    .as_str()
+                    .to_string(),
+                button: StatusBarButton::Ok,
+            });
+            return;
+        }
+
+        // Check if the new path has enough space
+        let new_path_for_check = new_path.clone();
+        let space_check = tokio::task::spawn_blocking(move || {
+            fs4::available_space(&new_path_for_check)
+        })
+        .await;
+
+        match space_check {
+            Ok(Ok(available_space)) => {
+                // Require at least 10GB free space on new location
+                if available_space < 10 * 1024 * 1024 * 1024 {
+                    self.set_status_bar_contents(StatusBarContents::Warning {
+                        message: T
+                            .running_node_move_data_error(
+                                "New location does not have enough free space (minimum 10 GB required)".to_string(),
+                            )
+                            .as_str()
+                            .to_string(),
+                        button: StatusBarButton::Ok,
+                    });
+                    return;
+                }
+            }
+            Ok(Err(error)) => {
+                self.set_status_bar_contents(StatusBarContents::Warning {
+                    message: T
+                        .running_node_move_data_error(error.to_string())
+                        .as_str()
+                        .to_string(),
+                    button: StatusBarButton::Ok,
+                });
+                return;
+            }
+            Err(error) => {
+                self.set_status_bar_contents(StatusBarContents::Warning {
+                    message: T
+                        .running_node_move_data_error(error.to_string())
+                        .as_str()
+                        .to_string(),
+                    button: StatusBarButton::Ok,
+                });
+                return;
+            }
+        }
+
+        // Show progress message
+        self.set_status_bar_contents(StatusBarContents::Warning {
+            message: T.running_node_move_data_in_progress().to_string(),
+            button: StatusBarButton::Ok,
+        });
+
+        // Update config with new path
+        if let Some(raw_config) = &mut self.current_raw_config {
+            match raw_config {
+                RawConfig::V0 { node_path, .. } => {
+                    *node_path = new_path.clone();
+                }
+            }
+
+            // Save the updated config
+            let config_path = match RawConfig::default_path().await {
+                Ok(path) => path,
+                Err(error) => {
+                    self.set_status_bar_contents(StatusBarContents::Error(
+                        T.running_node_move_data_error(error.to_string())
+                            .as_str()
+                            .to_string(),
+                    ));
+                    return;
+                }
+            };
+
+            if let Err(error) = raw_config.write_to_path(&config_path).await {
+                self.set_status_bar_contents(StatusBarContents::Error(
+                    T.running_node_move_data_error(error.to_string())
+                        .as_str()
+                        .to_string(),
+                ));
+                return;
+            }
+        }
+
+        // Show success message and prompt restart
+        self.set_status_bar_contents(StatusBarContents::Warning {
+            message: T.running_node_move_data_success().to_string(),
+            button: StatusBarButton::Restart,
+        });
+
+        // Note: The actual data move will happen on restart when the node tries to use the new path
+        // The user should manually move the data or let the node create a fresh database
     }
 
     async fn do_upgrade(

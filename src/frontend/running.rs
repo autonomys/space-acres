@@ -7,7 +7,7 @@ use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::NotificationExt;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
-use crate::frontend::running::node::{NodeInput, NodeView};
+use crate::frontend::running::node::{NodeInput, NodeOutput, NodeView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
@@ -52,11 +52,13 @@ pub enum RunningInput {
     ToggleFarmDetails,
     TogglePausePlotting,
     WindowResized,
+    MoveNodeData { current_path: std::path::PathBuf },
 }
 
 #[derive(Debug)]
 pub enum RunningOutput {
     PausePlotting(bool),
+    MoveNodeData { current_path: std::path::PathBuf },
 }
 
 #[tracker::track]
@@ -243,9 +245,15 @@ impl Component for RunningView {
     fn init(
         init: Self::Init,
         _root: Self::Root,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let node_view = NodeView::builder().launch(()).detach();
+        let node_view = NodeView::builder()
+            .launch(())
+            .forward(sender.input_sender(), |output| match output {
+                NodeOutput::MoveNodeData { current_path } => {
+                    RunningInput::MoveNodeData { current_path }
+                }
+            });
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
@@ -508,6 +516,14 @@ impl RunningView {
             }
             RunningInput::WindowResized => {
                 self.farms.broadcast(FarmWidgetInput::WindowResized);
+            }
+            RunningInput::MoveNodeData { current_path } => {
+                if sender
+                    .output(RunningOutput::MoveNodeData { current_path })
+                    .is_err()
+                {
+                    debug!("Failed to send RunningOutput::MoveNodeData");
+                }
             }
         }
     }
