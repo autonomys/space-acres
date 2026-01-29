@@ -35,6 +35,12 @@ pub enum NodeInput {
     },
     NodeNotification(NodeNotification),
     OpenNodeFolder,
+    MoveNodeData,
+}
+
+#[derive(Debug)]
+pub enum NodeOutput {
+    MoveNodeData { current_path: PathBuf },
 }
 
 #[derive(Debug)]
@@ -61,7 +67,7 @@ pub struct NodeView {
 impl Component for NodeView {
     type Init = ();
     type Input = NodeInput;
-    type Output = ();
+    type Output = NodeOutput;
     type CommandOutput = NodeCommandOutput;
 
     view! {
@@ -120,6 +126,21 @@ impl Component for NodeView {
                                 free_space as f64 / FREE_DISK_SPACE_CHECK_WARNING_THRESHOLD as f64
                             },
                             set_width_request: 100,
+                        },
+
+                        gtk::Button {
+                            add_css_class: "warning-button",
+                            connect_clicked => NodeInput::MoveNodeData,
+                            set_cursor_from_name: Some("pointer"),
+                            set_label: &T.running_node_move_data_button(),
+                            #[track = "model.changed_free_disk_space()"]
+                            set_tooltip: T
+                                .running_node_low_disk_space_warning(
+                                    model.free_disk_space
+                                        .map(|bytes| bytes.to_string_as(true))
+                                        .unwrap_or_default()
+                                )
+                                .as_str(),
                         },
                     },
                 },
@@ -293,11 +314,11 @@ impl Component for NodeView {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, input: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
+    fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         // Reset changes
         self.reset();
 
-        self.process_input(input);
+        self.process_input(input, sender);
     }
 
     fn update_cmd(
@@ -314,7 +335,7 @@ impl Component for NodeView {
 }
 
 impl NodeView {
-    fn process_input(&mut self, input: NodeInput) {
+    fn process_input(&mut self, input: NodeInput, sender: ComponentSender<Self>) {
         match input {
             NodeInput::Initialize {
                 best_block_number,
@@ -384,6 +405,12 @@ impl NodeView {
                 let node_path = self.node_path.lock().clone();
                 if let Err(error) = open::that_detached(&node_path) {
                     error!(%error, path = %node_path.display(), "Failed to open node folder");
+                }
+            }
+            NodeInput::MoveNodeData => {
+                let current_path = self.node_path.lock().clone();
+                if let Err(error) = sender.output(NodeOutput::MoveNodeData { current_path }) {
+                    error!(?error, "Failed to send MoveNodeData output");
                 }
             }
         }

@@ -110,3 +110,14 @@ entry.invalid-input text + image {
 entry.valid-input text + image {
     color: #499249;
 }
+
+/* Warning button style for low disk space action */
+.warning-button {
+    background-color: #ffA400;
+    color: #000000;
+    font-weight: bold;
+}
+
+.warning-button:hover {
+    background-color: #ffb733;
+}
