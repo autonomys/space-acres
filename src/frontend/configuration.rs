@@ -1,13 +1,18 @@
 mod farm;
+pub mod node_migration;
 mod utils;
 
 use crate::backend::config::{NetworkConfiguration, RawConfig};
+use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
 use crate::frontend::configuration::farm::{
     FarmWidget, FarmWidgetInit, FarmWidgetInput, FarmWidgetOutput,
 };
-use crate::frontend::configuration::utils::is_directory_writable;
+use crate::frontend::configuration::utils::{
+    calculate_node_data_size, get_available_space, is_directory_writable,
+};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::icon_names;
+use bytesize::ByteSize;
 use gtk::glib;
 use gtk::prelude::*;
 use relm4::factory::AsyncFactoryVecDeque;
@@ -49,6 +54,9 @@ pub enum ConfigurationInput {
     Save,
     UpdateFarms,
     Ignore,
+    OpenMigrationDialog,
+    NodeSpaceCalculated(u64),
+    NodeFreeSpaceCalculated(u64),
 }
 
 #[derive(Debug)]
@@ -57,6 +65,7 @@ pub enum ConfigurationOutput {
     ConfigUpdate(RawConfig),
     Back,
     Close,
+    OpenMigrationDialog(PathBuf),
 }
 
 #[tracker::track]
@@ -143,6 +152,8 @@ pub struct ConfigurationView {
     reward_address: MaybeValid<String>,
     #[do_not_track]
     node_path: MaybeValid<PathBuf>,
+    node_space_used: Option<u64>,
+    node_free_space: Option<u64>,
     #[no_eq]
     farms: AsyncFactoryVecDeque<FarmWidget>,
     #[do_not_track]
@@ -192,50 +203,96 @@ impl AsyncComponent for ConfigurationView {
                                 },
 
                                 gtk::Box {
-                                    add_css_class: "linked",
+                                    set_spacing: 5,
 
-                                    gtk::Entry {
-                                        set_can_focus: false,
-                                        #[track = "model.node_path.changed_is_valid()"]
-                                        set_css_classes: if model.node_path.is_valid {
-                                            &["valid-input"]
-                                        } else {
-                                            &["invalid-input"]
-                                        },
-                                        set_editable: false,
+                                    gtk::Box {
+                                        add_css_class: "linked",
                                         set_hexpand: true,
-                                        set_placeholder_text: Some(
-                                            T
-                                                .configuration_node_path_placeholder(
-                                                    if cfg!(windows) {
-                                                        "D:\\subspace-node"
-                                                    } else if cfg!(target_os = "macos") {
-                                                        "/Volumes/Subspace/subspace-node"
-                                                    } else {
-                                                        "/media/subspace-node"
-                                                    },
-                                                )
-                                                .as_str(),
-                                        ),
-                                        set_primary_icon_name: Some(icon_names::SSD),
-                                        set_primary_icon_activatable: false,
-                                        set_primary_icon_sensitive: false,
-                                        #[track = "model.node_path.changed_is_valid()"]
-                                        set_secondary_icon_name: model.node_path.icon(),
-                                        set_secondary_icon_activatable: false,
-                                        set_secondary_icon_sensitive: false,
-                                        #[track = "model.node_path.changed_value()"]
-                                        set_text: model.node_path.display().to_string().as_str(),
-                                        set_tooltip_markup: Some(
-                                            &T.configuration_node_path_tooltip()
-                                        ),
+
+                                        gtk::Entry {
+                                            set_can_focus: false,
+                                            #[track = "model.node_path.changed_is_valid()"]
+                                            set_css_classes: if model.node_path.is_valid {
+                                                &["valid-input"]
+                                            } else {
+                                                &["invalid-input"]
+                                            },
+                                            set_editable: false,
+                                            set_hexpand: true,
+                                            set_placeholder_text: Some(
+                                                T
+                                                    .configuration_node_path_placeholder(
+                                                        if cfg!(windows) {
+                                                            "D:\\subspace-node"
+                                                        } else if cfg!(target_os = "macos") {
+                                                            "/Volumes/Subspace/subspace-node"
+                                                        } else {
+                                                            "/media/subspace-node"
+                                                        },
+                                                    )
+                                                    .as_str(),
+                                            ),
+                                            set_primary_icon_name: Some(icon_names::SSD),
+                                            set_primary_icon_activatable: false,
+                                            set_primary_icon_sensitive: false,
+                                            #[track = "model.node_path.changed_is_valid()"]
+                                            set_secondary_icon_name: model.node_path.icon(),
+                                            set_secondary_icon_activatable: false,
+                                            set_secondary_icon_sensitive: false,
+                                            #[track = "model.node_path.changed_value()"]
+                                            set_text: model.node_path.display().to_string().as_str(),
+                                            set_tooltip_markup: Some(
+                                                &T.configuration_node_path_tooltip()
+                                            ),
+                                        },
+
+                                        gtk::Button {
+                                            connect_clicked => ConfigurationInput::OpenDirectory(
+                                                DirectoryKind::NodePath
+                                            ),
+                                            set_label: &T.configuration_node_path_button_select(),
+                                        },
                                     },
 
                                     gtk::Button {
-                                        connect_clicked => ConfigurationInput::OpenDirectory(
-                                            DirectoryKind::NodePath
-                                        ),
-                                        set_label: &T.configuration_node_path_button_select(),
+                                        connect_clicked => ConfigurationInput::OpenMigrationDialog,
+                                        set_label: &T.configuration_node_migrate_button(),
+                                        set_tooltip: &T.configuration_node_migrate_tooltip(),
+                                        #[track = "model.node_path.changed_is_valid()"]
+                                        set_sensitive: model.node_path.is_valid && model.reconfiguration,
+                                    },
+                                },
+
+                                // Node space info
+                                gtk::Box {
+                                    set_spacing: 20,
+                                    set_halign: gtk::Align::Start,
+                                    #[track = "model.node_path.changed_is_valid()"]
+                                    set_visible: model.node_path.is_valid,
+
+                                    gtk::Label {
+                                        add_css_class: "dim-label",
+                                        add_css_class: "caption",
+                                        #[track = "model.changed_node_space_used()"]
+                                        set_label: &match model.node_space_used {
+                                            Some(size) => T.configuration_node_size(ByteSize::b(size).to_string_as(true)).to_string(),
+                                            None => T.configuration_node_size("...".to_string()).to_string(),
+                                        },
+                                    },
+
+                                    gtk::Label {
+                                        add_css_class: "caption",
+                                        #[track = "model.changed_node_free_space()"]
+                                        set_css_classes: &if model.node_free_space.is_some_and(|space| space <= NODE_FREE_SPACE_WARNING_THRESHOLD) {
+                                            ["caption", "warning-label"]
+                                        } else {
+                                            ["caption", "dim-label"]
+                                        },
+                                        #[track = "model.changed_node_free_space()"]
+                                        set_label: &match model.node_free_space {
+                                            Some(size) => T.configuration_node_volume_free_space(ByteSize::b(size).to_string_as(true)).to_string(),
+                                            None => T.configuration_node_volume_free_space("...".to_string()).to_string(),
+                                        },
                                     },
                                 },
 
@@ -461,6 +518,7 @@ impl AsyncComponent for ConfigurationView {
                                             set_tooltip: &T.configuration_advanced_network_faster_networking_tooltip(),
                                         },
                                     },
+
                                 },
                             },
                         },
@@ -600,6 +658,8 @@ impl AsyncComponent for ConfigurationView {
         let model = Self {
             reward_address: MaybeValid::no(String::new()),
             node_path: MaybeValid::no(PathBuf::new()),
+            node_space_used: None,
+            node_free_space: None,
             farms,
             network_configuration: Default::default(),
             reduce_plotting_cpu_load: false,
@@ -650,11 +710,31 @@ impl ConfigurationView {
             ConfigurationInput::DirectorySelected(path) => {
                 match self.pending_directory_selection.take() {
                     Some(DirectoryKind::NodePath) => {
-                        self.node_path = if is_directory_writable(path.clone()).await {
-                            MaybeValid::yes(path)
+                        let is_valid = is_directory_writable(path.clone()).await;
+                        self.node_path = if is_valid {
+                            MaybeValid::yes(path.clone())
                         } else {
-                            MaybeValid::no(path)
+                            MaybeValid::no(path.clone())
                         };
+                        self.set_node_space_used(None);
+                        self.set_node_free_space(None);
+                        if is_valid {
+                            let sender_clone = sender.clone();
+                            let path_clone = path.clone();
+                            glib::spawn_future_local(async move {
+                                if let Ok(size) = calculate_node_data_size(path_clone).await {
+                                    sender_clone
+                                        .input(ConfigurationInput::NodeSpaceCalculated(size));
+                                }
+                            });
+                            let sender_clone = sender.clone();
+                            glib::spawn_future_local(async move {
+                                if let Ok(space) = get_available_space(path).await {
+                                    sender_clone
+                                        .input(ConfigurationInput::NodeFreeSpaceCalculated(space));
+                                }
+                            });
+                        }
                     }
                     Some(DirectoryKind::FarmPath(index)) => {
                         self.get_mut_farms().send(
@@ -714,11 +794,30 @@ impl ConfigurationView {
                 self.reward_address
                     .set_value(new_reward_address.to_string());
 
-                self.node_path = if is_directory_writable(raw_config.node_path().clone()).await {
-                    MaybeValid::yes(raw_config.node_path().clone())
+                let node_path = raw_config.node_path().clone();
+                let is_valid = is_directory_writable(node_path.clone()).await;
+                self.node_path = if is_valid {
+                    MaybeValid::yes(node_path.clone())
                 } else {
-                    MaybeValid::no(raw_config.node_path().clone())
+                    MaybeValid::no(node_path.clone())
                 };
+                self.set_node_space_used(None);
+                self.set_node_free_space(None);
+                if is_valid {
+                    let sender_clone = sender.clone();
+                    let path_clone = node_path.clone();
+                    glib::spawn_future_local(async move {
+                        if let Ok(size) = calculate_node_data_size(path_clone).await {
+                            sender_clone.input(ConfigurationInput::NodeSpaceCalculated(size));
+                        }
+                    });
+                    let sender_clone = sender.clone();
+                    glib::spawn_future_local(async move {
+                        if let Ok(space) = get_available_space(node_path).await {
+                            sender_clone.input(ConfigurationInput::NodeFreeSpaceCalculated(space));
+                        }
+                    });
+                }
                 {
                     let mut farms = self.get_mut_farms().guard();
                     farms.clear();
@@ -775,6 +874,23 @@ impl ConfigurationView {
             }
             ConfigurationInput::Ignore => {
                 // Ignore
+            }
+            ConfigurationInput::OpenMigrationDialog => {
+                if self.node_path.is_valid
+                    && sender
+                        .output(ConfigurationOutput::OpenMigrationDialog(PathBuf::clone(
+                            &self.node_path,
+                        )))
+                        .is_err()
+                {
+                    debug!("Failed to send ConfigurationOutput::OpenMigrationDialog");
+                }
+            }
+            ConfigurationInput::NodeSpaceCalculated(size) => {
+                self.set_node_space_used(Some(size));
+            }
+            ConfigurationInput::NodeFreeSpaceCalculated(space) => {
+                self.set_node_free_space(Some(space));
             }
         }
     }

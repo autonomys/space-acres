@@ -7,12 +7,13 @@ use crate::backend::node::ChainInfo;
 use crate::backend::{FarmIndex, NodeNotification};
 use crate::frontend::NotificationExt;
 use crate::frontend::running::farm::{FarmWidget, FarmWidgetInit, FarmWidgetInput};
-use crate::frontend::running::node::{NodeInput, NodeView};
+use crate::frontend::running::node::{NodeInput, NodeOutput, NodeView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
 use crate::icon_names;
+use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
 use relm4::factory::FactoryHashMap;
@@ -52,11 +53,13 @@ pub enum RunningInput {
     ToggleFarmDetails,
     TogglePausePlotting,
     WindowResized,
+    NodeOutput(NodeOutput),
 }
 
 #[derive(Debug)]
 pub enum RunningOutput {
     PausePlotting(bool),
+    LowDiskSpace { free_space: ByteSize },
 }
 
 #[tracker::track]
@@ -243,9 +246,11 @@ impl Component for RunningView {
     fn init(
         init: Self::Init,
         _root: Self::Root,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let node_view = NodeView::builder().launch(()).detach();
+        let node_view = NodeView::builder()
+            .launch(())
+            .forward(sender.input_sender(), RunningInput::NodeOutput);
         let farms = FactoryHashMap::builder()
             .launch(gtk::Box::default())
             .detach();
@@ -509,6 +514,16 @@ impl RunningView {
             RunningInput::WindowResized => {
                 self.farms.broadcast(FarmWidgetInput::WindowResized);
             }
+            RunningInput::NodeOutput(node_output) => match node_output {
+                NodeOutput::LowDiskSpace { free_space } => {
+                    if sender
+                        .output(RunningOutput::LowDiskSpace { free_space })
+                        .is_err()
+                    {
+                        debug!("Failed to send RunningOutput::LowDiskSpace");
+                    }
+                }
+            },
         }
     }
 
