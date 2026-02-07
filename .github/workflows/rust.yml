@@ -82,6 +82,9 @@ jobs:
       - name: Install GTK4 (Windows)
         run: |
           pipx install gvsbuild
+          # use stable rustc instead of nightly override from toolchain
+          # for build gtk4 and librsvg
+          $env:RUSTUP_TOOLCHAIN = "stable"
           gvsbuild build gtk4 librsvg
         if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
@@ -201,6 +204,9 @@ jobs:
       - name: Install GTK4 (Windows)
         run: |
           pipx install gvsbuild
+          # use stable rustc instead of nightly override from toolchain
+          # for build gtk4 and librsvg
+          $env:RUSTUP_TOOLCHAIN = "stable"
           gvsbuild build gtk4 librsvg
         if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 

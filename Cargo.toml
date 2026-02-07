@@ -2,7 +2,7 @@
 name = "space-acres"
 description = "Space Acres is an opinionated GUI application for farming on Autonomys Network"
 license = "0BSD"
-version = "0.2.15"
+version = "0.2.17"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 repository = "https://github.com/autonomys/space-acres"
 edition = "2024"
@@ -51,7 +51,7 @@ fdlimit = "0.3.0"
 file-rotate = "0.7.6"
 fluent-langneg = "0.14.1"
 fluent-static = "0.4.0"
-frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
+frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
 fs4 = "0.10.0"
 fs_extra = "1.3"
 futures = "0.3.31"
@@ -63,57 +63,57 @@ mimalloc = "0.1.43"
 names = "0.14.0"
 notify-rust = { version = "4.11.3", features = ["images"] }
 open = "5.3.0"
-pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
+pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
 parity-scale-codec = "3.6.12"
 parking_lot = "0.12.3"
 relm4 = "0.9.1"
 relm4-components = { version = "0.9.1", default-features = false }
 relm4-icons = "0.10.0-beta.2"
 reqwest = { version = "0.12.8", default-features = false, features = ["json", "rustls-tls"] }
-sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-consensus-slots = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-network-types = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-rpc = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-sc-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
+sc-client-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-client-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-consensus-slots = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-network-types = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-rpc = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sc-subspace-chain-specs = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+sc-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
 schnellru = "0.2.4"
 semver = "1.0.23"
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
 simple_moving_average = "1.0.2"
-sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sp-consensus = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-sp-objects = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba", default-features = false }
-subspace-archiving = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-data-retrieval = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-fake-runtime-api = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc", default-features = false }
-subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-kzg = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-networking = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-process = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-proof-of-space-gpu = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc", optional = true }
-subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
-subspace-service = { git = "https://github.com/subspace/subspace", rev = "7ce6f74032910338314c2c9b6e4a7833530467dc" }
+sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sp-consensus = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sp-consensus-subspace = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+sp-objects = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d", default-features = false }
+subspace-archiving = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-core-primitives = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-data-retrieval = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-erasure-coding = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-fake-runtime-api = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-farmer = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3", default-features = false }
+subspace-farmer-components = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-kzg = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-networking = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-process = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-proof-of-space = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-proof-of-space-gpu = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3", optional = true }
+subspace-rpc-primitives = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-runtime-primitives = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
+subspace-service = { git = "https://github.com/subspace/subspace", rev = "2ac15defba64e7dec5a51afa53137b8a7c83e5e3" }
 sys-locale = "0.3.1"
 tempfile = "3.13.0"
 thiserror = "2.0.1"
 thread-priority = "1.1.0"
 tokio = { version = "1.41.0", features = ["fs", "time"] }
 tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tracing-subscriber = "0.3.20"
 tracker = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
@@ -217,25 +217,25 @@ lto = "fat"
 
 [patch.crates-io]
 # Patch away `libp2p-identity` in our dependency tree with the git version.
-# For details see: https://github.com/subspace/rust-libp2p/blob/4ff21ede371f14ea0b90075f676ae21239ef8fbf/Cargo.toml#L140-L145
-libp2p-identity = { git = "https://github.com/subspace/rust-libp2p", rev = "4ff21ede371f14ea0b90075f676ae21239ef8fbf" }
+# For details see: https://github.com/subspace/rust-libp2p/blob/7e9532d65530ebd0cf92c53fc326948ee8467fea/Cargo.toml#L140-L145
+libp2p-identity = { git = "https://github.com/subspace/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
 # TODO: Remove once something newer than 0.15.3 is released with support for `NUMBER()` built-in function and used in `fluent-static`
 fluent-bundle = { git = "https://github.com/projectfluent/fluent-rs", rev = "bda4736095a4a60a9a042b336d0789c22461905d" }
 
 # Reason: We need to patch substrate dependency of frontier to our fork
 # TODO: Remove if/when we are using upstream substrate instead of fork
 [patch."https://github.com/paritytech/polkadot-sdk.git"]
-frame-benchmarking = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-frame-support = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-application-crypto = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-io = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-runtime-interface = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-sp-storage = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
-staging-xcm = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132867930ca90a7088c7246301ab29f015ba" }
+frame-benchmarking = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+frame-support = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-application-crypto = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-io = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-runtime-interface = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+sp-storage = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
+staging-xcm = { git = "https://github.com/subspace/polkadot-sdk", rev = "2aaf0d6b675cf3b176abbb0e4f91efaa7b61d78d" }
 
 [patch."https://github.com/autonomys/rust-libp2p.git"]
 # Patch away `libp2p` in our dependency tree with the git version.
@@ -244,5 +244,6 @@ staging-xcm = { git = "https://github.com/subspace/polkadot-sdk", rev = "e831132
 # This is a hack: patches to the same repository are rejected by `cargo`. But it considers
 # "subspace/rust-libp2p" and "autonomys/rust-libp2p" to be different repositories, even though
 # they're redirected to the same place by GitHub, so it allows this patch.
-libp2p = { git = "https://github.com/subspace/rust-libp2p", rev = "4ff21ede371f14ea0b90075f676ae21239ef8fbf" }
-libp2p-identity = { git = "https://github.com/subspace/rust-libp2p", rev = "4ff21ede371f14ea0b90075f676ae21239ef8fbf" }
+libp2p = { git = "https://github.com/subspace/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
+libp2p-identity = { git = "https://github.com/subspace/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
+libp2p-kad = { git = "https://github.com/subspace/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
