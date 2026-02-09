@@ -16,6 +16,7 @@ upgrade_message =
 
     Aber keine Sorge, du kannst mit einem einzigen Klick auf die aktuell unterstützte Netzwerkversion upgraden!
 upgrade_button_upgrade = Upgrade to {$chain_name}
+
 loading_title = lade
 loading_configuration_title = lade Konfiguration
 loading_configuration_step_loading = lade Konfiguration...
@@ -56,6 +57,10 @@ configuration_node_path_placeholder = Beispiel: {$path}
 configuration_node_path_tooltip = Absoluter Pfad, an dem die Node-Dateien gespeichert werden. Stelle sicher, dass du mindestens 100 GiB Speicherplatz dafür bereitstellst. Eine qualitativ hochwertige SSD wird empfohlen.
 configuration_node_path_button_select = Auswählen
 configuration_node_path_error_doesnt_exist_or_write_permissions = Ordner existiert nicht oder Benutzer hat keine Schreibberechtigung
+configuration_node_migrate_button = Migrieren...
+configuration_node_migrate_tooltip = Node-Datenbank migrieren oder zurücksetzen
+configuration_node_size = Node-Größe: {$size}
+configuration_node_volume_free_space = Freier Speicherplatz: {$size}
 configuration_reward_address = Rewards-Adresse
 configuration_reward_address_placeholder = Beispiel: {$address}
 configuration_reward_address_tooltip = Verwende Subwallet, die polkadot{"{"}.js{"}"}-Erweiterung oder eine andere Substrate-Wallet, um diese zuerst zu erstellen (eine Adresse für jede Substrate-Chain im SS58-Format funktioniert).
@@ -91,6 +96,32 @@ configuration_button_save = Speichern
 configuration_button_start = Start
 configuration_dialog_button_select = Auswählen
 configuration_dialog_button_cancel = Abbrechen
+
+node_migration_button_cancel = Abbrechen
+node_migration_button_reset = Node zurücksetzen
+node_migration_button_start = Migration starten
+node_migration_destination_free_space = Freier Speicherplatz: {$size}
+node_migration_destination_label = Neuer Node-Speicherort:
+node_migration_destination_placeholder = Zielordner auswählen
+node_migration_dialog_title = Node-Datenbank migrieren
+node_migration_insufficient_space_warning = Warnung: Nicht genügend freier Speicherplatz am Zielort
+node_migration_mode_fresh_sync = Komplett neue Synchronisierung (neuer Speicherort)
+node_migration_mode_fresh_sync_explanation = Synchronisiert eine neue Datenbank aus dem Netzwerk am neuen Speicherort. Oft schneller als Migrieren, besonders wenn Ihr Node nicht synchron ist, und benötigt weniger Speicherplatz am Zielort.
+node_migration_mode_migrate = Datenbank migrieren
+node_migration_mode_migrate_explanation = Verschiebt die bestehende Datenbank an den neuen Speicherort. Erfordert genügend Speicherplatz am Zielort für die aktuelle Datenbank.
+node_migration_mode_reset = Node-Datenbank zurücksetzen und neu synchronisieren
+node_migration_mode_reset_explanation = Setzt Ihren Node zurück, indem die Datenbank gelöscht und neu aus dem Netzwerk synchronisiert wird. Verwenden Sie dies, wenn Ihre Node-Datenbank beschädigt oder stark desynchronisiert ist.
+node_migration_non_node_data_warning = Hinweis: Nicht-Node-Daten in diesem Verzeichnis erkannt, diese werden nicht migriert
+node_migration_source_label = Aktueller Speicherort:
+node_migration_status_completed = Migration erfolgreich abgeschlossen!
+node_migration_status_copying = Datenbank wird migriert: {$percentage}%
+node_migration_status_deleting_source = Datenbank wird gelöscht...
+node_migration_status_failed = Migration fehlgeschlagen: {$error}
+node_migration_status_restarting = Space Acres wird neu gestartet...
+node_migration_status_shutting_down = Node wird heruntergefahren...
+node_migration_status_updating_config = Konfiguration wird aktualisiert...
+node_migration_status_verifying = Datenbank wird überprüft...
+node_migration_title = Node-Datenbank wird migriert
 
 running_title = Wird ausgeführt
 running_node_title = {$chain_name} Konsens-Node
@@ -173,8 +204,10 @@ error_title = Fehler
 error_message = Fehler: {$error}
 error_message_failed_to_send_config_to_backend = Fehler beim Senden der Konfiguration an das Backend: {$error}
 error_message_failed_to_send_pause_plotting_to_backend = Fehler beim Senden der Pause-Anfrage für das Plotten an das Backend: {$error}
-error_button_show_logs = Protokolle anzeigen
 error_button_help_from_community = Hilfe aus der Community
+error_button_reset_node = Node zurücksetzen
+error_button_reset_node_tooltip = Node-Daten löschen und neu vom Netzwerk synchronisieren
+error_button_show_logs = Protokolle anzeigen
 
 new_version_available = Version {$version} verfügbar 🎉
 new_version_available_button_open = Releases-Seite öffnen
@@ -189,8 +222,9 @@ status_bar_message_configuration_is_invalid = Konfiguration ist ungültig: {$err
 status_bar_message_restart_is_needed_for_configuration = Ein Neustart der Anwendung ist erforderlich, damit die Konfigurationsänderungen wirksam werden
 status_bar_message_failed_to_save_configuration = Fehler beim Speichern der Konfigurationsänderungen: {$error}
 status_bar_message_restarted_after_crash = Space Acres wurde nach einem Absturz automatisch neu gestartet. Überprüfe die Anwendungs- und Systemprotokolle für Details
-status_bar_button_restart = Neustart
+status_bar_button_migrate = Migrieren
 status_bar_button_ok = Ok
+status_bar_button_restart = Neustart
 
 about_system_information =
     Konfigurationsverzeichnis: {$config_directory}
@@ -205,7 +239,12 @@ notification_stopped_with_error = Space Acres wurde mit einem Fehler angehalten
     .body = Ein Fehler ist aufgetreten, der eine Benutzerintervention zur Behebung erfordert
 notification_farm_error = Eine der Farms in Space Acres ist fehlgeschlagen
     .body = Ein Fehler ist aufgetreten, der eine Benutzerintervention zur Behebung erfordert
-notification_signed_reward_successfully = Neue Reward erfolgreich signiert 🥳
-    .body = Danke, dass du das Netzwerk sicherst 🙌
+notification_node_low_disk_space = Wenig Node-Speicherplatz
+    .body = Node-Laufwerk hat nur noch {$free_space} übrig
 notification_missed_reward = Signieren der Reward fehlgeschlagen 😞
     .body = Das ist bedauerlich, aber es wird bald eine weitere Gelegenheit geben
+notification_signed_reward_successfully = Neue Reward erfolgreich signiert 🥳
+    .body = Danke, dass du das Netzwerk sicherst 🙌
+
+warning_low_disk_space = Wenig Speicherplatz auf dem Node-Laufwerk
+warning_low_disk_space_detail = Nur noch {$free_space} übrig. Erwägen Sie die Migration auf ein größeres Laufwerk.

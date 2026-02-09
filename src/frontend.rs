@@ -1,16 +1,24 @@
 pub mod configuration;
 pub mod loading;
+mod migration;
 pub mod new_version;
 pub mod running;
 pub mod translations;
 mod tray_icon;
 mod widgets;
 
+/// Known node data directories that should be migrated/deleted during node operations.
+pub(crate) const NODE_DATA_DIRS: &[&str] = &["db", "network"];
+
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::FarmerAction;
 use crate::backend::{BackendAction, BackendNotification, wipe};
+use crate::frontend::configuration::node_migration::{
+    MigrationMode, NodeMigrationDialog, NodeMigrationInit, NodeMigrationOutput, SyncMode,
+};
 use crate::frontend::configuration::{ConfigurationInput, ConfigurationOutput, ConfigurationView};
 use crate::frontend::loading::{LoadingInput, LoadingView};
+use crate::frontend::migration::{MigrationInput, MigrationOutput, MigrationView};
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
@@ -32,9 +40,14 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use std::{env, fmt};
 use tracing::{debug, error, warn};
 
+use bytesize::ByteSize;
+
 pub const GLOBAL_CSS: &str = include_str!("../res/app.css");
 const ICON: &[u8] = include_bytes!("../res/icon.png");
 const ABOUT_IMAGE: &[u8] = include_bytes!("../res/about.png");
+
+/// Free disk space below which warning must be shown (10 GiB)
+pub const NODE_FREE_SPACE_WARNING_THRESHOLD: u64 = ByteSize::gib(10).as_u64();
 
 #[cfg(all(unix, not(target_os = "macos")))]
 #[thread_local]
@@ -117,23 +130,45 @@ pub enum AppInput {
     StartUpgrade,
     Restart,
     CloseStatusBarWarning,
+    OpenNodeMigrationDialog,
+    OpenNodeResetDialog,
     WindowResized,
     HideWindow,
     ShowWindow,
     ShowHideToggle,
     ShutDown,
+    NodeMigration(NodeMigrationOutput),
+    Migration(MigrationOutput),
 }
 
-#[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum AppCommandOutput {
     BackendNotification(BackendNotification),
+    BackendRestarted {
+        backend_fut: Box<dyn Future<Output = ()> + Send>,
+        backend_action_sender: mpsc::Sender<BackendAction>,
+    },
     ShowWindow,
     // Only used in tray icon on some platforms
     #[cfg_attr(not(any(windows, target_os = "macos")), allow(dead_code))]
     ShowHideToggle,
     Restart,
     Quit,
+}
+
+impl std::fmt::Debug for AppCommandOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BackendNotification(n) => f.debug_tuple("BackendNotification").field(n).finish(),
+            Self::BackendRestarted { .. } => {
+                f.debug_struct("BackendRestarted").finish_non_exhaustive()
+            }
+            Self::ShowWindow => write!(f, "ShowWindow"),
+            Self::ShowHideToggle => write!(f, "ShowHideToggle"),
+            Self::Restart => write!(f, "Restart"),
+            Self::Quit => write!(f, "Quit"),
+        }
+    }
 }
 
 enum View {
@@ -143,6 +178,7 @@ enum View {
     Configuration,
     Reconfiguration,
     Running,
+    Migrating,
     ShuttingDown,
     Stopped(Option<anyhow::Error>),
     Error(String),
@@ -157,6 +193,7 @@ impl View {
             Self::Configuration => T.configuration_title(),
             Self::Reconfiguration => T.reconfiguration_title(),
             Self::Running => T.running_title(),
+            Self::Migrating { .. } => T.node_migration_title(),
             Self::ShuttingDown => T.shutting_down_title(),
             Self::Stopped(_) => T.stopped_title(),
             Self::Error(_) => T.error_title(),
@@ -164,12 +201,11 @@ impl View {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-enum StatusBarButton {
-    /// Show ok button
-    Ok,
-    /// Show restart button
-    Restart,
+#[derive(Debug, Default, Eq, PartialEq)]
+struct StatusBarButtons {
+    ok: bool,
+    restart: bool,
+    migrate: bool,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -178,7 +214,7 @@ enum StatusBarContents {
     None,
     Warning {
         message: String,
-        button: StatusBarButton,
+        buttons: StatusBarButtons,
     },
     Error(String),
 }
@@ -205,14 +241,21 @@ impl StatusBarContents {
 
     fn ok_button(&self) -> bool {
         match self {
-            Self::Warning { button, .. } => matches!(button, StatusBarButton::Ok),
+            Self::Warning { buttons, .. } => buttons.ok,
             _ => false,
         }
     }
 
     fn restart_button(&self) -> bool {
         match self {
-            Self::Warning { button, .. } => matches!(button, StatusBarButton::Restart),
+            Self::Warning { buttons, .. } => buttons.restart,
+            _ => false,
+        }
+    }
+
+    fn migrate_button(&self) -> bool {
+        match self {
+            Self::Warning { buttons, .. } => buttons.migrate,
             _ => false,
         }
     }
@@ -243,6 +286,14 @@ relm4::new_stateless_action!(MainMenuShareFeedback, MainMenu, "share_feedback");
 relm4::new_stateless_action!(MainMenuAbout, MainMenu, "about");
 relm4::new_stateless_action!(MainMenuExit, MainMenu, "exit");
 
+/// Pending migration info, set when waiting for backend to stop before migrating
+#[derive(Debug, Clone)]
+struct PendingMigration {
+    source: PathBuf,
+    destination: PathBuf,
+    snap_sync: bool,
+}
+
 #[tracker::track]
 pub struct App {
     #[no_eq]
@@ -272,6 +323,16 @@ pub struct App {
     // Keep it around so it doesn't disappear
     #[do_not_track]
     _tray_icon: Option<Box<dyn Any>>,
+    #[do_not_track]
+    migration_dialog: Option<AsyncController<NodeMigrationDialog>>,
+    #[do_not_track]
+    migration_dialog_window: Option<gtk::Window>,
+    #[do_not_track]
+    migration_view: Controller<MigrationView>,
+    #[do_not_track]
+    run_backend: fn() -> RunBackendResult,
+    #[do_not_track]
+    pending_migration: Option<PendingMigration>,
 }
 
 #[relm4::component(pub async)]
@@ -387,8 +448,9 @@ impl AsyncComponent for App {
                         },
                         View::Loading => model.loading_view.widget().clone(),
                         View::Configuration | View::Reconfiguration => model.configuration_view.widget().clone(),
-                        View::Running=> model.running_view.widget().clone(),
-                        View::ShuttingDown=> gtk::Box {
+                        View::Running => model.running_view.widget().clone(),
+                        View::Migrating => model.migration_view.widget().clone(),
+                        View::ShuttingDown => gtk::Box {
                             set_halign: gtk::Align::Center,
                             set_valign: gtk::Align::Center,
                             set_vexpand: true,
@@ -460,6 +522,13 @@ impl AsyncComponent for App {
                                     set_label: &T.error_button_help_from_community(),
                                     connect_clicked => AppInput::OpenCommunityHelpLink,
                                 },
+
+                                gtk::Button {
+                                    add_css_class: "destructive-action",
+                                    set_label: &T.error_button_reset_node(),
+                                    set_tooltip: &T.error_button_reset_node_tooltip(),
+                                    connect_clicked => AppInput::OpenNodeResetDialog,
+                                },
                             },
                         },
                     },
@@ -490,6 +559,14 @@ impl AsyncComponent for App {
                             set_label: &T.status_bar_button_ok(),
                             #[track = "model.changed_status_bar_contents()"]
                             set_visible: model.status_bar_contents.ok_button(),
+                        },
+
+                        gtk::Button {
+                            add_css_class: "suggested-action",
+                            connect_clicked => AppInput::OpenNodeMigrationDialog,
+                            set_label: &T.status_bar_button_migrate(),
+                            #[track = "model.changed_status_bar_contents()"]
+                            set_visible: model.status_bar_contents.migrate_button(),
                         },
                     },
                 },
@@ -563,6 +640,10 @@ impl AsyncComponent for App {
             })
             .forward(sender.input_sender(), AppInput::Running);
 
+        let migration_view = MigrationView::builder()
+            .launch(())
+            .forward(sender.input_sender(), AppInput::Migration);
+
         let about_dialog = gtk::AboutDialog::builder()
             .title("About")
             .program_name("Space Acres")
@@ -613,7 +694,10 @@ impl AsyncComponent for App {
             status_bar_contents: if crash_notification {
                 StatusBarContents::Warning {
                     message: T.status_bar_message_restarted_after_crash().to_string(),
-                    button: StatusBarButton::Ok,
+                    buttons: StatusBarButtons {
+                        ok: true,
+                        ..Default::default()
+                    },
                 }
             } else {
                 StatusBarContents::None
@@ -629,6 +713,11 @@ impl AsyncComponent for App {
             loaded: false,
             backend_fut: Some(backend_fut),
             _tray_icon: tray_icon,
+            migration_dialog: None,
+            migration_dialog_window: None,
+            migration_view,
+            run_backend,
+            pending_migration: None,
             tracker: u8::MAX,
         };
 
@@ -758,7 +847,7 @@ impl AsyncComponent for App {
                 self.open_log_folder();
             }
             AppInput::Configuration(configuration_output) => {
-                self.process_configuration_output(configuration_output)
+                self.process_configuration_output(configuration_output, root, &sender)
                     .await;
             }
             AppInput::Running(running_output) => {
@@ -816,6 +905,30 @@ impl AsyncComponent for App {
             AppInput::CloseStatusBarWarning => {
                 self.set_status_bar_contents(StatusBarContents::None);
             }
+            AppInput::OpenNodeMigrationDialog => {
+                self.set_status_bar_contents(StatusBarContents::None);
+                if let Some(raw_config) = &self.current_raw_config {
+                    let current_node_path = raw_config.node_path().to_path_buf();
+                    self.open_migration_dialog(
+                        current_node_path,
+                        MigrationMode::default(),
+                        root,
+                        &sender,
+                    );
+                }
+            }
+            AppInput::OpenNodeResetDialog => {
+                if let Some(raw_config) = &self.current_raw_config {
+                    let current_node_path = raw_config.node_path().to_path_buf();
+                    // Pre-select reset mode since this is used for error recovery
+                    self.open_migration_dialog(
+                        current_node_path,
+                        MigrationMode::ResetInPlace(SyncMode::default()),
+                        root,
+                        &sender,
+                    );
+                }
+            }
             AppInput::WindowResized => {
                 self.running_view.emit(RunningInput::WindowResized);
             }
@@ -844,6 +957,12 @@ impl AsyncComponent for App {
                     AppCommandOutput::Quit
                 });
             }
+            AppInput::NodeMigration(migration_output) => {
+                self.process_migration_dialog_output(migration_output);
+            }
+            AppInput::Migration(migration_output) => {
+                self.process_migration_view_output(migration_output, &sender);
+            }
         }
     }
 
@@ -870,7 +989,12 @@ impl App {
         }
     }
 
-    async fn process_configuration_output(&mut self, configuration_output: ConfigurationOutput) {
+    async fn process_configuration_output(
+        &mut self,
+        configuration_output: ConfigurationOutput,
+        root: &gtk::Window,
+        sender: &AsyncComponentSender<Self>,
+    ) {
         match configuration_output {
             ConfigurationOutput::StartWithNewConfig(raw_config) => {
                 if let Err(error) = self
@@ -913,6 +1037,14 @@ impl App {
                     self.set_current_view(View::Loading);
                 }
             }
+            ConfigurationOutput::OpenMigrationDialog(current_node_path) => {
+                self.open_migration_dialog(
+                    current_node_path,
+                    MigrationMode::default(),
+                    root,
+                    sender,
+                );
+            }
         }
     }
 
@@ -932,13 +1064,241 @@ impl App {
                     ));
                 }
             }
+            RunningOutput::LowDiskSpace { free_space } => {
+                self.set_status_bar_contents(StatusBarContents::Warning {
+                    message: T
+                        .warning_low_disk_space_detail(free_space.to_string_as(true))
+                        .to_string(),
+                    buttons: StatusBarButtons {
+                        ok: true,
+                        migrate: true,
+                        ..Default::default()
+                    },
+                });
+
+                let mut notification = Notification::new();
+                notification
+                    .summary(&T.notification_node_low_disk_space().to_string())
+                    .body(
+                        &T.notification_node_low_disk_space_body(free_space.to_string_as(true))
+                            .to_string(),
+                    )
+                    .with_typical_options();
+
+                if let Err(error) = notification.show() {
+                    warn!(%error, "Failed to show low disk space notification");
+                }
+            }
         }
+    }
+
+    fn open_migration_dialog(
+        &mut self,
+        current_node_path: PathBuf,
+        initial_mode: MigrationMode,
+        root: &gtk::Window,
+        sender: &AsyncComponentSender<Self>,
+    ) {
+        debug!(?current_node_path, "Open migration dialog requested");
+
+        if let Some(window) = self.migration_dialog_window.take() {
+            window.close();
+        }
+        self.migration_dialog.take();
+
+        // Create a custom header bar with only a close button (no minimize/maximize)
+        let header_bar = gtk::HeaderBar::builder().show_title_buttons(false).build();
+        let close_button = gtk::Button::builder()
+            .icon_name("window-close-symbolic")
+            .build();
+        header_bar.pack_end(&close_button);
+
+        let dialog_window = gtk::Window::builder()
+            .title(T.node_migration_dialog_title().to_string())
+            .titlebar(&header_bar)
+            .transient_for(root)
+            .modal(true)
+            .resizable(false)
+            .default_width(500)
+            .build();
+
+        // Connect close button to close the window
+        let window_clone = dialog_window.clone();
+        close_button.connect_clicked(move |_| {
+            window_clone.close();
+        });
+
+        let migration_dialog = NodeMigrationDialog::builder()
+            .launch(NodeMigrationInit {
+                source_path: current_node_path,
+                parent_window: dialog_window.clone(),
+                initial_mode,
+            })
+            .forward(sender.input_sender(), AppInput::NodeMigration);
+
+        dialog_window.set_child(Some(migration_dialog.widget()));
+        dialog_window.present();
+
+        self.migration_dialog = Some(migration_dialog);
+        self.migration_dialog_window = Some(dialog_window);
+    }
+
+    fn process_migration_dialog_output(&mut self, migration_output: NodeMigrationOutput) {
+        if let Some(window) = self.migration_dialog_window.take() {
+            window.close();
+        }
+        self.migration_dialog.take();
+
+        match migration_output {
+            NodeMigrationOutput::StartMigration {
+                source,
+                destination,
+                snap_sync,
+            } => {
+                debug!(
+                    ?source,
+                    ?destination,
+                    snap_sync,
+                    "Starting node migration - shutting down backend"
+                );
+
+                let pending = PendingMigration {
+                    source,
+                    destination,
+                    snap_sync,
+                };
+
+                self.backend_action_sender.close_channel();
+
+                if let Some(backend_fut) = self.backend_fut.take() {
+                    // Backend is running, wait for it to stop before starting migration
+                    self.pending_migration = Some(pending);
+                    self.set_current_view(View::ShuttingDown);
+                    // Drop backend future in background to avoid blocking UI
+                    std::thread::spawn(move || drop(backend_fut));
+                } else {
+                    // No backend running (e.g., on error screen), start migration immediately
+                    self.start_migration(pending);
+                }
+            }
+            NodeMigrationOutput::Cancel => {
+                debug!("Node migration cancelled");
+            }
+        }
+    }
+
+    fn start_migration(&mut self, pending: PendingMigration) {
+        debug!(
+            source = ?pending.source,
+            destination = ?pending.destination,
+            snap_sync = pending.snap_sync,
+            "Backend stopped, starting actual migration"
+        );
+
+        self.set_current_view(View::Migrating);
+        self.migration_view.emit(MigrationInput::Start {
+            source: pending.source,
+            destination: pending.destination,
+            snap_sync: pending.snap_sync,
+        });
+    }
+
+    fn process_migration_view_output(
+        &mut self,
+        migration_output: MigrationOutput,
+        sender: &AsyncComponentSender<Self>,
+    ) {
+        match migration_output {
+            MigrationOutput::Completed { new_node_path } => {
+                debug!(?new_node_path, "Migration completed, updating config");
+
+                if let Some(config) = self.current_raw_config.as_mut() {
+                    config.set_node_path(new_node_path);
+                }
+            }
+            MigrationOutput::Failed { error } => {
+                error!(%error, "Migration failed");
+                self.set_current_view(View::Error(
+                    T.node_migration_status_failed(error).to_string(),
+                ));
+            }
+            MigrationOutput::RestartRequested => {
+                debug!("Migration completed, restarting backend");
+                self.restart_backend_after_migration(sender);
+            }
+        }
+    }
+
+    fn restart_backend_after_migration(&mut self, sender: &AsyncComponentSender<Self>) {
+        let raw_config = match self.current_raw_config.clone() {
+            Some(config) => config,
+            None => {
+                error!("No config available after migration");
+                self.set_current_view(View::Error("No configuration available".to_string()));
+                return;
+            }
+        };
+
+        self.set_current_view(View::Loading);
+
+        let run_backend = self.run_backend;
+
+        sender.command(move |cmd_sender, shutdown_receiver| {
+            shutdown_receiver
+                .register(async move {
+                    match RawConfig::default_path().await {
+                        Ok(config_path) => {
+                            if let Err(error) = raw_config.write_to_path(&config_path).await {
+                                error!(%error, "Failed to save config after migration");
+                            }
+                        }
+                        Err(error) => {
+                            error!(%error, "Failed to get config path");
+                        }
+                    }
+
+                    let RunBackendResult {
+                        backend_fut,
+                        backend_action_sender,
+                        mut backend_notification_receiver,
+                    } = run_backend();
+
+                    if cmd_sender
+                        .send(AppCommandOutput::BackendRestarted {
+                            backend_fut,
+                            backend_action_sender,
+                        })
+                        .is_err()
+                    {
+                        error!("Failed to send BackendRestarted");
+                        return;
+                    }
+
+                    while let Some(notification) = backend_notification_receiver.next().await {
+                        if cmd_sender
+                            .send(AppCommandOutput::BackendNotification(notification))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                })
+                .drop_on_shutdown()
+        });
     }
 
     fn process_command(&mut self, input: AppCommandOutput, sender: AsyncComponentSender<Self>) {
         match input {
             AppCommandOutput::BackendNotification(notification) => {
                 self.process_backend_notification(notification, sender);
+            }
+            AppCommandOutput::BackendRestarted {
+                backend_fut,
+                backend_action_sender,
+            } => {
+                debug!("Backend restarted after migration");
+                self.backend_fut = Some(backend_fut);
+                self.backend_action_sender = backend_action_sender;
             }
             AppCommandOutput::ShowWindow => {
                 sender.input(AppInput::ShowWindow);
@@ -996,7 +1356,10 @@ impl App {
                         .status_bar_message_configuration_is_invalid(error.to_string())
                         .as_str()
                         .to_string(),
-                    button: StatusBarButton::Ok,
+                    buttons: StatusBarButtons {
+                        ok: true,
+                        ..Default::default()
+                    },
                 });
             }
             BackendNotification::ConfigSaveResult(result) => match result {
@@ -1005,7 +1368,10 @@ impl App {
                         message: T
                             .status_bar_message_restart_is_needed_for_configuration()
                             .to_string(),
-                        button: StatusBarButton::Restart,
+                        buttons: StatusBarButtons {
+                            restart: true,
+                            ..Default::default()
+                        },
                     });
                 }
                 Err(error) => {
@@ -1049,23 +1415,30 @@ impl App {
                     .emit(RunningInput::FarmerNotification(farmer_notification));
             }
             BackendNotification::Stopped { error } => {
-                sender.spawn_command(|_sender| {
-                    let mut notification = Notification::new();
-                    notification
-                        .summary(&T.notification_stopped_with_error())
-                        .body(&T.notification_stopped_with_error_body())
-                        .with_typical_options();
-                    #[cfg(all(unix, not(target_os = "macos")))]
-                    notification.urgency(notify_rust::Urgency::Critical);
-                    if let Err(error) = notification.show() {
-                        warn!(%error, "Failed to show desktop notification");
-                    }
-                });
+                if let Some(pending) = self.pending_migration.take() {
+                    debug!("Backend stopped, starting migration");
+                    self.start_migration(pending);
+                } else {
+                    sender.spawn_command(|_sender| {
+                        let mut notification = Notification::new();
+                        notification
+                            .summary(&T.notification_stopped_with_error())
+                            .body(&T.notification_stopped_with_error_body())
+                            .with_typical_options();
+                        #[cfg(all(unix, not(target_os = "macos")))]
+                        notification.urgency(notify_rust::Urgency::Critical);
+                        if let Err(error) = notification.show() {
+                            warn!(%error, "Failed to show desktop notification");
+                        }
+                    });
 
-                self.set_current_view(View::Stopped(error));
+                    self.set_current_view(View::Stopped(error));
+                }
             }
             BackendNotification::IrrecoverableError { error } => {
                 self.set_current_view(View::Error(error.to_string()));
+                // Backend has stopped due to error, clean up the future
+                self.backend_fut.take();
             }
         }
     }
