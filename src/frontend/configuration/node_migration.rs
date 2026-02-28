@@ -1,7 +1,7 @@
 use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
 use crate::frontend::configuration::utils::{calculate_node_data_size, get_available_space};
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::icon_names;
+use crate::icon_names::shipped as icon_names;
 use bytesize::ByteSize;
 use gtk::glib;
 use gtk::prelude::*;

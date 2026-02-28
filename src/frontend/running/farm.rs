@@ -1,7 +1,7 @@
 use crate::backend::farmer::DiskFarm;
 use crate::frontend::NotificationExt;
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::icon_names;
+use crate::icon_names::shipped as icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
@@ -32,7 +32,7 @@ const EXCELLENT_PROVING_TIME: Duration = Duration::from_millis(1800);
 const SECTOR_PLOTTING_TIME_TRACKING_WINDOW: usize = 10;
 
 fn format_size(bytes: u64) -> String {
-    ByteSize::b(bytes).to_string_as(bytes % ByteSize::mb(1).as_u64() != 0)
+    ByteSize::b(bytes).to_string_as(!bytes.is_multiple_of(ByteSize::mb(1).as_u64()))
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

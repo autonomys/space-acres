@@ -1,12 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![feature(
-    let_chains,
-    result_flattening,
-    thread_local,
-    trait_alias,
-    try_blocks,
-    variant_count
-)]
+#![feature(thread_local, trait_alias, try_blocks, variant_count)]
 // `generic_const_exprs` is an incomplete feature
 #![allow(incomplete_features)]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for

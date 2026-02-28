@@ -22,7 +22,8 @@ use crate::frontend::migration::{MigrationInput, MigrationOutput, MigrationView}
 use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::{AppStatusCode, icon_names};
+use crate::icon_names::shipped as icon_names;
+use crate::AppStatusCode;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::glib;
