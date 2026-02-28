@@ -1,6 +1,6 @@
 use crate::backend::config::{Farm, MIN_FARM_SIZE};
 use crate::frontend::configuration::MaybeValid;
-use crate::icon_names;
+use crate::icon_names::shipped as icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use std::fmt;

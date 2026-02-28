@@ -12,7 +12,7 @@ use crate::frontend::translations::{AsDefaultStr, T};
 use crate::frontend::widgets::progress_circle::{
     ProgressCircle, ProgressCircleInit, ProgressCircleInput,
 };
-use crate::icon_names;
+use crate::icon_names::shipped as icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use notify_rust::Notification;
@@ -95,6 +95,7 @@ pub struct RunningView {
     plotting_paused: bool,
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl Component for RunningView {
     type Init = RunningInit;

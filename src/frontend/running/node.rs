@@ -2,7 +2,7 @@ use crate::backend::NodeNotification;
 use crate::backend::node::{ChainInfo, IN_PEERS, OUT_PEERS, SyncState};
 use crate::frontend::NODE_FREE_SPACE_WARNING_THRESHOLD;
 use crate::frontend::translations::{AsDefaultStr, T};
-use crate::icon_names;
+use crate::icon_names::shipped as icon_names;
 use bytesize::ByteSize;
 use gtk::prelude::*;
 use relm4::prelude::*;
