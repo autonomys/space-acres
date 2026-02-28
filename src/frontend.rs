@@ -10,6 +10,7 @@ mod widgets;
 /// Known node data directories that should be migrated/deleted during node operations.
 pub(crate) const NODE_DATA_DIRS: &[&str] = &["db", "network"];
 
+use crate::AppStatusCode;
 use crate::backend::config::RawConfig;
 use crate::backend::farmer::FarmerAction;
 use crate::backend::{BackendAction, BackendNotification, wipe};
@@ -23,7 +24,6 @@ use crate::frontend::new_version::NewVersion;
 use crate::frontend::running::{RunningInit, RunningInput, RunningOutput, RunningView};
 use crate::frontend::translations::{AsDefaultStr, T};
 use crate::icon_names::shipped as icon_names;
-use crate::AppStatusCode;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use gtk::glib;
