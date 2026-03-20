@@ -366,7 +366,7 @@ jobs:
         run: |
           # Create a bundle with Microsoft Visual C++ Redistributable in it
           Remove-Item target\wix\space-acres.wixobj -Confirm:$false
-          cargo wix --profile release --no-build --nocapture --include res\windows\wix\bundle.wxs -C -ext -C WixBalExtension
+          cargo wix --profile release --no-build --nocapture --include res\windows\wix\bundle.wxs
         if: runner.os == 'Windows'
 
       - name: Sign bundle (Windows)
