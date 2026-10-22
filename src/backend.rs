@@ -17,7 +17,7 @@ use crate::backend::node::{
     GENESIS_HASH, SyncState, dsn_bootstrap_nodes,
 };
 use async_lock::{RwLock as AsyncRwLock, Semaphore};
-use backoff::ExponentialBackoff;
+use backon::ExponentialBuilder;
 use future::FutureExt;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt, future, select};
@@ -374,14 +374,12 @@ async fn load(
         Arc::clone(&plotted_pieces),
         DsnCacheRetryPolicy {
             max_retries: PIECE_GETTER_MAX_RETRIES,
-            backoff: ExponentialBackoff {
-                initial_interval: GET_PIECE_INITIAL_INTERVAL,
-                max_interval: GET_PIECE_MAX_INTERVAL,
+            backoff: ExponentialBuilder::default()
+                .with_factor(1.75)
+                .with_min_delay(GET_PIECE_INITIAL_INTERVAL)
+                .with_max_delay(GET_PIECE_MAX_INTERVAL)
                 // Try until we get a valid piece
-                max_elapsed_time: None,
-                multiplier: 1.75,
-                ..ExponentialBackoff::default()
-            },
+                .without_max_times(),
         },
     );
 

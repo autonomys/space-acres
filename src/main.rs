@@ -1,10 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(thread_local, try_blocks, variant_count)]
-// `generic_const_exprs` is an incomplete feature
-#![allow(incomplete_features)]
-// TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/133199
-#![feature(generic_const_exprs)]
+// TODO(ved): Remove once a wgpu release includes https://github.com/gfx-rs/wgpu/pull/9953, which fixes wgpu types overflowing the default recursion limit under the next trait solver
+#![recursion_limit = "256"]
 
 mod backend;
 mod frontend;
@@ -54,7 +51,10 @@ const LOG_READ_BUFFER: usize = ByteSize::mib(1).as_u64() as usize;
 const WINDOWS_SUBSYSTEM_WINDOWS: bool = cfg!(all(windows, not(debug_assertions)));
 const MIN_RUNTIME_DURATION_FOR_AUTORESTART: Duration = Duration::from_secs(30);
 
-type PosTable = ChiaTable;
+/// Node-side table: proofs from either farmer table version verify under `ChiaTable`
+type NodePosTable = ChiaTable;
+/// Farmer-side table: reads and proves each sector with the table version it was plotted with
+type FarmerPosTable = subspace_proof_of_space::PosTable;
 
 fn raise_fd_limit() {
     match fdlimit::raise_fd_limit() {

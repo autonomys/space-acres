@@ -124,18 +124,6 @@ jobs:
         run: brew install libtool
         if: runner.os == 'macOS'
 
-      - name: CUDA toolchain (Windows)
-        uses: Jimver/cuda-toolkit@4bd727d5619dc6fa323b1e76c3aa5dca94f5ec6d # v0.2.19
-        with:
-          cuda: '12.4.1'
-          method: network
-          sub-packages: '["nvcc", "cudart"]'
-        if: runner.os == 'Windows'
-
-      - name: CUDA toolchain (Ubuntu)
-        run: sudo apt-get install -y --no-install-recommends nvidia-cuda-toolkit
-        if: runner.os == 'Linux'
-
       - name: Install Protoc
         uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
         with:
@@ -158,18 +146,6 @@ jobs:
 
       - name: cargo clippy
         run: cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
-        if: runner.os == 'macOS'
-
-      - name: cargo clippy
-        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets --features cuda -- -D warnings
-        if: runner.os == 'Windows'
-
-      - name: cargo clippy
-        # CXX for CUDA
-        env:
-          CXX: g++-12
-        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets --features cuda -- -D warnings
-        if: runner.os == 'Linux'
 
   cargo-test:
     strategy:

@@ -35,7 +35,7 @@ impl Component for LoadingView {
 
             gtk::Label {
                #[track = "model.changed_title()"]
-               set_markup: &format!("<span size=\"medium\" weight=\"medium\">{}</span>", &model.title),
+               set_markup: &format!("<span size=\"medium\" weight=\"medium\">{}</span>", model.title),
             },
 
             gtk::ProgressBar {
@@ -45,7 +45,7 @@ impl Component for LoadingView {
 
             gtk::Label {
                 #[track = "model.changed_message()"]
-                set_markup: &format!("<span color=\"grey\">{}</span>", &model.message),
+                set_markup: &format!("<span color=\"grey\">{}</span>", model.message),
             },
         }
     }
