@@ -16,6 +16,7 @@ use parking_lot::Mutex;
 use std::future::pending;
 use std::hash::Hash;
 use std::num::{NonZeroU8, NonZeroUsize};
+use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -321,13 +322,26 @@ where
 
     let global_mutex = Arc::default();
 
-    let plotter = init_wgpu_plotter(
+    // wgpu panics on device errors by default, which must not stop the farms from starting
+    let plotter = match AssertUnwindSafe(init_wgpu_plotter(
         piece_getter.clone(),
         Arc::clone(&global_mutex),
         kzg.clone(),
         erasure_coding.clone(),
-    )
-    .await?
+    ))
+    .catch_unwind()
+    .await
+    {
+        Ok(Ok(maybe_gpu_plotter)) => maybe_gpu_plotter,
+        Ok(Err(error)) => {
+            error!(%error, "GPU plotting setup failed, plotting on CPU");
+            None
+        }
+        Err(_panic) => {
+            error!("GPU plotting setup failed, plotting on CPU");
+            None
+        }
+    }
     .map(|gpu_plotter| Arc::new(gpu_plotter) as Arc<dyn Plotter + Send + Sync>);
 
     let plotter = if let Some(plotter) = plotter {
