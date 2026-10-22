@@ -1,7 +1,7 @@
 pub(super) mod direct_node_client;
 pub(super) mod maybe_node_client;
 
-use crate::PosTable;
+use crate::FarmerPosTable;
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::utils::{Handler, HandlerFn};
 use anyhow::anyhow;
@@ -23,6 +23,7 @@ use std::{fmt, fs};
 use subspace_core_primitives::PublicKey;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::sectors::SectorIndex;
+use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{
@@ -34,8 +35,8 @@ use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPiec
 use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::plotter::Plotter;
 use subspace_farmer::plotter::cpu::CpuPlotter;
-#[cfg(feature = "_gpu")]
 use subspace_farmer::plotter::gpu::GpuPlotter;
+use subspace_farmer::plotter::gpu::wgpu::WgpuRecordsEncoder;
 use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions,
 };
@@ -47,9 +48,10 @@ use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_kzg::Kzg;
 use subspace_process::{AsyncJoinOnDrop, run_future_in_dedicated_thread};
+use subspace_proof_of_space_wgpu::{Backend, Device, DeviceType, WgpuDevice};
 use thread_priority::ThreadPriority;
 use tokio::sync::watch;
-use tracing::{Instrument, debug, error, info, info_span};
+use tracing::{Instrument, debug, error, info, info_span, warn};
 
 /// Minimal cache percentage, there is no need in setting it higher
 pub(super) const CACHE_PERCENTAGE: NonZeroU8 = NonZeroU8::MIN;
@@ -319,89 +321,21 @@ where
 
     let global_mutex = Arc::default();
 
-    #[cfg(feature = "_gpu")]
-    let mut plotter = None::<Arc<dyn Plotter + Send + Sync>>;
-    #[cfg(not(feature = "_gpu"))]
-    let plotter = None::<Arc<dyn Plotter + Send + Sync>>;
-
-    #[cfg(feature = "cuda")]
-    {
-        use subspace_farmer::plotter::gpu::cuda::CudaRecordsEncoder;
-        use subspace_proof_of_space_gpu::cuda::cuda_devices;
-
-        let cuda_devices = cuda_devices();
-        let used_cuda_devices = (0..cuda_devices.len()).collect::<Vec<_>>();
-
-        if cuda_devices.is_empty() {
-            debug!("No CUDA GPU devices found");
-        } else {
-            info!(?used_cuda_devices, "Using CUDA GPUs");
-
-            let cuda_plotter = GpuPlotter::new(
-                piece_getter.clone(),
-                Arc::new(Semaphore::new(cuda_devices.len() * 3)),
-                cuda_devices
-                    .into_iter()
-                    .map(|cuda_device| {
-                        CudaRecordsEncoder::new(cuda_device, Arc::clone(&global_mutex))
-                    })
-                    .collect::<Result<_, _>>()
-                    .map_err(|error| {
-                        anyhow::anyhow!("Failed to create CUDA records encoder: {error}")
-                    })?,
-                Arc::clone(&global_mutex),
-                kzg.clone(),
-                erasure_coding.clone(),
-                None,
-            )
-            .map_err(|error| anyhow::anyhow!("Failed to initialize CUDA plotter: {error}"))?;
-
-            plotter.replace(Arc::new(cuda_plotter));
-        }
-    }
-
-    #[cfg(feature = "rocm")]
-    {
-        use subspace_farmer::plotter::gpu::rocm::RocmRecordsEncoder;
-        use subspace_proof_of_space_gpu::rocm::rocm_devices;
-
-        let rocm_devices = rocm_devices();
-        let used_rocm_devices = (0..rocm_devices.len()).collect::<Vec<_>>();
-
-        if rocm_devices.is_empty() {
-            debug!("No ROCm GPU devices found");
-        } else {
-            info!(?used_rocm_devices, "Using ROCm GPUs");
-
-            let rocm_plotter = GpuPlotter::new(
-                piece_getter.clone(),
-                Arc::new(Semaphore::new(rocm_devices.len() * 3)),
-                rocm_devices
-                    .into_iter()
-                    .map(|rocm_device| {
-                        RocmRecordsEncoder::new(rocm_device, Arc::clone(&global_mutex))
-                    })
-                    .collect::<Result<_, _>>()
-                    .map_err(|error| {
-                        anyhow::anyhow!("Failed to create ROCm records encoder: {error}")
-                    })?,
-                Arc::clone(&global_mutex),
-                kzg.clone(),
-                erasure_coding.clone(),
-                None,
-            )
-            .map_err(|error| anyhow::anyhow!("Failed to initialize ROCm plotter: {error}"))?;
-
-            plotter.replace(Arc::new(rocm_plotter));
-        }
-    }
+    let plotter = init_wgpu_plotter(
+        piece_getter.clone(),
+        Arc::clone(&global_mutex),
+        kzg.clone(),
+        erasure_coding.clone(),
+    )
+    .await?
+    .map(|gpu_plotter| Arc::new(gpu_plotter) as Arc<dyn Plotter + Send + Sync>);
 
     let plotter = if let Some(plotter) = plotter {
         info!("CPU plotting was disabled due to detected faster plotting with GPU");
 
         plotter
     } else {
-        let cpu_plotter = Arc::new(CpuPlotter::<_, PosTable>::new(
+        let cpu_plotter = Arc::new(CpuPlotter::<_, FarmerPosTable>::new(
             piece_getter.clone(),
             downloading_semaphore,
             plotting_thread_pool_manager.clone(),
@@ -437,7 +371,7 @@ where
                 let global_mutex = Arc::clone(&global_mutex);
 
                 async move {
-                    let farm_fut = SingleDiskFarm::new::<_, PosTable>(
+                    let farm_fut = SingleDiskFarm::new::<_, FarmerPosTable>(
                         SingleDiskFarmOptions {
                             directory: disk_farm.directory.clone(),
                             farmer_app_info,
@@ -809,4 +743,176 @@ where
         notifications,
         action_sender,
     })
+}
+
+fn select_gpu_devices(device_types: &[DeviceType]) -> Vec<usize> {
+    let has_dgpu = device_types.contains(&DeviceType::DiscreteGpu);
+    let has_igpu = device_types.contains(&DeviceType::IntegratedGpu);
+
+    device_types
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &device_type)| {
+            let use_device = match device_type {
+                DeviceType::DiscreteGpu => true,
+                DeviceType::IntegratedGpu => !has_dgpu,
+                DeviceType::VirtualGpu => !has_dgpu && !has_igpu,
+                DeviceType::Other | DeviceType::Cpu => false,
+            };
+            use_device.then_some(index)
+        })
+        .collect()
+}
+
+async fn init_wgpu_plotter<PG>(
+    piece_getter: PG,
+    global_mutex: Arc<AsyncMutex<()>>,
+    kzg: Kzg,
+    erasure_coding: ErasureCoding,
+) -> anyhow::Result<Option<GpuPlotter<PG, WgpuRecordsEncoder>>>
+where
+    PG: PieceGetter + Clone + Send + Sync + 'static,
+{
+    let number_of_queues = |device_type: DeviceType| match device_type {
+        DeviceType::DiscreteGpu => NonZeroU8::new(4).expect("Not zero; qed"),
+        DeviceType::Other
+        | DeviceType::IntegratedGpu
+        | DeviceType::VirtualGpu
+        | DeviceType::Cpu => NonZeroU8::new(2).expect("Not zero; qed"),
+    };
+    let (skipped_metal, all_gpu_devices): (Vec<_>, Vec<_>) = Device::enumerate(number_of_queues)
+        .await
+        .into_iter()
+        .partition(|device| device.backend() == Backend::Metal);
+    if !skipped_metal.is_empty() {
+        warn!(
+            count = skipped_metal.len(),
+            "Skipping Metal GPU(s); GPU plotting on Metal is untested"
+        );
+    }
+
+    let device_types = all_gpu_devices
+        .iter()
+        .map(Device::device_type)
+        .collect::<Vec<_>>();
+    let used_indices = select_gpu_devices(&device_types);
+
+    for (index, device) in all_gpu_devices.iter().enumerate() {
+        if used_indices.contains(&index) {
+            continue;
+        }
+        match device.device_type() {
+            DeviceType::Other => debug!(?device, "Skipping an unknown GPU device type"),
+            DeviceType::IntegratedGpu => debug!(?device, "Skipping iGPU in presence of dGPU"),
+            DeviceType::VirtualGpu => {
+                debug!(
+                    ?device,
+                    "Skipping virtualized GPU in presence of iGPU or dGPU"
+                )
+            }
+            DeviceType::Cpu => debug!(?device, "Skipping GPU device emulated by the CPU"),
+            DeviceType::DiscreteGpu => {}
+        }
+    }
+
+    let used_gpu_devices = all_gpu_devices
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, device)| used_indices.contains(&index).then_some(device))
+        .collect::<Vec<_>>();
+
+    if used_gpu_devices.is_empty() {
+        debug!("No GPU devices were found or used");
+        return Ok(None);
+    }
+
+    info!("Using GPUs:");
+    for device in &used_gpu_devices {
+        let device_type = match device.device_type() {
+            DeviceType::Other => "other",
+            DeviceType::IntegratedGpu => "Integrated GPU",
+            DeviceType::DiscreteGpu => "Discrete GPU",
+            DeviceType::VirtualGpu => "Virtual GPU",
+            DeviceType::Cpu => "CPU emulation",
+        };
+        info!("{}: {} ({device_type})", device.id(), device.name());
+    }
+
+    let downloading_semaphore = Arc::new(Semaphore::new(used_gpu_devices.len() * 3));
+
+    let gpu_plotter = GpuPlotter::new(
+        piece_getter,
+        downloading_semaphore,
+        used_gpu_devices
+            .into_iter()
+            .map(|wgpu_device| {
+                let id = wgpu_device.id();
+                let queue_devices = wgpu_device
+                    .create_proofs_encoder_instances()
+                    .into_iter()
+                    .map(|instance| WgpuDevice::new(instance, erasure_coding.clone()))
+                    .collect();
+                WgpuRecordsEncoder::new(id, queue_devices, Arc::clone(&global_mutex))
+            })
+            .collect::<Result<_, _>>()
+            .map_err(|error| anyhow::anyhow!("Failed to create wgpu records encoder: {error}"))?,
+        global_mutex,
+        kzg,
+        erasure_coding,
+        None,
+    )
+    .map_err(|error| anyhow::anyhow!("Failed to initialize wgpu plotter: {error}"))?;
+
+    Ok(Some(gpu_plotter))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gpu_device_selection() {
+        use DeviceType::{Cpu, DiscreteGpu, IntegratedGpu, Other, VirtualGpu};
+
+        assert_eq!(
+            select_gpu_devices(&[DiscreteGpu, IntegratedGpu]),
+            vec![0],
+            "dGPU wins over iGPU"
+        );
+        assert_eq!(
+            select_gpu_devices(&[IntegratedGpu, IntegratedGpu]),
+            vec![0, 1],
+            "All iGPUs are used when there is no dGPU"
+        );
+        assert_eq!(
+            select_gpu_devices(&[Cpu]),
+            Vec::<usize>::new(),
+            "CPU emulation is never auto-selected"
+        );
+        assert_eq!(
+            select_gpu_devices(&[DiscreteGpu, DiscreteGpu, IntegratedGpu]),
+            vec![0, 1],
+            "All dGPUs are used, iGPU skipped"
+        );
+        assert_eq!(
+            select_gpu_devices(&[IntegratedGpu, VirtualGpu]),
+            vec![0],
+            "Virtual GPU skipped while an iGPU is present"
+        );
+        assert_eq!(
+            select_gpu_devices(&[VirtualGpu]),
+            vec![0],
+            "Virtual GPU used as the last resort"
+        );
+        assert_eq!(
+            select_gpu_devices(&[Cpu, Other, VirtualGpu]),
+            vec![2],
+            "Virtual GPU still wins over unknown/CPU adapters as the last resort"
+        );
+        assert_eq!(
+            select_gpu_devices(&[Cpu, Other]),
+            Vec::<usize>::new(),
+            "Unknown and CPU adapters alone select nothing"
+        );
+    }
 }

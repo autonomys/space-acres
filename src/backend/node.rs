@@ -1,6 +1,6 @@
 mod utils;
 
-use crate::PosTable;
+use crate::NodePosTable;
 use crate::backend::farmer::direct_node_client::{DirectNodeClient, NodeClientConfig};
 use crate::backend::farmer::maybe_node_client::MaybeNodeClient;
 use crate::backend::node::utils::account_storage_key;
@@ -171,6 +171,7 @@ impl ConsensusNode {
         }
     }
 
+    #[expect(clippy::result_large_err, reason = "Comes from Substrate")]
     pub(super) async fn run(mut self, reward_address: &PublicKey) -> Result<(), sc_service::Error> {
         let spawn_essential_handle = self.full_node.task_manager.spawn_essential_handle();
         spawn_essential_handle.spawn_blocking(
@@ -501,6 +502,7 @@ fn create_consensus_chain_config(
     }
 }
 
+#[expect(clippy::result_large_err, reason = "Comes from Substrate")]
 pub(super) async fn create_consensus_node(
     keypair: &Keypair,
     base_path: PathBuf,
@@ -560,7 +562,7 @@ pub(super) async fn create_consensus_node(
             sync,
         };
 
-        let partial_components_result = subspace_service::new_partial::<PosTable, RuntimeApi>(
+        let partial_components_result = subspace_service::new_partial::<NodePosTable, RuntimeApi>(
             &consensus_chain_config.base,
             match consensus_chain_config.sync {
                 ChainSyncMode::Full => false,
@@ -607,7 +609,7 @@ pub(super) async fn create_consensus_node(
             .erasure_coding()
             .clone();
 
-        let consensus_node = subspace_service::new_full::<PosTable, _>(
+        let consensus_node = subspace_service::new_full::<NodePosTable, _>(
             consensus_chain_config,
             partial_components,
             None,
