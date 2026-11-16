@@ -700,6 +700,14 @@ impl AsyncComponent for App {
                         ..Default::default()
                     },
                 }
+            } else if running_elevated() {
+                StatusBarContents::Warning {
+                    message: T.status_bar_message_running_elevated().to_string(),
+                    buttons: StatusBarButtons {
+                        ok: true,
+                        ..Default::default()
+                    },
+                }
             } else {
                 StatusBarContents::None
             },
@@ -1477,5 +1485,23 @@ impl App {
             })
             .drop_on_shutdown()
             .await
+    }
+}
+
+/// Whether the app runs as root (Linux, macOS) or with an elevated Administrator token (Windows)
+fn running_elevated() -> bool {
+    #[cfg(unix)]
+    {
+        !matches!(sudo::check(), sudo::RunningAs::User)
+    }
+    #[cfg(windows)]
+    {
+        match deelevate::Token::with_current_process().and_then(|token| token.privilege_level()) {
+            Ok(level) => level != deelevate::PrivilegeLevel::NotPrivileged,
+            Err(error) => {
+                warn!(%error, "Failed to check process privilege level");
+                false
+            }
+        }
     }
 }
