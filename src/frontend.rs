@@ -1496,12 +1496,46 @@ fn running_elevated() -> bool {
     }
     #[cfg(windows)]
     {
-        match deelevate::Token::with_current_process().and_then(|token| token.privilege_level()) {
-            Ok(level) => level != deelevate::PrivilegeLevel::NotPrivileged,
+        match process_token_elevated() {
+            Ok(elevated) => elevated,
             Err(error) => {
-                warn!(%error, "Failed to check process privilege level");
+                warn!(%error, "Failed to check process elevation");
                 false
             }
         }
     }
+}
+
+#[cfg(windows)]
+fn process_token_elevated() -> windows::core::Result<bool> {
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::Security::{
+        GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+    };
+    use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    let mut token = HANDLE::default();
+    // SAFETY: The current process pseudo-handle is always valid and `token` is a valid out pointer
+    unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }?;
+
+    let mut elevation = TOKEN_ELEVATION::default();
+    let mut returned_length = 0;
+    // SAFETY: `token` was opened with `TOKEN_QUERY` above, the buffer is a `TOKEN_ELEVATION` of the
+    // size that is passed in
+    let result = unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            Some((&raw mut elevation).cast()),
+            size_of::<TOKEN_ELEVATION>() as u32,
+            &mut returned_length,
+        )
+    };
+    // SAFETY: `token` is a valid handle that is not used after this point
+    if let Err(error) = unsafe { CloseHandle(token) } {
+        warn!(%error, "Failed to close process token handle");
+    }
+    result?;
+
+    Ok(elevation.TokenIsElevated != 0)
 }
