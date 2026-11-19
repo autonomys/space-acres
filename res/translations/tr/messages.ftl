@@ -222,6 +222,7 @@ status_bar_message_configuration_is_invalid = Konfigürasyon geçersiz: {$error}
 status_bar_message_restart_is_needed_for_configuration = Konfigürasyon değişikliklerinin etkili olması için uygulamanın yeniden başlatılması gerekiyor
 status_bar_message_failed_to_save_configuration = Konfigürasyon değişiklikleri kaydedilemedi: {$error}
 status_bar_message_restarted_after_crash = Space Acres çökme sonrası otomatik olarak yeniden başlatıldı, ayrıntılar için uygulama ve sistem loglarını kontrol edin
+status_bar_message_running_elevated = Space Acres root veya yönetici olarak çalışıyor, bu önerilmez. Normal bir kullanıcı olarak yeniden başlatın
 status_bar_button_migrate = Taşı
 status_bar_button_ok = Tamam
 status_bar_button_restart = Yeniden Başlat
