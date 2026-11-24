@@ -168,6 +168,12 @@ jobs:
         run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
         if: runner.os == 'Windows'
 
+      # install-llvm-action's DYLD_LIBRARY_PATH crashes dyld_info and node, which the packaging steps below use
+      - name: Clear DYLD_LIBRARY_PATH (macOS)
+        run: |
+          echo "DYLD_LIBRARY_PATH=" >> $GITHUB_ENV
+        if: runner.os == 'macOS'
+
       - name: Create bundle (macOS)
         run: |
           target=${{ matrix.build.target }}
@@ -186,7 +192,11 @@ jobs:
 
             local inst_prefix="$(brew --prefix)/*"
 
-            local DEPS=$(dyld_info -dependents $file | tail -n +4)
+            # Assigned apart from `local` and the pipe, so a dyld_info failure fails the step instead of bundling nothing
+            local dependents
+            dependents=$(dyld_info -dependents $file)
+            # Newer dyld_info lists rpaths after the dependencies
+            local DEPS=$(echo "$dependents" | tail -n +4 | sed '/-rpaths:/,$d')
             local process_list=""
             for dep in $DEPS; do
               if [[ $dep == $inst_prefix ]]; then
