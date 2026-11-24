@@ -54,7 +54,7 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04
-          - macos-14
+          - macos-26
           - windows-2022
 
     runs-on: ${{ matrix.os }}
@@ -152,7 +152,7 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04
-          - macos-14
+          - macos-26
           - windows-2022
 
     runs-on: ${{ matrix.os }}

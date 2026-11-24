@@ -27,7 +27,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
             suffix: ubuntu-aarch64-${{ github.ref_name }}
             rustflags: ""
-          - os: macos-14
+          - os: macos-26
             target: aarch64-apple-darwin
             suffix: macos-aarch64-${{ github.ref_name }}
           - os: windows-2022
