@@ -186,8 +186,10 @@ jobs:
 
             local inst_prefix="$(brew --prefix)/*"
 
+            local RAW
+            RAW=$(dyld_info -dependents "$file") || { echo "dyld_info failed for $file"; return 1; }
             local DEPS
-            DEPS=$(dyld_info -dependents "$file" | tail -n +4) || { echo "dyld_info failed for $file"; return 1; }
+            DEPS=$(printf '%s\n' "$RAW" | tail -n +4)
             local process_list=""
             for dep in $DEPS; do
               if [[ $dep == $inst_prefix ]]; then
