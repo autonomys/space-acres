@@ -1,5 +1,5 @@
 use sp_core::storage::StorageKey;
-use sp_core::{blake2_128, twox_128};
+use sp_crypto_hashing::{blake2_128, twox_128};
 use subspace_core_primitives::PublicKey;
 
 pub(super) fn account_storage_key(public_key: &PublicKey) -> StorageKey {
