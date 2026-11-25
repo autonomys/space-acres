@@ -169,6 +169,10 @@ jobs:
         if: runner.os == 'Windows'
 
       - name: Create bundle (macOS)
+        # install-llvm-action exports DYLD_LIBRARY_PATH at its own libs, which breaks dyld_info and signing tools; clear it for packaging
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         run: |
           target=${{ matrix.build.target }}
           BUNDLE_VERSION=$(cargo pkgid | cut -d "#" -f2)
@@ -184,13 +188,16 @@ jobs:
 
             echo "Processing $file"
 
+            # fail if brew --prefix does not resolve
             local BREW_PREFIX
             BREW_PREFIX=$(brew --prefix) || { echo "brew --prefix failed"; return 1; }
             local inst_prefix="$BREW_PREFIX/*"
 
+            # fail loudly if dependency inspection fails, so an empty bundle cannot pass
             local RAW
             RAW=$(dyld_info -dependents "$file") || { echo "dyld_info failed for $file"; return 1; }
             local DEPS
+            # macos-26 dyld_info appends an -rpaths section; without stripping it the copy loop treats a Cellar directory as a library
             DEPS=$(printf '%s\n' "$RAW" | tail -n +4 | sed '/-rpaths:/,$d')
             [[ -n ${DEPS//[[:space:]]/} ]] || { echo "no dependencies parsed for $file"; return 1; }
             local process_list=""
@@ -249,12 +256,12 @@ jobs:
 
           cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
           sed -i '' "s|$(brew --prefix)|/Applications/SpaceAcres.app/Contents/Resources|g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
-        env:
-          DYLD_LIBRARY_PATH: ''
-          LD_LIBRARY_PATH: ''
         if: runner.os == 'macOS'
 
       - name: Sign Application (macOS)
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         run: |
           echo "Importing certificate"
           echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
@@ -270,13 +277,11 @@ jobs:
 
           # Sign the app
           codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
-        env:
-          DYLD_LIBRARY_PATH: ''
-          LD_LIBRARY_PATH: ''
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
 
+      # Homebrew's node@24 aborts on the macos-26 image (missing sqlite symbol); use the toolcache node for appdmg
       - name: Use Node for appdmg (macOS)
         uses: actions/setup-node@v4
         with:
@@ -284,15 +289,18 @@ jobs:
         if: runner.os == 'macOS'
 
       - name: Create dmg (macOS)
-        run: |
-          version=$(cargo pkgid | cut -d "#" -f2)
-          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/space-acres-$version.dmg
         env:
           DYLD_LIBRARY_PATH: ''
           LD_LIBRARY_PATH: ''
+        run: |
+          version=$(cargo pkgid | cut -d "#" -f2)
+          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/space-acres-$version.dmg
         if: runner.os == 'macOS'
 
       - name: Sign and notarize dmg (macOS)
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         run: |
           echo "Signing"
           version=$(cargo pkgid | cut -d "#" -f2)
@@ -301,9 +309,6 @@ jobs:
           # Notarize the Dmg using notarytool
           xcrun notarytool submit target/bundle/space-acres-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
           xcrun stapler staple target/bundle/space-acres-$version.dmg
-        env:
-          DYLD_LIBRARY_PATH: ''
-          LD_LIBRARY_PATH: ''
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
