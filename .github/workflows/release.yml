@@ -186,7 +186,8 @@ jobs:
 
             local inst_prefix="$(brew --prefix)/*"
 
-            local DEPS=$(dyld_info -dependents $file | tail -n +4)
+            local DEPS
+            DEPS=$(dyld_info -dependents "$file" | tail -n +4) || { echo "dyld_info failed for $file"; return 1; }
             local process_list=""
             for dep in $DEPS; do
               if [[ $dep == $inst_prefix ]]; then
@@ -243,6 +244,9 @@ jobs:
 
           cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
           sed -i '' "s|$(brew --prefix)|/Applications/SpaceAcres.app/Contents/Resources|g" $APP_PREFIX/$target/SpaceAcres.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         if: runner.os == 'macOS'
 
       - name: Sign Application (macOS)
