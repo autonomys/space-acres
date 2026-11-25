@@ -265,10 +265,19 @@ jobs:
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
 
+      - name: Use Node for appdmg (macOS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+        if: runner.os == 'macOS'
+
       - name: Create dmg (macOS)
         run: |
           version=$(cargo pkgid | cut -d "#" -f2)
           npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/space-acres-$version.dmg
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         if: runner.os == 'macOS'
 
       - name: Sign and notarize dmg (macOS)
