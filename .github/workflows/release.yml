@@ -184,12 +184,15 @@ jobs:
 
             echo "Processing $file"
 
-            local inst_prefix="$(brew --prefix)/*"
+            local BREW_PREFIX
+            BREW_PREFIX=$(brew --prefix) || { echo "brew --prefix failed"; return 1; }
+            local inst_prefix="$BREW_PREFIX/*"
 
             local RAW
             RAW=$(dyld_info -dependents "$file") || { echo "dyld_info failed for $file"; return 1; }
             local DEPS
-            DEPS=$(printf '%s\n' "$RAW" | tail -n +4)
+            DEPS=$(printf '%s\n' "$RAW" | tail -n +4 | sed '/-rpaths:/,$d')
+            [[ -n ${DEPS//[[:space:]]/} ]] || { echo "no dependencies parsed for $file"; return 1; }
             local process_list=""
             for dep in $DEPS; do
               if [[ $dep == $inst_prefix ]]; then
@@ -267,6 +270,9 @@ jobs:
 
           # Sign the app
           codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/SpaceAcres.app
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
@@ -295,6 +301,9 @@ jobs:
           # Notarize the Dmg using notarytool
           xcrun notarytool submit target/bundle/space-acres-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
           xcrun stapler staple target/bundle/space-acres-$version.dmg
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
