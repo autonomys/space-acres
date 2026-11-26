@@ -24,6 +24,8 @@
         <string>%BUNDLE_BUILD%</string>
         <key>CSResourcesFileMapped</key>
         <true/>
+        <key>LSMinimumSystemVersion</key>
+        <string>26.0</string>
         <key>LSRequiresCarbon</key>
         <true/>
         <key>NSHighResolutionCapable</key>
