@@ -111,7 +111,7 @@ Consider contributing to Linux packaging though!
 
 ## macOS
 
-For **macOS 14 or newer** (older versions not supported) on Apple Silicon hardware (Intel CPUs are not supported) go to
+For **macOS 26 or newer** (older versions not supported) on Apple Silicon hardware (Intel CPUs are not supported) go to
 [the latest release](https://github.com/autonomys/space-acres/releases/latest) and download attached file with `.dmg`
 extension.
 
