@@ -191,6 +191,7 @@ jobs:
             echo "Processing $file"
 
             local inst_prefix="$(brew --prefix)/*"
+            local brew_lib="$(brew --prefix)/lib"
 
             # Assigned apart from `local` and the pipe, so a dyld_info failure fails the step instead of bundling nothing
             local dependents
@@ -199,13 +200,15 @@ jobs:
             local DEPS=$(echo "$dependents" | tail -n +4 | sed '/-rpaths:/,$d')
             local process_list=""
             for dep in $DEPS; do
-              if [[ $dep == $inst_prefix ]]; then
+              # Some Homebrew libraries load others through @rpath, which Homebrew links into its lib directory
+              local dep_path=${dep/#@rpath/$brew_lib}
+              if [[ $dep_path == $inst_prefix ]]; then
                 dep_file=$(basename $dep)
                 new_dep_file=$destdir/$dep_file
                 if [ ! -f $new_dep_file ]; then
                   # Not exist, do copy
-                  echo "  Copying $dep"
-                  cp -n $dep $destdir
+                  echo "  Copying $dep_path"
+                  cp -n $dep_path $destdir
                 fi
 
                 # Fix the dependency
