@@ -222,6 +222,7 @@ status_bar_message_configuration_is_invalid = Неверная конфигур�
 status_bar_message_restart_is_needed_for_configuration = Перезапустите приложение, чтобы изменения конфигурации вступили в силу
 status_bar_message_failed_to_save_configuration = Не удалось сохранить изменения конфигурации: {$error}
 status_bar_message_restarted_after_crash = Space Acres автоматически перезапускается после сбоя. Подробности можно найти в приложении и системном журнале
+status_bar_message_running_elevated = Space Acres запущен от имени root или администратора, что не рекомендуется. Перезапустите его от имени обычного пользователя
 status_bar_button_migrate = Перенести
 status_bar_button_ok = Ok
 status_bar_button_restart = Перезапустить

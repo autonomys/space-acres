@@ -225,6 +225,7 @@ status_bar_message_configuration_is_invalid = Konfiguracija je nevažeća: {$err
 status_bar_message_restart_is_needed_for_configuration = Potreban je restart aplikacije za primenu promena u konfiguraciji
 status_bar_message_failed_to_save_configuration = Nije uspelo čuvanje promena konfiguracije: {$error}
 status_bar_message_restarted_after_crash = Space Acres se automatski restartovao nakon kraha, proveri dnevnik aplikacije za više informacija
+status_bar_message_running_elevated = Space Acres je pokrenut kao root ili administrator, što se ne preporučuje. Pokreni ga ponovo kao običan korisnik
 status_bar_button_migrate = Migriraj
 status_bar_button_ok = U redu
 status_bar_button_restart = Ponovo pokreni

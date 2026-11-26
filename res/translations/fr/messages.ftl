@@ -222,6 +222,7 @@ status_bar_message_configuration_is_invalid = La configuration est invalide : {$
 status_bar_message_restart_is_needed_for_configuration = Redémarrez l'application pour que les modifications de configuration prennent effet
 status_bar_message_failed_to_save_configuration = Échec de la sauvegarde de la configuration : {$error}
 status_bar_message_restarted_after_crash = Space Acres s'est automatiquement redémarré après un crash. Consultez l'application et le journal système pour plus de détails
+status_bar_message_running_elevated = Space Acres s'exécute en tant que root ou administrateur, ce qui n'est pas recommandé. Redémarrez-le en tant qu'utilisateur normal
 status_bar_button_migrate = Migrer
 status_bar_button_ok = OK
 status_bar_button_restart = Redémarrer
